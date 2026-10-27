@@ -1,0 +1,35 @@
+[project]
+name = "ether-ml-engine"
+version = "0.1.0"
+description = "Standalone hybrid classical/deep-learning ML engine for brain MRI tumor classification"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.5.0",
+    "scikit-image>=0.24.0",
+    "scipy>=1.14.0",
+    "pydicom>=2.4.4",
+    "nibabel>=5.3.0",
+    "PyWavelets>=1.7.0",
+    "opencv-python-headless>=4.10.0",
+    "pillow>=10.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "black>=24.10.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
