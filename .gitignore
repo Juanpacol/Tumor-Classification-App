@@ -62,6 +62,9 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# Vercel
+.vercel
+
 # Docker
 .dockerignore
 
