@@ -78,7 +78,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 
 3. **Reviewers**: Minimum 1 review before merge
 
-4. **Merge**: Use "Squash commit" for feature branches
+4. **Merge Strategy**: MANDATORY - Use **Rebase and merge** ONLY
+   - This is the ONLY allowed merge strategy
+   - Preserves all commits in linear history
+   - All commits remain traceable to the ticket
+   - No squashing or merge commits allowed
 
 ## Contributing Steps
 
@@ -95,7 +99,7 @@ git checkout -b AB-{ID}-{description}
 
 # 4. Commit with correct format
 git add .
-git commit -m "type(scope): description #ID"
+git commit -m "AB-{ID}: type(scope): description"
 
 # 5. Push to branch
 git push -u origin AB-{ID}-{description}
