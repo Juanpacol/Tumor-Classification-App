@@ -20,16 +20,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install mypy ruff black
-
-          # Install backend dependencies for type checking
-          if [ -f backend/requirements.txt ]; then
-            pip install -r backend/requirements.txt
-          fi
-
-          # Install ml_engine dependencies for type checking
-          if [ -f ml_engine/requirements.txt ]; then
-            pip install -r ml_engine/requirements.txt
-          fi
+          pip install -e "./backend[dev]"
+          pip install -e "./ml_engine[dev]"
 
       - name: Type check backend
         run: |
@@ -72,7 +64,7 @@ jobs:
       - name: TypeScript type check (strict mode)
         run: |
           cd frontend
-          npm run type-check
+          npm run typecheck
 
       - name: ESLint check
         run: |
@@ -82,4 +74,4 @@ jobs:
       - name: Prettier check
         run: |
           cd frontend
-          npm run format:check || npm run format
+          npm run format:check
