@@ -5,7 +5,7 @@
 This project uses two platforms for two different jobs — don't mix them up:
 
 - **Azure Boards** (`dev.azure.com/juanpabloorg/Ether`): ticket tracking only. Every unit of work starts here as a work item (`AB-{ID}`).
-- **GitHub** (`github.com/matuteemo/Tumor-Classification-App`): the actual repository. All code review, pull requests, and merges happen here.
+- **GitHub** (`github.com/Juanpacol/Tumor-Classification-App`): the actual repository. All code review, pull requests, and merges happen here.
 
 There is no PR in Azure DevOps anymore. Azure Boards work items don't auto-close from a GitHub PR merge (no native integration is installed), so the work item is closed manually once the GitHub PR merges. If this gets painful, installing the "Azure Boards" GitHub App on the repo would close that gap, but it requires admin access to the GitHub repo.
 
@@ -115,7 +115,7 @@ git commit -m "AB-{ID}: type(scope): description"
 git push -u origin AB-{ID}-{description}
 
 # 6. Create PR in GitHub (not Azure DevOps)
-# github.com/matuteemo/Tumor-Classification-App → Pull Requests → New
+# github.com/Juanpacol/Tumor-Classification-App → Pull Requests → New
 
 # 7. Once merged, close the matching Azure Boards work item manually
 ```
