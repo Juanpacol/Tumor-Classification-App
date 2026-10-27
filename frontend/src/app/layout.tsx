@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Inter } from "next/font/google";
+import { Barlow_Condensed, Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const barlowCondensed = Barlow_Condensed({
@@ -13,6 +13,19 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-jetbrains-mono",
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-playfair-display",
+});
+
 export const metadata: Metadata = {
   title: "Ether",
   description: "Hybrid Brain Tumor Detection Support System",
@@ -24,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${barlowCondensed.variable} ${inter.variable}`}>
+    <html lang="en" className={`${barlowCondensed.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable}`}>
       <body>
         {children}
         <div className="crtOverlay" />

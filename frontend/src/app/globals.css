@@ -2,12 +2,14 @@
   --bg: #050505;
   --bg-elevated: #0d0d0d;
   --text: #f5f5f5;
-  --text-muted: #8a8a8a;
+  --text-muted: #9a9a9a;
   --accent: #f5f5f5;
   --accent-contrast: #050505;
   --border: rgba(245, 245, 245, 0.15);
   --font-display: var(--font-barlow-condensed), sans-serif;
   --font-body: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-serif: var(--font-playfair-display), serif;
 }
 
 * {
@@ -38,8 +40,8 @@ img {
 .halftone {
   background-color: var(--bg-elevated);
   background-image:
-    radial-gradient(circle, rgba(245, 245, 245, 0.35) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(245, 245, 245, 0.06), transparent 60%);
+    radial-gradient(circle, rgba(245, 245, 245, 0.22) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(245, 245, 245, 0.05), transparent 60%);
   background-size: 4px 4px, 100% 100%;
 }
 
@@ -50,14 +52,14 @@ img {
   pointer-events: none;
   background-image: repeating-linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.045) 0px,
-    rgba(255, 255, 255, 0.045) 1px,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
     transparent 1px,
     transparent 3px
   );
-  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.75), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.55), inset 0 0 30px rgba(0, 0, 0, 0.35);
   mix-blend-mode: overlay;
-  animation: crtFlicker 6s infinite steps(2);
+  animation: crtFlicker 8s infinite steps(2);
 }
 
 @keyframes crtFlicker {
