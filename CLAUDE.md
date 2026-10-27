@@ -169,6 +169,7 @@ Modules:
 3. **Next.js over raw React**: SSR, routing, performance
 4. **Cornerstone3D**: Standard for DICOM visualization
 5. **Llama (OSS)**: Data sovereignty, no vendor lock-in
+6. **Hackathon deployment**: Vercel (frontend) + Hugging Face Spaces (backend/ML) + Supabase (Postgres) — see `docs/deployment.md` for the full plan and what's simplified vs local dev
 
 ---
 
