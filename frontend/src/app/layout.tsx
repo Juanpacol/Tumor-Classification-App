@@ -25,7 +25,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${barlowCondensed.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <div className="crtOverlay" />
+      </body>
     </html>
   );
 }
