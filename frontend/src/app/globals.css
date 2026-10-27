@@ -42,3 +42,32 @@ img {
     linear-gradient(135deg, rgba(245, 245, 245, 0.06), transparent 60%);
   background-size: 4px 4px, 100% 100%;
 }
+
+.crtOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.045) 0px,
+    rgba(255, 255, 255, 0.045) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.75), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  mix-blend-mode: overlay;
+  animation: crtFlicker 6s infinite steps(2);
+}
+
+@keyframes crtFlicker {
+  0%, 92%, 100% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.85;
+  }
+  96% {
+    opacity: 0.92;
+  }
+}
