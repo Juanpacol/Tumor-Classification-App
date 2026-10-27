@@ -1,0 +1,89 @@
+.hero {
+  position: relative;
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url("/hero-brain.png");
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 5, 0.75) 0%,
+    rgba(5, 5, 5, 0.35) 40%,
+    rgba(5, 5, 5, 0.85) 100%
+  );
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 700px;
+  padding: 2rem 1.5rem;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.headline {
+  margin-top: 1.5rem;
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 3rem;
+  line-height: 1.1;
+}
+
+.subcopy {
+  margin-top: 1.25rem;
+  max-width: 44ch;
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.ctaRow {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.ctaPrimary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 3px;
+  padding: 0.85rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ctaSecondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.85rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 860px) {
+  .headline {
+    font-size: 2.25rem;
+  }
+}
