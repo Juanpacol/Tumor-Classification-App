@@ -3,6 +3,9 @@ name: Type Checking
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 
 jobs:
   python-type-check:
