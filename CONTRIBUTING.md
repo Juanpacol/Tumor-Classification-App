@@ -1,5 +1,14 @@
 # Contributing Guide
 
+## Where Work Lives
+
+This project uses two platforms for two different jobs — don't mix them up:
+
+- **Azure Boards** (`dev.azure.com/juanpabloorg/Ether`): ticket tracking only. Every unit of work starts here as a work item (`AB-{ID}`).
+- **GitHub** (`github.com/matuteemo/Tumor-Classification-App`): the actual repository. All code review, pull requests, and merges happen here.
+
+There is no PR in Azure DevOps anymore. Azure Boards work items don't auto-close from a GitHub PR merge (no native integration is installed), so the work item is closed manually once the GitHub PR merges. If this gets painful, installing the "Azure Boards" GitHub App on the repo would close that gap, but it requires admin access to the GitHub repo.
+
 ## Branch and Commit Conventions
 
 ### Branch Format (MANDATORY)
@@ -58,9 +67,10 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 ```
 
 ### Traceability
+- **Work item** → created in Azure Boards (`AB-88`)
 - **Branch** → `AB-88-description`
 - **Commit** → `AB-88: type(scope): description`
-- **PR** → `AB-88: Description` (title) + "Closes #88" (description)
+- **PR** → opened in GitHub, titled `AB-88: Description`. "Closes #88" in the PR body is documentation only — it does not auto-close the Azure Boards work item (no GitHub issue #88 exists); close the work item manually after merge.
 - **Result**: All code changes visible and traceable to a single ticket throughout git history
 
 ## Pull Requests
@@ -104,8 +114,10 @@ git commit -m "AB-{ID}: type(scope): description"
 # 5. Push to branch
 git push -u origin AB-{ID}-{description}
 
-# 6. Create PR in Azure DevOps
-# Go to Repos → Pull Requests → New Pull Request
+# 6. Create PR in GitHub (not Azure DevOps)
+# github.com/matuteemo/Tumor-Classification-App → Pull Requests → New
+
+# 7. Once merged, close the matching Azure Boards work item manually
 ```
 
 ## Code Standards
