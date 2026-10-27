@@ -3,6 +3,7 @@ import styles from "./Hero.module.css";
 export function Hero() {
   return (
     <section className={styles.hero}>
+      <div className={styles.bg} />
       <div className={styles.overlay} />
       <div className={styles.content}>
         <span className={styles.wordmark}>ETHER</span>
