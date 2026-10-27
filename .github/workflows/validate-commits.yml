@@ -1,0 +1,47 @@
+name: Validate Commit Messages
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit message format
+        run: |
+          echo "Validating commit messages format: type(scope): description #ID"
+
+          # Get commits in this PR
+          commits=$(git log origin/main..HEAD --format=%H)
+
+          if [ -z "$commits" ]; then
+            echo "No commits to validate"
+            exit 0
+          fi
+
+          failed=0
+          for commit in $commits; do
+            msg=$(git log -1 --format=%B $commit)
+            # Format: type(scope): description #ID
+            # type: feat, fix, docs, refactor, test, chore
+            # scope: backend, ml_engine, frontend, infra
+            # ID: issue number
+            if ! echo "$msg" | grep -qE "^(feat|fix|docs|refactor|test|chore)\([a-z_]+\):.+#[0-9]+"; then
+              echo "❌ Invalid commit message: $msg"
+              echo "   Expected format: type(scope): description #ID"
+              echo "   Example: feat(backend): add upload endpoint #89"
+              failed=1
+            else
+              echo "✓ Valid: $(git log -1 --format=%s $commit)"
+            fi
+          done
+
+          if [ $failed -eq 1 ]; then
+            exit 1
+          fi

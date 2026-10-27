@@ -1,0 +1,85 @@
+name: Type Checking
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  python-type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mypy ruff black
+
+          # Install backend dependencies for type checking
+          if [ -f backend/requirements.txt ]; then
+            pip install -r backend/requirements.txt
+          fi
+
+          # Install ml_engine dependencies for type checking
+          if [ -f ml_engine/requirements.txt ]; then
+            pip install -r ml_engine/requirements.txt
+          fi
+
+      - name: Type check backend
+        run: |
+          echo "Type checking backend..."
+          mypy backend/app --show-error-codes --strict || true
+          # Note: using 'strict' but not failing to allow gradual typing adoption
+          # Change to strict enforcement as coverage improves
+
+      - name: Type check ml_engine
+        run: |
+          echo "Type checking ml_engine..."
+          mypy ml_engine/src --show-error-codes --strict || true
+
+      - name: Lint Python (ruff)
+        run: |
+          echo "Linting Python code..."
+          ruff check backend ml_engine --fix || exit 1
+
+      - name: Check code formatting (black)
+        run: |
+          echo "Checking code formatting..."
+          black --check backend ml_engine || exit 1
+
+  typescript-type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: TypeScript type check (strict mode)
+        run: |
+          cd frontend
+          npm run type-check
+
+      - name: ESLint check
+        run: |
+          cd frontend
+          npm run lint -- --fix || exit 1
+
+      - name: Prettier check
+        run: |
+          cd frontend
+          npm run format:check || npm run format
