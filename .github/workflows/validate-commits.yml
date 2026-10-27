@@ -15,7 +15,7 @@ jobs:
 
       - name: Validate commit message format
         run: |
-          echo "Validating commit messages format: type(scope): description #ID"
+          echo "Validating commit messages format: AB-{TICKET}: type(scope): description"
 
           # Get commits in this PR
           commits=$(git log origin/main..HEAD --format=%H)
@@ -28,17 +28,22 @@ jobs:
           failed=0
           for commit in $commits; do
             msg=$(git log -1 --format=%B $commit)
-            # Format: type(scope): description #ID
+            subject=$(git log -1 --format=%s $commit)
+
+            # Format: AB-{TICKET}: type(scope): description
+            # TICKET: issue number (e.g., AB-89)
             # type: feat, fix, docs, refactor, test, chore
             # scope: backend, ml_engine, frontend, infra
-            # ID: issue number
-            if ! echo "$msg" | grep -qE "^(feat|fix|docs|refactor|test|chore)\([a-z_]+\):.+#[0-9]+"; then
-              echo "❌ Invalid commit message: $msg"
-              echo "   Expected format: type(scope): description #ID"
-              echo "   Example: feat(backend): add upload endpoint #89"
+            if ! echo "$subject" | grep -qE "^AB-[0-9]+: (feat|fix|docs|refactor|test|chore)\([a-z_]+\):.+"; then
+              echo "❌ Invalid commit message: $subject"
+              echo "   Expected format: AB-{TICKET}: type(scope): description"
+              echo "   Example: AB-89: feat(backend): add upload endpoint"
+              echo "   "
+              echo "   Full message:"
+              echo "   $msg"
               failed=1
             else
-              echo "✓ Valid: $(git log -1 --format=%s $commit)"
+              echo "✓ Valid: $subject"
             fi
           done
 

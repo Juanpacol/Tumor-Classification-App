@@ -17,12 +17,12 @@ AB-{TICKET_ID}-{short-description}
 
 ### Commit Format (MANDATORY)
 ```
-type(scope): description #TICKET_ID
+AB-{TICKET_ID}: type(scope): description
 
 Extended description if necessary.
 ```
 
-**Rule**: Every commit must reference the ticket ID with `#TICKET_ID` at the end. This links the commit to the Azure DevOps ticket automatically.
+**Rule**: Every commit MUST start with `AB-{TICKET_ID}:` to maintain visibility and traceability with the ticket. This links all work to the Azure DevOps ticket.
 
 **Allowed Types:**
 - `feat`: New functionality
@@ -38,25 +38,30 @@ Extended description if necessary.
 - `frontend`: Frontend changes
 - `infra`: Infrastructure, CI/CD, Docker, configuration
 
-**Commit Examples:**
+**Commit Examples (CORRECT):**
 ```bash
 # Working on branch: AB-88-setup-project-structure
-git commit -m "feat(backend): implement upload endpoint #88"
-git commit -m "fix(ml_engine): correct GLCM normalization #88"
-git commit -m "ci(infra): implement GitHub Actions gates #89"
-git commit -m "docs(frontend): add component documentation #92"
+git commit -m "AB-88: feat(backend): implement upload endpoint"
+git commit -m "AB-88: fix(ml_engine): correct GLCM normalization"
+git commit -m "AB-89: ci(infra): implement GitHub Actions gates"
+git commit -m "AB-92: docs(frontend): add component documentation"
+git commit -m "AB-100: refactor(backend): simplify auth middleware"
+```
 
-# WRONG (will fail validation):
-git commit -m "add new feature"  # Missing format and ticket
-git commit -m "feat: fix bug"  # Missing scope and ticket
-git commit -m "feat(backend): add endpoint"  # Missing ticket #
+**Commit Examples (WRONG - will fail validation):**
+```bash
+git commit -m "add new feature"  # Missing AB-X: prefix, type, scope
+git commit -m "feat: fix bug"  # Missing AB-X: prefix and scope
+git commit -m "feat(backend): add endpoint"  # Missing AB-X: prefix
+git commit -m "AB-88: implement feature"  # Missing type(scope)
+git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 ```
 
 ### Traceability
-- **Branch** → Ticket ID (AB-88)
-- **Commit** → References same Ticket ID (#88)
-- **PR** → Links to Ticket ("Closes #88")
-- **Result**: All code changes traceable to a single ticket
+- **Branch** → `AB-88-description`
+- **Commit** → `AB-88: type(scope): description`
+- **PR** → `AB-88: Description` (title) + "Closes #88" (description)
+- **Result**: All code changes visible and traceable to a single ticket throughout git history
 
 ## Pull Requests
 
