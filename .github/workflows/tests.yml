@@ -44,8 +44,7 @@ jobs:
         run: |
           cd backend
           pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -e ".[dev]"
 
       - name: Run tests with coverage
         env:
@@ -77,8 +76,7 @@ jobs:
         run: |
           cd ml_engine
           pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -e ".[dev]"
 
       - name: Run tests with coverage
         run: |
