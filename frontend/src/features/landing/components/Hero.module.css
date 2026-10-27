@@ -4,47 +4,47 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #efece6;
   overflow: hidden;
 }
 
-.bg {
+.image {
   position: absolute;
-  inset: 0;
-  background-image: url("/hero-brain.png");
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 44%;
+  background-image: url("/anatomy-sketch.png");
   background-size: cover;
-  background-position: center 30%;
-  animation: heroZoom 20s ease-in-out infinite alternate;
+  background-position: center;
+  filter: grayscale(1) contrast(1.05);
+  transform: scaleX(-1);
+  mask-image: radial-gradient(ellipse 82% 75% at 22% 45%, #000 50%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 82% 75% at 22% 45%, #000 50%, transparent 88%);
 }
 
-@keyframes heroZoom {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.08);
-  }
-}
-
-.overlay {
+.imageLeft {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(5, 5, 5, 0.75) 0%,
-    rgba(5, 5, 5, 0.35) 40%,
-    rgba(5, 5, 5, 0.85) 100%
-  );
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 44%;
+  background-image: url("/skull-sketch.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform: scaleX(-1);
+  opacity: 0.9;
+  mask-image: radial-gradient(ellipse 82% 75% at 78% 45%, #000 50%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 82% 75% at 78% 45%, #000 50%, transparent 88%);
 }
 
 .content {
   position: relative;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  max-width: 720px;
+  padding: 2rem 3rem;
   text-align: center;
-  max-width: 700px;
-  padding: 2rem 1.5rem;
 }
 
 .wordmark {
@@ -52,53 +52,31 @@
   font-weight: 500;
   letter-spacing: 0.3em;
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: #6b6760;
+}
+
+.tagline {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1rem;
+  color: #141210;
+  letter-spacing: 0.02em;
 }
 
 .headline {
-  margin-top: 1.5rem;
-  font-family: var(--font-display);
-  font-weight: 300;
-  font-size: 3rem;
-  line-height: 1.1;
-}
-
-.subcopy {
-  margin-top: 1.25rem;
-  max-width: 44ch;
-  color: var(--text-muted);
-  font-size: 1.125rem;
-  line-height: 1.6;
-}
-
-.ctaRow {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-}
-
-.ctaPrimary {
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border: none;
-  border-radius: 3px;
-  padding: 0.85rem 1.5rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ctaSecondary {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 0.85rem 1.5rem;
-  font-weight: 600;
-  cursor: pointer;
+  margin-top: 1.75rem;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 4rem;
+  line-height: 1.15;
+  color: #141210;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 18, 16, 0.18);
 }
 
 @media (max-width: 860px) {
   .headline {
-    font-size: 2.25rem;
+    font-size: 2.5rem;
   }
 }
