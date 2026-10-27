@@ -2,22 +2,27 @@
 
 ## Branch and Commit Conventions
 
-### Branch Format
+### Branch Format (MANDATORY)
 ```
-AB-{ISSUE_ID}-{short-description}
+AB-{TICKET_ID}-{short-description}
 ```
+
+**Rule**: Branch name must start with `AB-{TICKET_ID}` to link all work to the Azure DevOps ticket.
 
 **Examples:**
 - `AB-88-setup-project-structure`
 - `AB-92-implement-dicom-viewer`
 - `AB-100-fix-auth-endpoint`
+- `AB-89-setup-github-actions-gates`
 
-### Commit Format
+### Commit Format (MANDATORY)
 ```
-type(scope): description #ISSUE_ID
+type(scope): description #TICKET_ID
 
 Extended description if necessary.
 ```
+
+**Rule**: Every commit must reference the ticket ID with `#TICKET_ID` at the end. This links the commit to the Azure DevOps ticket automatically.
 
 **Allowed Types:**
 - `feat`: New functionality
@@ -27,18 +32,31 @@ Extended description if necessary.
 - `test`: Add/modify tests
 - `chore`: Build, dependencies, etc.
 
-**Suggested Scopes:**
-- `backend`
-- `ml_engine`
-- `frontend`
-- `infra`
+**Mandatory Scopes:**
+- `backend`: Backend API changes
+- `ml_engine`: ML pipeline changes
+- `frontend`: Frontend changes
+- `infra`: Infrastructure, CI/CD, Docker, configuration
 
-**Examples:**
+**Commit Examples:**
 ```bash
+# Working on branch: AB-88-setup-project-structure
 git commit -m "feat(backend): implement upload endpoint #88"
-git commit -m "fix(ml_engine): correct GLCM normalization #92"
-git commit -m "docs: update README with setup instructions #88"
+git commit -m "fix(ml_engine): correct GLCM normalization #88"
+git commit -m "ci(infra): implement GitHub Actions gates #89"
+git commit -m "docs(frontend): add component documentation #92"
+
+# WRONG (will fail validation):
+git commit -m "add new feature"  # Missing format and ticket
+git commit -m "feat: fix bug"  # Missing scope and ticket
+git commit -m "feat(backend): add endpoint"  # Missing ticket #
 ```
+
+### Traceability
+- **Branch** → Ticket ID (AB-88)
+- **Commit** → References same Ticket ID (#88)
+- **PR** → Links to Ticket ("Closes #88")
+- **Result**: All code changes traceable to a single ticket
 
 ## Pull Requests
 
