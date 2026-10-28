@@ -73,14 +73,18 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 - **PR** → opened in GitHub, titled `AB-88: Description`. "Closes #88" in the PR body is documentation only — it does not auto-close the Azure Boards work item (no GitHub issue #88 exists); close the work item manually after merge.
 - **Result**: All code changes visible and traceable to a single ticket throughout git history
 
+## Language
+
+**Rule**: All implementation (code, commit messages, PR titles/descriptions, code comments, in-app copy) MUST be written in English. This is MANDATORY and applies regardless of the language used in Azure Boards discussions or team chat.
+
 ## Pull Requests
 
-1. **PR Title**: Same as branch name
+1. **PR Title**: Same as branch name, in English
    ```
    AB-88: Setup project structure
    ```
 
-2. **Description**: Include:
+2. **Description**: Include (in English):
    - What was implemented
    - How to test it
    - Screenshots/links (if applicable)
