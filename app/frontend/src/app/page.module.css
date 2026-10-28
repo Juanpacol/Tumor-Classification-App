@@ -145,6 +145,5 @@
     ),
     radial-gradient(ellipse 65% 100% at 38% 15%, #000 55%, transparent 95%);
   mask-composite: intersect;
-  -webkit-mask-composite: source-in;
   pointer-events: none;
 }
