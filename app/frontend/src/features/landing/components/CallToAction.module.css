@@ -37,10 +37,82 @@
   cursor: pointer;
 }
 
+.repoLink {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: fit-content;
+  margin: 3rem auto 0;
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  color: #141210;
+  text-decoration: none;
+  border-bottom: 1px solid #141210;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
+}
+
+.team {
+  position: relative;
+  z-index: 1;
+  margin-top: 3.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid rgba(20, 18, 16, 0.15);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.teamMember {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(229, 228, 225, 0.85);
+  border-radius: 6px;
+  padding: 0.75rem 0.5rem;
+}
+
+.teamName {
+  font-family: var(--font-serif);
+  font-size: 0.9375rem;
+  color: #141210;
+}
+
+.teamLinks {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #6b6760;
+}
+
+.teamLinks a {
+  color: #6b6760;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.teamLinks a:hover {
+  color: #141210;
+  border-bottom-color: #141210;
+}
+
 .credits {
   position: relative;
   z-index: 1;
-  margin-top: 3rem;
+  margin-top: 2rem;
   color: #6b6760;
   font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .team {
+    grid-template-columns: 1fr;
+  }
 }

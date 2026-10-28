@@ -1,0 +1,35 @@
+.section {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 2rem;
+  color: #141210;
+  margin-bottom: 1rem;
+}
+
+.text {
+  color: #6b6760;
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 48ch;
+  margin: 0 auto 2rem;
+}
+
+.cta {
+  display: inline-block;
+  border: 1px solid #141210;
+  color: #141210;
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 1rem 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
