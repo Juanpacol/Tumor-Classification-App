@@ -12,13 +12,20 @@
   isolation: isolate;
 }
 
-.footerSkull {
+.footerSkullBackdrop {
   position: absolute;
   right: 0;
   bottom: 0;
   width: 42%;
   height: 620px;
   z-index: 0;
+  background: #e5e4e1;
+  pointer-events: none;
+}
+
+.footerSkull {
+  width: 100%;
+  height: 100%;
   background-image: url("/test-skull-eye.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -39,13 +46,21 @@
   pointer-events: none;
 }
 
-.footerFoot {
+.footerFootBackdrop {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 52%;
   height: 620px;
   z-index: 0;
+  background: #e5e4e1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.footerFoot {
+  width: 100%;
+  height: 100%;
   background-image: url("/test-foot-bones.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -85,13 +100,21 @@
   user-select: none;
 }
 
-.veinLeft {
+.veinLeftBackdrop {
   position: absolute;
   left: 0;
   top: 0;
   height: 46%;
   width: 40%;
   z-index: 0;
+  background: #e5e4e1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.veinLeft {
+  width: 100%;
+  height: 100%;
   background-image: url("/test-hand-bones.png");
   background-size: cover;
   background-repeat: no-repeat;
@@ -114,13 +137,20 @@
   pointer-events: none;
 }
 
-.veinRight {
+.veinRightBackdrop {
   position: absolute;
   right: 0;
   top: 0;
   bottom: 0;
   width: 60%;
   z-index: 2;
+  background: #e5e4e1;
+  pointer-events: none;
+}
+
+.veinRight {
+  width: 100%;
+  height: 100%;
   background-image: url("/test-hand-bones.png");
   background-size: cover;
   background-repeat: no-repeat;
