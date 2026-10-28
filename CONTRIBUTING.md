@@ -84,11 +84,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
    AB-88: Setup project structure
    ```
 
-2. **Description**: Include (in English):
-   - What was implemented
-   - How to test it
-   - Screenshots/links (if applicable)
-   - Issue linking: "Closes #88"
+2. **Description**: MANDATORY - Use the fixed structure from `.github/pull_request_template.md` (GitHub pre-fills it automatically on every new PR). Do not remove required sections:
+   - What
+   - How to test
+   - Related ticket ("Closes #88")
+   - Screenshots/links (if applicable, remove section otherwise)
 
 3. **Reviewers**: Minimum 1 review before merge
 
