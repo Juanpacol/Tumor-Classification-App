@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow_Condensed, Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import { SmoothScrollProvider } from "./SmoothScrollProvider";
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ["latin"],
@@ -39,8 +40,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${barlowCondensed.variable} ${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable}`}>
       <body>
+        <SmoothScrollProvider />
         {children}
-        <div className="crtOverlay" />
       </body>
     </html>
   );

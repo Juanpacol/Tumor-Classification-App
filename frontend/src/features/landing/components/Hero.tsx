@@ -25,6 +25,7 @@ export function Hero() {
     <section className={styles.hero}>
       <div ref={imageRef} className={styles.image} />
       <div ref={imageLeftRef} className={styles.imageLeft} />
+      <div className={styles.fadeBottom} />
       <div className={styles.content}>
         <span className={styles.wordmark}>ETHER</span>
         <p className={styles.tagline}>Built to see what others miss.</p>

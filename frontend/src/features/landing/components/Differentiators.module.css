@@ -1,15 +1,18 @@
 .section {
+  position: relative;
+  z-index: 1;
+  background: transparent;
   max-width: 1200px;
   margin: 0 auto;
   padding: 4rem 1.5rem;
 }
 
 .title {
-  font-family: var(--font-display);
-  font-weight: 300;
+  font-family: var(--font-serif);
+  font-weight: 500;
   font-size: 2rem;
   margin-bottom: 2rem;
-  color: var(--text-muted);
+  color: #141210;
 }
 
 .grid {
@@ -19,7 +22,7 @@
 }
 
 .card {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(20, 18, 16, 0.15);
   padding-top: 1rem;
 }
 
@@ -27,11 +30,12 @@
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 1.25rem;
+  color: #141210;
   margin-bottom: 0.5rem;
 }
 
 .cardText {
-  color: var(--text-muted);
+  color: #6b6760;
   font-size: 0.9375rem;
   line-height: 1.5;
 }

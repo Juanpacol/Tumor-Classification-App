@@ -1,21 +1,31 @@
 .section {
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
   padding: 6rem 1.5rem;
   text-align: center;
 }
 
 .title {
-  font-family: var(--font-display);
-  font-weight: 300;
+  font-family: var(--font-serif);
+  font-weight: 500;
   font-size: 2.5rem;
+  color: #141210;
   max-width: 24ch;
   margin: 0 auto 2rem;
+  text-shadow: 0 0 10px #e5e4e1, 0 0 20px #e5e4e1, 0 0 4px #e5e4e1;
 }
 
 .cta {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  position: relative;
+  z-index: 1;
+  background: #141210;
+  color: #e5e4e1;
   border: none;
   border-radius: 3px;
   padding: 1rem 2rem;
@@ -25,7 +35,9 @@
 }
 
 .credits {
+  position: relative;
+  z-index: 1;
   margin-top: 3rem;
-  color: var(--text-muted);
+  color: #6b6760;
   font-size: 0.8125rem;
 }
