@@ -20,7 +20,9 @@ export default function HomePage() {
           <div className={styles.veinLeft} />
         </div>
         <div className={styles.veinRightBackdrop}>
-          <div className={styles.veinRight} />
+          <div className={styles.veinRightFade}>
+            <div className={styles.veinRight} />
+          </div>
         </div>
         <ProblemSolution />
         <HowItWorks />
