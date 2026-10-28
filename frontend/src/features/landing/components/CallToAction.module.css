@@ -18,7 +18,10 @@
   color: #141210;
   max-width: 24ch;
   margin: 0 auto 2rem;
-  text-shadow: 0 0 10px #e5e4e1, 0 0 20px #e5e4e1, 0 0 4px #e5e4e1;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
 }
 
 .cta {

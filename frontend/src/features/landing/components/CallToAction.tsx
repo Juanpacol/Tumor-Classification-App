@@ -14,7 +14,9 @@ export function CallToAction() {
       <div className={styles.inner}>
         <h2 className={styles.title}>Request a demo of Ether.</h2>
         <button className={styles.cta}>Request a demo</button>
-        <p className={styles.credits}>Built by Juan Pablo &amp; Mateo — Ether</p>
+        <p className={styles.credits}>
+          Built by Juan Pablo &amp; Mateo — Ether
+        </p>
       </div>
     </section>
   );
