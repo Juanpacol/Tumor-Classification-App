@@ -23,7 +23,7 @@ jobs:
             backend:
               - 'backend/**'
             ml_engine:
-              - 'ml_engine/**'
+              - 'app/ml_engine/**'
             frontend:
               - 'frontend/**'
 
