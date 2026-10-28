@@ -26,7 +26,7 @@ Cloud Run setup notes:
 - Region: `us-south1` (closest to Colombia with good free-tier coverage).
 
 Vercel setup notes:
-- Project's **Root Directory** must be set to `frontend` (Settings → General) — the repo root isn't a Next.js project.
+- Project's **Root Directory** must be set to `app/frontend` (Settings → General) — the repo root isn't a Next.js project.
 - Same GitHub App permission requirement as Cloud Run: Vercel needs explicit access to the repo (Settings → Git → Connect Git Repository), which only works smoothly once the repo is under an account you administer.
 - **Deployment Protection** (`vercel_authentication`) is on by default on new projects and blocks public access behind a login. Disabled it (Settings → Deployment Protection, or `vercel project protection disable --sso`) so judges/public can open the demo without a Vercel account.
 - `NEXT_PUBLIC_API_URL` must be set for every environment you'll actually view (at least Production; add Preview/Development too if you'll check PR preview deployments).

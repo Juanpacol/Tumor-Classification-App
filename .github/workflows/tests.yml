@@ -25,7 +25,7 @@ jobs:
             ml_engine:
               - 'app/ml_engine/**'
             frontend:
-              - 'frontend/**'
+              - 'app/frontend/**'
 
   backend-tests:
     needs: changes
@@ -131,17 +131,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
+          cd app/frontend
           npm ci
 
       - name: Run tests with coverage
         run: |
-          cd frontend
+          cd app/frontend
           npm test -- --coverage --watchAll=false
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: ./frontend/coverage/coverage-final.json
+          files: ./app/frontend/coverage/coverage-final.json
           flags: frontend
           fail_ci_if_error: false
