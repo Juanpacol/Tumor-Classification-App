@@ -20,12 +20,15 @@
 
 html {
   scroll-behavior: smooth;
+  background: #e5e4e1;
+  overflow-x: hidden;
 }
 
 body {
   background: #e5e4e1;
   color: var(--text);
   font-family: var(--font-body);
+  overflow-x: hidden;
 }
 
 a {
