@@ -24,7 +24,7 @@ jobs:
           pip install --upgrade pip
           pip install mypy ruff black
           pip install -e "./backend[dev]"
-          pip install -e "./ml_engine[dev]"
+          pip install -e "./app/ml_engine[dev]"
 
       - name: Type check backend
         run: |
@@ -36,17 +36,17 @@ jobs:
       - name: Type check ml_engine
         run: |
           echo "Type checking ml_engine..."
-          mypy ml_engine/src --show-error-codes --strict || true
+          mypy app/ml_engine/src --show-error-codes --strict || true
 
       - name: Lint Python (ruff)
         run: |
           echo "Linting Python code..."
-          ruff check backend ml_engine --fix || exit 1
+          ruff check backend app/ml_engine --fix || exit 1
 
       - name: Check code formatting (black)
         run: |
           echo "Checking code formatting..."
-          black --check backend ml_engine || exit 1
+          black --check backend app/ml_engine || exit 1
 
   typescript-type-check:
     runs-on: ubuntu-latest

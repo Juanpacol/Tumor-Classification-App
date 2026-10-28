@@ -100,19 +100,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd ml_engine
+          cd app/ml_engine
           pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Run tests with coverage
         run: |
-          cd ml_engine
+          cd app/ml_engine
           pytest src/tests/ --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=80
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          files: ./ml_engine/coverage.xml
+          files: ./app/ml_engine/coverage.xml
           flags: ml_engine
           fail_ci_if_error: false
 

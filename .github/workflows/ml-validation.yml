@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'ml_engine/**'
+      - 'app/ml_engine/**'
       - '.github/workflows/ml-validation.yml'
 
 jobs:
@@ -21,13 +21,13 @@ jobs:
 
       - name: Install ML Engine dependencies
         run: |
-          cd ml_engine
+          cd app/ml_engine
           pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Verify ML Pipeline imports
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Verifying ML pipeline imports..."
           python -c "from src.pipelines import InferencePipeline; print('✓ InferencePipeline loaded')"
           python -c "from src.preprocessing import dicom_reader; print('✓ DICOM reader loaded')"
@@ -37,7 +37,7 @@ jobs:
 
       - name: Test reproducibility (random seeds)
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Testing reproducibility with fixed seeds..."
           python -c "
           import numpy as np
@@ -49,7 +49,7 @@ jobs:
 
       - name: Test model weights loading
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Testing model weights loading..."
           python -c "
           import os
@@ -67,19 +67,19 @@ jobs:
 
       - name: Run ML pipeline tests
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Running ML pipeline tests..."
           pytest src/tests/ -v --tb=short -k "pipeline or preprocessing" || echo "⚠ Tests may fail if test data not available"
 
       - name: Test Grad-CAM explainability
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Testing Grad-CAM functionality..."
           pytest src/tests/ -v --tb=short -k "grad_cam or explainability" || echo "⚠ Grad-CAM tests may require model weights"
 
       - name: Validate model inference paths
         run: |
-          cd ml_engine
+          cd app/ml_engine
           echo "Validating inference pipeline structure..."
           python -c "
           from src.pipelines import InferencePipeline

@@ -95,7 +95,7 @@ services:
       - minio
     volumes:
       - ./backend:/app
-      - ./ml_engine:/ml_engine
+      - ./app/ml_engine:/ml_engine
     command: celery -A app.tasks worker --loglevel=info
 
   # Next.js Frontend
