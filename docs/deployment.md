@@ -20,9 +20,9 @@ Rejected options and why:
 - **Two different database engines (SQLite local, Postgres cloud)**: rejected. SQLite and Postgres behave differently (types, foreign key enforcement, concurrency), so code that works locally against SQLite can break only once deployed to Postgres. One engine everywhere removes that risk entirely.
 
 Cloud Run setup notes:
-- Deployed via "Connect repository" (Developer Connect), which auto-builds `backend/Dockerfile` and redeploys on every push to `main` — no manual deploy step.
+- Deployed via "Connect repository" (Developer Connect), which auto-builds `app/backend/Dockerfile` and redeploys on every push to `main` — no manual deploy step.
 - The GitHub App for Developer Connect can only be installed by the repo owner/admin, which is why the repo was transferred to a personal GitHub account rather than staying under a collaborator's account.
-- The container must listen on the `$PORT` env var Cloud Run injects (defaults to 8080) — `backend/Dockerfile`'s `CMD` uses `${PORT:-8080}`, not a hardcoded port.
+- The container must listen on the `$PORT` env var Cloud Run injects (defaults to 8080) — `app/backend/Dockerfile`'s `CMD` uses `${PORT:-8080}`, not a hardcoded port.
 - Region: `us-south1` (closest to Colombia with good free-tier coverage).
 
 Vercel setup notes:
@@ -41,7 +41,7 @@ Vercel setup notes:
 One engine, two places:
 
 - **Local development**: the `postgres:15-alpine` container already defined in `docker-compose.yml`. No changes.
-- **Cloud demo**: Supabase (same Postgres engine, hosted). Only the `DATABASE_URL` connection string changes between environments — no code or driver changes, since `backend/pyproject.toml` already uses `asyncpg` + `psycopg2-binary`, both standard Postgres drivers.
+- **Cloud demo**: Supabase (same Postgres engine, hosted). Only the `DATABASE_URL` connection string changes between environments — no code or driver changes, since `app/backend/pyproject.toml` already uses `asyncpg` + `psycopg2-binary`, both standard Postgres drivers.
 
 Supabase free-tier note: projects pause after 7 days of inactivity and need a manual restore from the dashboard. Touch the project (or restore it) the day before presenting.
 

@@ -53,7 +53,7 @@ services:
   # FastAPI Backend
   backend:
     build:
-      context: ./backend
+      context: ./app/backend
       dockerfile: Dockerfile
     container_name: ether-backend
     environment:
@@ -73,13 +73,13 @@ services:
       minio:
         condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ./app/backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Celery Worker
   celery_worker:
     build:
-      context: ./backend
+      context: ./app/backend
       dockerfile: Dockerfile
     container_name: ether-celery-worker
     environment:
@@ -94,7 +94,7 @@ services:
       - redis
       - minio
     volumes:
-      - ./backend:/app
+      - ./app/backend:/app
       - ./app/ml_engine:/ml_engine
     command: celery -A app.tasks worker --loglevel=info
 
