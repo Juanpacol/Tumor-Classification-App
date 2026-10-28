@@ -17,10 +17,10 @@ export function StoryHero() {
       </h1>
       <p className={styles.text}>
         Ether started from a simple gap: radiologists in resource-limited
-        environments often read brain MRIs alone, with no second set of eyes
-        and no specialist on call. We set out to build an assistant that
-        earns a seat in that room — one that shows its reasoning instead of
-        just a verdict.
+        environments often read brain MRIs alone, with no second set of eyes and
+        no specialist on call. We set out to build an assistant that earns a
+        seat in that room — one that shows its reasoning instead of just a
+        verdict.
       </p>
     </section>
   );
