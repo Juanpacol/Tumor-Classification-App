@@ -2,3 +2,96 @@
   background: #e5e4e1;
   min-height: 100vh;
 }
+
+.storyConnector {
+  position: relative;
+  background: #e5e4e1;
+  overflow: hidden;
+}
+
+.backLink {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: #141210;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.backLink:hover {
+  border-bottom-color: #141210;
+}
+
+.ribcageLeft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 42%;
+  z-index: 0;
+  background-image: url("/story-ribcage-arm.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: grayscale(1) brightness(1.18) contrast(1.3);
+  mix-blend-mode: multiply;
+  opacity: 0.65;
+  mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 30% 50%, #000 55%, transparent 95%);
+  -webkit-mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 30% 50%, #000 55%, transparent 95%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  pointer-events: none;
+}
+
+.brainRight {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  z-index: 0;
+  background-image: url("/story-brain-cross.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: grayscale(1) brightness(1.18) contrast(1.3);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 70% 50%, #000 55%, transparent 95%);
+  -webkit-mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 70% 50%, #000 55%, transparent 95%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  pointer-events: none;
+}

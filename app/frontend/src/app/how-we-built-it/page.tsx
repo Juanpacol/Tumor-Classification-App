@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { StoryHero } from "@/features/story/components/StoryHero";
 import styles from "./page.module.css";
 
@@ -11,7 +12,14 @@ export const metadata: Metadata = {
 export default function HowWeBuiltItPage() {
   return (
     <main className={styles.main}>
-      <StoryHero />
+      <div className={styles.storyConnector}>
+        <div className={styles.ribcageLeft} />
+        <div className={styles.brainRight} />
+        <Link href="/" className={styles.backLink}>
+          ← Back to Ether
+        </Link>
+        <StoryHero />
+      </div>
     </main>
   );
 }
