@@ -13,9 +13,10 @@
 
 ```
 Ether/
-├── backend/              # FastAPI + Services
-├── ml_engine/            # Standalone ML Pipeline
-├── frontend/             # Clinical Portal (Next.js)
+├── app/
+│   ├── backend/          # FastAPI + Services
+│   ├── ml_engine/        # Standalone ML Pipeline
+│   └── frontend/         # Clinical Portal (Next.js)
 ├── docker-compose.yml    # Local Orchestration
 └── docs/                 # Project Documentation
 ```
@@ -178,17 +179,17 @@ Modules:
 ### Backend
 
 ```bash
-cd backend
+cd app/backend
 python -m pytest tests/ -v
 python main.py  # run server
 ```
 
-Logs in `backend/logs/` (if applicable)
+Logs in `app/backend/logs/` (if applicable)
 
 ### ML Engine
 
 ```bash
-cd ml_engine
+cd app/ml_engine
 pytest src/ -v
 python -c "from src.pipelines import InferencePipeline; ..." # test import
 ```
@@ -196,7 +197,7 @@ python -c "from src.pipelines import InferencePipeline; ..." # test import
 ### Frontend
 
 ```bash
-cd frontend
+cd app/frontend
 npm run dev
 # http://localhost:3000
 ```
@@ -212,7 +213,7 @@ Browser DevTools: Network, Console, React Profiler
 | "Device not configured" (Azure CLI) | `az login` |
 | Branch conflicts | `git fetch origin && git rebase origin/main` |
 | Docker container crash | `docker-compose logs -f {service}` |
-| ML model not loading | Check `ml_engine/weights/` exists |
+| ML model not loading | Check `app/ml_engine/weights/` exists |
 | Cornerstone3D black screen | Check canvas size + WebGL support |
 
 ---
