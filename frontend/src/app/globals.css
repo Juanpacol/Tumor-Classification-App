@@ -39,16 +39,23 @@ img {
 
 .halftone {
   background-color: var(--bg-elevated);
-  background-image:
-    radial-gradient(circle, rgba(245, 245, 245, 0.22) 1px, transparent 1px),
+  background-image: radial-gradient(
+      circle,
+      rgba(245, 245, 245, 0.22) 1px,
+      transparent 1px
+    ),
     linear-gradient(135deg, rgba(245, 245, 245, 0.05), transparent 60%);
-  background-size: 4px 4px, 100% 100%;
+  background-size:
+    4px 4px,
+    100% 100%;
 }
 
 .fadeUp {
   opacity: 0;
   transform: translateY(1.5rem);
-  transition: opacity 0.7s ease, transform 0.7s ease;
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
 }
 
 .fadeUp.isVisible {
@@ -68,13 +75,17 @@ img {
     transparent 1px,
     transparent 3px
   );
-  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.55), inset 0 0 30px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 0 140px rgba(0, 0, 0, 0.55),
+    inset 0 0 30px rgba(0, 0, 0, 0.35);
   mix-blend-mode: overlay;
   animation: crtFlicker 8s infinite steps(2);
 }
 
 @keyframes crtFlicker {
-  0%, 92%, 100% {
+  0%,
+  92%,
+  100% {
     opacity: 1;
   }
   93% {

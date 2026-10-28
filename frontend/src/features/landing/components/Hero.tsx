@@ -29,9 +29,7 @@ export function Hero() {
       <div className={styles.content}>
         <span className={styles.wordmark}>ETHER</span>
         <p className={styles.tagline}>Built to see what others miss.</p>
-        <h1 className={styles.headline}>
-          What the eye misses, Ether finds.
-        </h1>
+        <h1 className={styles.headline}>What the eye misses, Ether finds.</h1>
       </div>
     </section>
   );

@@ -24,7 +24,9 @@
   font-weight: 600;
   font-size: 3.5rem;
   color: #141210;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 18, 16, 0.15);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 3px rgba(20, 18, 16, 0.15);
 }
 
 .statLabel {

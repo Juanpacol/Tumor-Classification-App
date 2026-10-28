@@ -27,8 +27,16 @@
   filter: grayscale(1) brightness(1.15) contrast(1.25);
   mix-blend-mode: multiply;
   opacity: 0.55;
-  mask-image: radial-gradient(ellipse 80% 90% at 25% 50%, #000 55%, transparent 95%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 25% 50%, #000 55%, transparent 95%);
+  mask-image: radial-gradient(
+    ellipse 80% 90% at 25% 50%,
+    #000 55%,
+    transparent 95%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 90% at 25% 50%,
+    #000 55%,
+    transparent 95%
+  );
   pointer-events: none;
 }
 
@@ -46,8 +54,16 @@
   filter: grayscale(1) brightness(1.15) contrast(1.25);
   mix-blend-mode: multiply;
   opacity: 0.55;
-  mask-image: radial-gradient(ellipse 80% 90% at 75% 50%, #000 55%, transparent 95%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 75% 50%, #000 55%, transparent 95%);
+  mask-image: radial-gradient(
+    ellipse 80% 90% at 75% 50%,
+    #000 55%,
+    transparent 95%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 90% at 75% 50%,
+    #000 55%,
+    transparent 95%
+  );
   pointer-events: none;
 }
 
@@ -59,7 +75,10 @@
   font-size: 2.5rem;
   color: #141210;
   margin-bottom: 2rem;
-  text-shadow: 0 0 10px #e5e4e1, 0 0 20px #e5e4e1, 0 0 4px #e5e4e1;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
 }
 
 .frame {
