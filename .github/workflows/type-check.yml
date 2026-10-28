@@ -61,20 +61,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
+          cd app/frontend
           npm ci
 
       - name: TypeScript type check (strict mode)
         run: |
-          cd frontend
+          cd app/frontend
           npm run typecheck
 
       - name: ESLint check
         run: |
-          cd frontend
+          cd app/frontend
           npm run lint -- --fix || exit 1
 
       - name: Prettier check
         run: |
-          cd frontend
+          cd app/frontend
           npm run format:check

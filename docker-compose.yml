@@ -101,7 +101,7 @@ services:
   # Next.js Frontend
   frontend:
     build:
-      context: ./frontend
+      context: ./app/frontend
       dockerfile: Dockerfile
     container_name: ether-frontend
     ports:
@@ -109,7 +109,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app
+      - ./app/frontend:/app
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NODE_ENV: development
