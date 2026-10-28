@@ -54,6 +54,23 @@
     0 0 4px #e5e4e1;
 }
 
+.storyLink {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: fit-content;
+  margin: 1rem auto 0;
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  color: #141210;
+  text-decoration: none;
+  border-bottom: 1px solid #141210;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
+}
+
 .team {
   position: relative;
   z-index: 1;

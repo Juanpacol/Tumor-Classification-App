@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./CallToAction.module.css";
 
@@ -41,6 +42,10 @@ export function CallToAction() {
         >
           GitHub repository
         </a>
+
+        <Link href="/how-we-built-it" className={styles.storyLink}>
+          How we built Ether
+        </Link>
 
         <div className={styles.team}>
           {TEAM.map((member) => (
