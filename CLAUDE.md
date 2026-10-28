@@ -115,14 +115,14 @@ Only after:
 
 ### Backend
 
-**Pattern**: Service-Client (FastAPI)
+**Pattern**: Hexagonal (Ports and Adapters)
 
 Layers:
-- `app/api/`: HTTP routes (thin controllers)
-- `app/services/`: Business logic
-- `app/clients/`: External integrations (S3, Llama)
-- `app/models/`: SQLAlchemy ORM
-- `app/schemas/`: Pydantic DTOs
+- `app/domain/`: Entities and domain errors (no framework imports)
+- `app/application/`: Use cases
+- `app/ports/`: Interfaces (ClassifierPort, LLMPort, StoragePort, StudyRepositoryPort)
+- `app/adapters/inbound/http/`: FastAPI routers and Pydantic schemas
+- `app/adapters/outbound/`: Concrete implementations (ml, llm, storage, persistence)
 
 **Standards**:
 - Type hints mandatory
@@ -169,7 +169,7 @@ Modules:
 2. **FastAPI over Django**: Speed, native async, automatic OpenAPI
 3. **Next.js over raw React**: SSR, routing, performance
 4. **Cornerstone3D**: Standard for DICOM visualization
-5. **Llama (OSS)**: Data sovereignty, no vendor lock-in
+5. **Muse Spark via Meta Model API**: closed model chosen for the Meta hackathon for its multimodal and health capabilities; open Llama remains the fallback through LLMPort
 6. **Hackathon deployment**: Vercel (frontend) + Google Cloud Run (backend/ML) + Supabase (Postgres) — see `docs/deployment.md` for the full plan and what's simplified vs local dev
 
 ---
