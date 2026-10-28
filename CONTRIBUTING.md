@@ -147,13 +147,13 @@ git push -u origin AB-{ID}-{description}
 
 ```bash
 # Backend
-cd backend && pytest
+cd app/backend && pytest
 
 # ML Engine
-cd ml_engine && pytest
+cd app/ml_engine && pytest
 
 # Frontend
-cd frontend && npm test
+cd app/frontend && npm test
 ```
 
 ## CI/CD

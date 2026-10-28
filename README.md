@@ -69,36 +69,37 @@ git push -u origin AB-88-your-feature
 
 ```
 Ether/
-├── backend/                    # FastAPI application
-│   ├── app/
-│   │   ├── api/               # HTTP route controllers
-│   │   ├── services/          # Business logic
-│   │   ├── clients/           # External integrations
-│   │   ├── models/            # Database models
-│   │   ├── schemas/           # Pydantic DTOs
-│   │   ├── core/              # Configuration
-│   │   └── tasks.py           # Celery workers
-│   └── Dockerfile
-│
-├── ml_engine/                  # ML Pipeline (standalone)
-│   ├── src/
-│   │   ├── preprocessing/     # DICOM handling & preprocessing
-│   │   ├── classical/         # Radiomics extractors (GLCM, LBP, Wavelet)
-│   │   ├── deep_learning/     # CNN backbone + Fusion + Grad-CAM
-│   │   ├── pipelines/         # End-to-end inference
-│   │   └── tests/             # Unit tests
-│   └── weights/               # Pre-trained model files
-│
-├── frontend/                   # Next.js Clinical Portal
-│   ├── src/
-│   │   ├── app/               # Pages and routes
-│   │   ├── features/          # Feature-sliced modules
-│   │   │   ├── dicom_viewer/  # Medical visualization
-│   │   │   ├── clinical_summary/ # Metrics display
-│   │   │   └── llm_assistant/ # Generative chat
-│   │   ├── services/          # API client
-│   │   └── hooks/             # Shared React hooks
-│   └── package.json
+├── app/
+│   ├── backend/                 # FastAPI application
+│   │   ├── app/
+│   │   │   ├── api/             # HTTP route controllers
+│   │   │   ├── services/        # Business logic
+│   │   │   ├── clients/         # External integrations
+│   │   │   ├── models/          # Database models
+│   │   │   ├── schemas/         # Pydantic DTOs
+│   │   │   ├── core/            # Configuration
+│   │   │   └── tasks.py         # Celery workers
+│   │   └── Dockerfile
+│   │
+│   ├── ml_engine/                # ML Pipeline (standalone)
+│   │   ├── src/
+│   │   │   ├── preprocessing/   # DICOM handling & preprocessing
+│   │   │   ├── classical/       # Radiomics extractors (GLCM, LBP, Wavelet)
+│   │   │   ├── deep_learning/   # CNN backbone + Fusion + Grad-CAM
+│   │   │   ├── pipelines/       # End-to-end inference
+│   │   │   └── tests/           # Unit tests
+│   │   └── weights/              # Pre-trained model files
+│   │
+│   └── frontend/                 # Next.js Clinical Portal
+│       ├── src/
+│       │   ├── app/             # Pages and routes
+│       │   ├── features/        # Feature-sliced modules
+│       │   │   ├── dicom_viewer/ # Medical visualization
+│       │   │   ├── clinical_summary/ # Metrics display
+│       │   │   └── llm_assistant/ # Generative chat
+│       │   ├── services/        # API client
+│       │   └── hooks/           # Shared React hooks
+│       └── package.json
 │
 ├── docker-compose.yml         # Local orchestration
 ├── CONTRIBUTING.md            # Contribution guidelines
@@ -111,7 +112,7 @@ Ether/
 ### Backend Development
 
 ```bash
-cd backend
+cd app/backend
 pip install -r requirements.txt
 pytest  # Run tests
 python main.py  # Run locally
@@ -120,7 +121,7 @@ python main.py  # Run locally
 ### ML Engine Development
 
 ```bash
-cd ml_engine
+cd app/ml_engine
 pip install -r requirements.txt
 pytest  # Run tests
 ```
@@ -128,7 +129,7 @@ pytest  # Run tests
 ### Frontend Development
 
 ```bash
-cd frontend
+cd app/frontend
 npm install
 npm run dev
 # Open http://localhost:3000
