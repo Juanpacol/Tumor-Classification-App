@@ -2,12 +2,14 @@
   position: relative;
   background: #e5e4e1;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .footerConnector {
   position: relative;
   background: #e5e4e1;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .footerSkull {
