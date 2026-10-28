@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.adapters.inbound.http.error_handlers import register_exception_handlers
 from app.adapters.inbound.http.router_health import create_health_router
 from app.adapters.outbound.ml.fake_classifier import FakeClassifier
-from app.adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
+from app.adapters.outbound.persistence.in_memory_repository import (
+    InMemoryStudyRepository,
+)
 from app.settings import get_settings
 
 
