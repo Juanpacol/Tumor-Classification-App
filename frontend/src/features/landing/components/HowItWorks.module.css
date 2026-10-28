@@ -1,62 +1,95 @@
 .section {
+  position: relative;
+  z-index: 3;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 4rem 1.5rem;
+  padding: 4rem 1.5rem 8rem;
 }
 
 .title {
-  font-family: var(--font-display);
-  font-weight: 300;
+  position: relative;
+  z-index: 3;
+  font-family: var(--font-serif);
+  font-weight: 500;
   font-size: 2.5rem;
-  margin-bottom: 2.5rem;
+  color: #141210;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px #e5e4e1, 0 0 20px #e5e4e1;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: 1.5rem;
+  row-gap: 2rem;
+  margin-top: 4rem;
 }
 
 .step {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  position: relative;
+  z-index: 3;
+  grid-column: span 6;
+}
+
+.step:nth-child(1) {
+  grid-column: 1 / 6;
+}
+
+.step:nth-child(2) {
+  grid-column: 7 / 13;
+  margin-top: 3rem;
+}
+
+.step:nth-child(3) {
+  grid-column: 2 / 7;
+  margin-top: 6rem;
+}
+
+.step:nth-child(4) {
+  grid-column: 8 / 13;
+  margin-top: 1rem;
 }
 
 .stepNumber {
-  color: var(--accent);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 5rem;
+  line-height: 1;
+  color: #8a2c22;
+  opacity: 0.25;
+  margin-bottom: -1.5rem;
+  text-shadow: 0 0 14px #e5e4e1, 0 0 24px #e5e4e1;
 }
 
 .stepTitle {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
+  color: #141210;
+  text-shadow: 0 0 10px #e5e4e1, 0 0 20px #e5e4e1, 0 0 4px #e5e4e1;
 }
 
 .stepText {
-  color: var(--text-muted);
+  margin-top: 0.5rem;
+  color: #6b6760;
   font-size: 0.9375rem;
   line-height: 1.5;
-}
-
-.stepImage {
-  aspect-ratio: 1;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  text-align: center;
-  padding: 0.5rem;
+  max-width: 32ch;
+  text-shadow: 0 0 8px #e5e4e1, 0 0 16px #e5e4e1;
 }
 
 @media (max-width: 860px) {
   .grid {
     grid-template-columns: 1fr;
+    margin-top: 2rem;
+  }
+
+  .step,
+  .step:nth-child(1),
+  .step:nth-child(2),
+  .step:nth-child(3),
+  .step:nth-child(4) {
+    grid-column: 1 / -1;
+    margin-top: 0;
   }
 }

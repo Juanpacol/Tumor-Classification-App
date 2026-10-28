@@ -1,3 +1,6 @@
+"use client";
+
+import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./SafetyRubric.module.css";
 
 const CHECKS = [
@@ -8,19 +11,28 @@ const CHECKS = [
 ];
 
 export function SafetyRubric() {
+  const { ref, isVisible } = useFadeUp<HTMLElement>();
+
   return (
-    <section className={styles.section}>
-      <h2 className={styles.title}>We know when not to trust ourselves.</h2>
-      <p className={styles.tagline}>And we tell you.</p>
-      <div className={styles.card}>
-        <ul className={styles.list}>
-          {CHECKS.map((check) => (
-            <li key={check} className={styles.item}>
-              <span className={styles.check}>✓</span>
-              <span>{check}</span>
-            </li>
-          ))}
-        </ul>
+    <section
+      ref={ref}
+      className={`${styles.section} fadeUp ${isVisible ? "isVisible" : ""}`}
+    >
+      <div className={styles.brainAccent} />
+      <div className={styles.gearAccent} />
+      <div className={styles.inner}>
+        <h2 className={styles.title}>We know when not to trust ourselves.</h2>
+        <p className={styles.tagline}>And we tell you.</p>
+        <div className={styles.card}>
+          <ul className={styles.list}>
+            {CHECKS.map((check) => (
+              <li key={check} className={styles.item}>
+                <span className={styles.check}>✓</span>
+                <span>{check}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

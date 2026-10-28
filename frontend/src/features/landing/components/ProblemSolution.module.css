@@ -1,20 +1,36 @@
 .section {
-  max-width: 900px;
+  position: relative;
+  z-index: 1;
+  padding: 6rem 1.5rem;
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 4rem 1.5rem;
   text-align: center;
 }
 
+.rule {
+  width: 48px;
+  height: 1px;
+  margin: 0 auto 2rem;
+  background: rgba(20, 18, 16, 0.25);
+}
+
 .stat {
-  font-family: var(--font-display);
-  font-weight: 300;
+  font-family: var(--font-serif);
+  font-weight: 600;
   font-size: 3.5rem;
-  color: var(--accent);
+  color: #141210;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 3px rgba(20, 18, 16, 0.15);
 }
 
 .statLabel {
   margin-top: 0.5rem;
-  color: var(--text-muted);
+  color: #6b6760;
+  font-size: 1rem;
 }
 
 .solution {
@@ -22,4 +38,5 @@
   font-size: 1.5rem;
   font-family: var(--font-display);
   font-weight: 500;
+  color: #141210;
 }

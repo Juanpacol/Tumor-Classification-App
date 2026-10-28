@@ -1,3 +1,6 @@
+"use client";
+
+import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./Differentiators.module.css";
 
 const ITEMS = [
@@ -16,8 +19,13 @@ const ITEMS = [
 ];
 
 export function Differentiators() {
+  const { ref, isVisible } = useFadeUp<HTMLElement>();
+
   return (
-    <section className={styles.section}>
+    <section
+      ref={ref}
+      className={`${styles.section} fadeUp ${isVisible ? "isVisible" : ""}`}
+    >
       <h2 className={styles.title}>For the technical judges</h2>
       <div className={styles.grid}>
         {ITEMS.map((item) => (

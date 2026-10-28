@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #efece6;
+  background: #e5e4e1;
   overflow: hidden;
 }
 
@@ -16,7 +16,7 @@
   width: 44%;
   background-image: url("/anatomy-sketch.png");
   background-size: cover;
-  background-position: center;
+  background-position: center 20%;
   filter: grayscale(1) contrast(1.05);
   transform: scaleX(-1);
   mask-image: radial-gradient(ellipse 82% 75% at 22% 45%, #000 50%, transparent 88%);
@@ -32,11 +32,22 @@
   background-image: url("/skull-sketch.png");
   background-size: cover;
   background-repeat: no-repeat;
-  background-position: center;
+  background-position: center 65%;
   transform: scaleX(-1);
   opacity: 0.9;
   mask-image: radial-gradient(ellipse 82% 75% at 78% 45%, #000 50%, transparent 88%);
   -webkit-mask-image: radial-gradient(ellipse 82% 75% at 78% 45%, #000 50%, transparent 88%);
+}
+
+.fadeBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18%;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 0%, #e5e4e1 100%);
+  pointer-events: none;
 }
 
 .content {
