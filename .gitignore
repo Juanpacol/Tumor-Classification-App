@@ -69,11 +69,11 @@ coverage/
 .dockerignore
 
 # ML Models & Weights (too large for git)
-ml_engine/weights/*.pt
-ml_engine/weights/*.pth
-ml_engine/weights/*.onnx
-ml_engine/weights/*.pkl
-!ml_engine/weights/.gitkeep
+app/ml_engine/weights/*.pt
+app/ml_engine/weights/*.pth
+app/ml_engine/weights/*.onnx
+app/ml_engine/weights/*.pkl
+!app/ml_engine/weights/.gitkeep
 
 # Data
 data/
