@@ -4,7 +4,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", protected_namespaces=())
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", protected_namespaces=()
+    )
 
     database_url: str = "sqlite:///./ether.db"
     storage_dir: str = "./storage"
@@ -15,7 +17,9 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return [
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
 
 
 @lru_cache

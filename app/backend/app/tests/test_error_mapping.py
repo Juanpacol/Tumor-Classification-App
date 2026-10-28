@@ -17,4 +17,7 @@ def test_domain_error_maps_to_consistent_json_body():
     response = client.get("/boom")
 
     assert response.status_code == 400
-    assert response.json() == {"code": "STUDY_NOT_FOUND", "message": "Study does not exist"}
+    assert response.json() == {
+        "code": "STUDY_NOT_FOUND",
+        "message": "Study does not exist",
+    }
