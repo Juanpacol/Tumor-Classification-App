@@ -8,7 +8,28 @@ on:
       - "**/*.md"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      ml_engine: ${{ steps.filter.outputs.ml_engine }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            ml_engine:
+              - 'ml_engine/**'
+            frontend:
+              - 'frontend/**'
+
   backend-tests:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -65,6 +86,8 @@ jobs:
           fail_ci_if_error: false
 
   ml-engine-tests:
+    needs: changes
+    if: needs.changes.outputs.ml_engine == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -94,6 +117,8 @@ jobs:
           fail_ci_if_error: false
 
   frontend-tests:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
