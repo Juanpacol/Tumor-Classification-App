@@ -90,15 +90,16 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(229, 228, 225, 0.85);
-  border-radius: 6px;
-  padding: 0.75rem 0.5rem;
 }
 
 .teamName {
   font-family: var(--font-serif);
   font-size: 0.9375rem;
   color: #141210;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
 }
 
 .teamLinks {
@@ -107,6 +108,10 @@
   gap: 0.5rem;
   font-size: 0.8125rem;
   color: #6b6760;
+  text-shadow:
+    0 0 10px #e5e4e1,
+    0 0 20px #e5e4e1,
+    0 0 4px #e5e4e1;
 }
 
 .teamLinks a {
