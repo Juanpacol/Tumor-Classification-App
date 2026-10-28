@@ -95,6 +95,7 @@
   background-repeat: no-repeat;
   background-position: center;
   transform: scaleX(-1);
+  will-change: transform, opacity;
   filter: grayscale(1) brightness(1.18) contrast(1.3);
   mix-blend-mode: multiply;
   opacity: 0.6;
@@ -122,6 +123,7 @@
   background-size: cover;
   background-repeat: no-repeat;
   background-position: top center;
+  will-change: opacity;
   filter: grayscale(1) brightness(1.18) contrast(1.4);
   mix-blend-mode: multiply;
   mask-image: linear-gradient(

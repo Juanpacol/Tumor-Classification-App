@@ -11,6 +11,9 @@ import styles from "./page.module.css";
 export default function HomePage() {
   return (
     <main>
+      <link rel="preload" as="image" href="/test-hand-bones.png" />
+      <link rel="preload" as="image" href="/test-skull-eye.png" />
+      <link rel="preload" as="image" href="/test-foot-bones.png" />
       <Hero />
       <div className={styles.connector}>
         <div className={styles.veinLeft} />
