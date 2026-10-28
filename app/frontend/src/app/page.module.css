@@ -12,21 +12,13 @@
   isolation: isolate;
 }
 
-.footerSkullBackdrop {
+.footerSkull {
   position: absolute;
   right: 0;
   bottom: 0;
   width: 42%;
   height: 620px;
   z-index: 0;
-  background: #e5e4e1;
-  isolation: isolate;
-  pointer-events: none;
-}
-
-.footerSkull {
-  width: 100%;
-  height: 100%;
   background-image: url("/test-skull-eye.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -47,22 +39,13 @@
   pointer-events: none;
 }
 
-.footerFootBackdrop {
+.footerFoot {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 52%;
   height: 620px;
   z-index: 0;
-  background: #e5e4e1;
-  overflow: hidden;
-  isolation: isolate;
-  pointer-events: none;
-}
-
-.footerFoot {
-  width: 100%;
-  height: 100%;
   background-image: url("/test-foot-bones.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -102,22 +85,13 @@
   user-select: none;
 }
 
-.veinLeftBackdrop {
+.veinLeft {
   position: absolute;
   left: 0;
   top: 0;
   height: 46%;
   width: 40%;
   z-index: 0;
-  background: #e5e4e1;
-  overflow: hidden;
-  isolation: isolate;
-  pointer-events: none;
-}
-
-.veinLeft {
-  width: 100%;
-  height: 100%;
   background-image: url("/test-hand-bones.png");
   background-size: cover;
   background-repeat: no-repeat;
@@ -140,41 +114,13 @@
   pointer-events: none;
 }
 
-.veinRightBackdrop {
+.veinRight {
   position: absolute;
   right: 0;
   top: 0;
   bottom: 0;
   width: 60%;
   z-index: 2;
-  background: #e5e4e1;
-  isolation: isolate;
-  pointer-events: none;
-}
-
-.veinRightFade {
-  width: 100%;
-  height: 100%;
-  mask-image: linear-gradient(
-    0deg,
-    transparent 0%,
-    #000 18%,
-    #000 85%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    0deg,
-    transparent 0%,
-    #000 18%,
-    #000 85%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.veinRight {
-  width: 100%;
-  height: 100%;
   background-image: url("/test-hand-bones.png");
   background-size: cover;
   background-repeat: no-repeat;
@@ -182,15 +128,23 @@
   will-change: opacity;
   filter: grayscale(1) brightness(1.18) contrast(1.4);
   mix-blend-mode: multiply;
-  mask-image: radial-gradient(
-    ellipse 65% 100% at 38% 15%,
-    #000 55%,
-    transparent 95%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 65% 100% at 38% 15%,
-    #000 55%,
-    transparent 95%
-  );
+  mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 38% 15%, #000 55%, transparent 95%);
+  -webkit-mask-image: linear-gradient(
+      0deg,
+      transparent 0%,
+      #000 18%,
+      #000 85%,
+      transparent 100%
+    ),
+    radial-gradient(ellipse 65% 100% at 38% 15%, #000 55%, transparent 95%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
   pointer-events: none;
 }

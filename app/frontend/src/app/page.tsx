@@ -16,14 +16,8 @@ export default function HomePage() {
       <link rel="preload" as="image" href="/test-foot-bones.png" />
       <Hero />
       <div className={styles.connector}>
-        <div className={styles.veinLeftBackdrop}>
-          <div className={styles.veinLeft} />
-        </div>
-        <div className={styles.veinRightBackdrop}>
-          <div className={styles.veinRightFade}>
-            <div className={styles.veinRight} />
-          </div>
-        </div>
+        <div className={styles.veinLeft} />
+        <div className={styles.veinRight} />
         <ProblemSolution />
         <HowItWorks />
       </div>
@@ -31,12 +25,8 @@ export default function HomePage() {
       <DemoProof />
       <OpenSource />
       <div className={styles.footerConnector}>
-        <div className={styles.footerFootBackdrop}>
-          <div className={styles.footerFoot} />
-        </div>
-        <div className={styles.footerSkullBackdrop}>
-          <div className={styles.footerSkull} />
-        </div>
+        <div className={styles.footerFoot} />
+        <div className={styles.footerSkull} />
         <span className={styles.footerGhostText}>ETHER</span>
         <Differentiators />
         <CallToAction />
