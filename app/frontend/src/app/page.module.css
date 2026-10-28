@@ -12,29 +12,13 @@
   isolation: isolate;
 }
 
-.footerSkullMask {
+.footerSkull {
   position: absolute;
   right: 0;
   bottom: 0;
   width: 42%;
   height: 620px;
   z-index: 0;
-  mask-image: radial-gradient(
-    ellipse 80% 95% at 75% 70%,
-    #000 55%,
-    transparent 95%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 80% 95% at 75% 70%,
-    #000 55%,
-    transparent 95%
-  );
-  pointer-events: none;
-}
-
-.footerSkull {
-  width: 100%;
-  height: 100%;
   background-image: url("/test-skull-eye.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -42,24 +26,13 @@
   filter: grayscale(1) brightness(1.15) contrast(1.25);
   mix-blend-mode: multiply;
   opacity: 0.55;
-  pointer-events: none;
-}
-
-.footerFootMask {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 52%;
-  height: 620px;
-  z-index: 0;
-  overflow: hidden;
   mask-image: radial-gradient(
-    ellipse 85% 95% at 25% 75%,
+    ellipse 80% 95% at 75% 70%,
     #000 55%,
     transparent 95%
   );
   -webkit-mask-image: radial-gradient(
-    ellipse 85% 95% at 25% 75%,
+    ellipse 80% 95% at 75% 70%,
     #000 55%,
     transparent 95%
   );
@@ -67,8 +40,12 @@
 }
 
 .footerFoot {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 52%;
+  height: 620px;
+  z-index: 0;
   background-image: url("/test-foot-bones.png");
   background-size: contain;
   background-repeat: no-repeat;
@@ -78,6 +55,16 @@
   filter: grayscale(1) brightness(1.15) contrast(1.2);
   mix-blend-mode: multiply;
   opacity: 0.6;
+  mask-image: radial-gradient(
+    ellipse 85% 95% at 25% 75%,
+    #000 55%,
+    transparent 95%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 85% 95% at 25% 75%,
+    #000 55%,
+    transparent 95%
+  );
   pointer-events: none;
 }
 
@@ -98,13 +85,22 @@
   user-select: none;
 }
 
-.veinLeftMask {
+.veinLeft {
   position: absolute;
   left: 0;
   top: 0;
   height: 46%;
   width: 40%;
   z-index: 0;
+  background-image: url("/test-hand-bones.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform: scaleX(-1);
+  will-change: transform, opacity;
+  filter: grayscale(1) brightness(1.18) contrast(1.3);
+  mix-blend-mode: multiply;
+  opacity: 0.6;
   mask-image: radial-gradient(
     ellipse 85% 85% at 78% 28%,
     #000 48%,
@@ -118,28 +114,20 @@
   pointer-events: none;
 }
 
-.veinLeft {
-  width: 100%;
-  height: 100%;
-  background-image: url("/test-hand-bones.png");
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: scaleX(-1);
-  will-change: transform, opacity;
-  filter: grayscale(1) brightness(1.18) contrast(1.3);
-  mix-blend-mode: multiply;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.veinRightMask {
+.veinRight {
   position: absolute;
   right: 0;
   top: 0;
   bottom: 0;
   width: 60%;
   z-index: 2;
+  background-image: url("/test-hand-bones.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: top center;
+  will-change: opacity;
+  filter: grayscale(1) brightness(1.18) contrast(1.4);
+  mix-blend-mode: multiply;
   mask-image: linear-gradient(
       0deg,
       transparent 0%,
@@ -157,18 +145,6 @@
     ),
     radial-gradient(ellipse 65% 100% at 38% 15%, #000 55%, transparent 95%);
   mask-composite: intersect;
-  pointer-events: none;
-}
-
-.veinRight {
-  width: 100%;
-  height: 100%;
-  background-image: url("/test-hand-bones.png");
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: top center;
-  will-change: opacity;
-  filter: grayscale(1) brightness(1.18) contrast(1.4);
-  mix-blend-mode: multiply;
+  -webkit-mask-composite: source-in;
   pointer-events: none;
 }
