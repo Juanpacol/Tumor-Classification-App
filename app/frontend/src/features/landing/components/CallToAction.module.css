@@ -37,10 +37,31 @@
   cursor: pointer;
 }
 
-.credits {
+.social {
   position: relative;
   z-index: 1;
   margin-top: 3rem;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.social a {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  color: #141210;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.social a:hover {
+  border-bottom-color: #141210;
+}
+
+.credits {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.5rem;
   color: #6b6760;
   font-size: 0.8125rem;
 }

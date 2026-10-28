@@ -4,6 +4,7 @@ import { HowItWorks } from "@/features/landing/components/HowItWorks";
 import { SafetyRubric } from "@/features/landing/components/SafetyRubric";
 import { DemoProof } from "@/features/landing/components/DemoProof";
 import { Differentiators } from "@/features/landing/components/Differentiators";
+import { OpenSource } from "@/features/landing/components/OpenSource";
 import { CallToAction } from "@/features/landing/components/CallToAction";
 import styles from "./page.module.css";
 
@@ -19,6 +20,7 @@ export default function HomePage() {
       </div>
       <SafetyRubric />
       <DemoProof />
+      <OpenSource />
       <div className={styles.footerConnector}>
         <div className={styles.footerFoot} />
         <div className={styles.footerSkull} />
