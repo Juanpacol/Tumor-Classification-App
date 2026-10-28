@@ -20,6 +20,7 @@
   height: 620px;
   z-index: 0;
   background: #e5e4e1;
+  isolation: isolate;
   pointer-events: none;
 }
 
@@ -55,6 +56,7 @@
   z-index: 0;
   background: #e5e4e1;
   overflow: hidden;
+  isolation: isolate;
   pointer-events: none;
 }
 
@@ -109,6 +111,7 @@
   z-index: 0;
   background: #e5e4e1;
   overflow: hidden;
+  isolation: isolate;
   pointer-events: none;
 }
 
@@ -145,6 +148,7 @@
   width: 60%;
   z-index: 2;
   background: #e5e4e1;
+  isolation: isolate;
   pointer-events: none;
 }
 
