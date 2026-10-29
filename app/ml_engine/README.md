@@ -1,6 +1,6 @@
 # ml_engine
 
-Standalone hybrid (radiomics + CNN) brain MRI tumor classifier. Decisions and their evidence are in `docs/ml-engine/decisions.md`.
+Standalone hybrid (radiomics + CNN) brain MRI tumor classifier. Current state and how to resume are in `docs/ml-engine/status.md`; decisions and their evidence are in `docs/ml-engine/decisions.md`.
 
 ## Setup
 
