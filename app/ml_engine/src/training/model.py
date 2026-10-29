@@ -20,18 +20,23 @@ PCA_COMPONENTS = 32
 N_SPLITS = 5
 
 
+BLOCKS = ("radiomic", "cnn")
+
+
 def build_model(
     classifier: BaseEstimator,
     n_radiomic: int,
     n_cnn: int,
     seed: int = DEFAULT_SEED,
     pca_components: int = PCA_COMPONENTS,
+    blocks: tuple[str, ...] = BLOCKS,
 ) -> Pipeline:
     """Scaler and PCA on the radiomic block, scaler on the CNN block, then the classifier.
 
-    The input is the radiomic columns followed by the CNN columns. Every fitted
-    step lives inside this pipeline, so cross-validation refits them per fold and
-    nothing leaks from the validation fold.
+    The input is the radiomic columns followed by the CNN columns, and ``blocks``
+    chooses which of them the classifier sees (the others are dropped). Every
+    fitted step lives inside this pipeline, so cross-validation refits them per
+    fold and nothing leaks from the validation fold.
     """
     radiomic = Pipeline(
         [
@@ -42,11 +47,12 @@ def build_model(
             ),
         ]
     )
+    available = {
+        "radiomic": (radiomic, list(range(n_radiomic))),
+        "cnn": (StandardScaler(), list(range(n_radiomic, n_radiomic + n_cnn))),
+    }
     features = ColumnTransformer(
-        [
-            ("radiomic", radiomic, list(range(n_radiomic))),
-            ("cnn", StandardScaler(), list(range(n_radiomic, n_radiomic + n_cnn))),
-        ]
+        [(name, *available[name]) for name in blocks if name in available]
     )
     return Pipeline([("features", features), ("classifier", classifier)])
 
@@ -89,6 +95,32 @@ class SelectionResult:
     best: str
 
 
+def cross_validate_macro_f1(
+    classifier: BaseEstimator,
+    matrix: np.ndarray,
+    y: np.ndarray,
+    groups: np.ndarray,
+    n_radiomic: int,
+    seed: int = DEFAULT_SEED,
+    n_splits: int = N_SPLITS,
+    blocks: tuple[str, ...] = BLOCKS,
+) -> CandidateScore:
+    """Macro-F1 of one classifier over group-aware folds, refitting every step per fold."""
+    n_cnn = matrix.shape[1] - n_radiomic
+    model = build_model(classifier, n_radiomic, n_cnn, seed, blocks=blocks)
+    folds = cross_val_score(
+        model,
+        matrix,
+        y,
+        groups=groups,
+        cv=group_folds(n_splits, seed),
+        scoring="f1_macro",
+    )
+    return CandidateScore(
+        float(folds.mean()), float(folds.std()), tuple(float(v) for v in folds)
+    )
+
+
 def compare_classifiers(
     matrix: np.ndarray,
     y: np.ndarray,
@@ -98,18 +130,11 @@ def compare_classifiers(
     n_splits: int = N_SPLITS,
 ) -> SelectionResult:
     """Cross-validate every candidate and pick the best mean macro-F1 (ties: by name)."""
-    n_cnn = matrix.shape[1] - n_radiomic
-    folds = group_folds(n_splits, seed)
-    scores: dict[str, CandidateScore] = {}
-    for name, classifier in candidate_classifiers(seed).items():
-        model = build_model(classifier, n_radiomic, n_cnn, seed)
-        folds_f1 = cross_val_score(
-            model, matrix, y, groups=groups, cv=folds, scoring="f1_macro"
+    scores = {
+        name: cross_validate_macro_f1(
+            classifier, matrix, y, groups, n_radiomic, seed, n_splits
         )
-        scores[name] = CandidateScore(
-            float(folds_f1.mean()),
-            float(folds_f1.std()),
-            tuple(float(v) for v in folds_f1),
-        )
+        for name, classifier in candidate_classifiers(seed).items()
+    }
     best = max(sorted(scores), key=lambda name: scores[name].mean_macro_f1)
     return SelectionResult(scores, best)

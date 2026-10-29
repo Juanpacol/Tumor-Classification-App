@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from sklearn.linear_model import LogisticRegression
 
+from src.tests.synthetic import separable_features
 from src.training.model import (
     build_model,
     candidate_classifiers,
@@ -12,20 +13,8 @@ from src.training.model import (
 N_RADIOMIC, N_CNN = 45, 20
 
 
-def synthetic_features(
-    n_per_class: int = 30, seed: int = 0
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Four separable classes; every image belongs to a group of two near-duplicates."""
-    rng = np.random.default_rng(seed)
-    labels = np.repeat(np.arange(4), n_per_class)
-    centers = rng.normal(scale=3.0, size=(4, N_RADIOMIC + N_CNN))
-    matrix = centers[labels] + rng.normal(size=(len(labels), N_RADIOMIC + N_CNN))
-    groups = np.arange(len(labels)) // 2
-    return matrix, labels, groups
-
-
 def test_model_reduces_the_radiomic_block_to_32_components() -> None:
-    matrix, labels, _ = synthetic_features()
+    matrix, labels, _ = separable_features()
     model = build_model(LogisticRegression(max_iter=500), N_RADIOMIC, N_CNN)
 
     model.fit(matrix, labels)
@@ -36,7 +25,7 @@ def test_model_reduces_the_radiomic_block_to_32_components() -> None:
 
 
 def test_scalers_are_fitted_on_the_training_data_only() -> None:
-    matrix, labels, _ = synthetic_features()
+    matrix, labels, _ = separable_features()
     train = slice(0, 80)
     model = build_model(LogisticRegression(max_iter=500), N_RADIOMIC, N_CNN)
 
@@ -66,14 +55,14 @@ def test_three_classifiers_are_compared_with_balanced_weights() -> None:
 
 
 def test_a_group_never_straddles_two_folds() -> None:
-    _, labels, groups = synthetic_features()
+    _, labels, groups = separable_features()
 
     for train, test in group_folds(5, 0).split(np.zeros(len(labels)), labels, groups):
         assert not set(groups[train]) & set(groups[test])
 
 
 def test_selection_scores_every_candidate_and_picks_the_best() -> None:
-    matrix, labels, groups = synthetic_features()
+    matrix, labels, groups = separable_features()
 
     result = compare_classifiers(matrix, labels, groups, N_RADIOMIC)
 
@@ -86,7 +75,7 @@ def test_selection_scores_every_candidate_and_picks_the_best() -> None:
 
 
 def test_selection_is_reproducible_with_the_same_seed() -> None:
-    matrix, labels, groups = synthetic_features()
+    matrix, labels, groups = separable_features()
 
     first = compare_classifiers(matrix, labels, groups, N_RADIOMIC, seed=7)
     second = compare_classifiers(matrix, labels, groups, N_RADIOMIC, seed=7)
@@ -95,7 +84,7 @@ def test_selection_is_reproducible_with_the_same_seed() -> None:
 
 
 def test_a_different_seed_changes_the_folds() -> None:
-    _, labels, groups = synthetic_features()
+    _, labels, groups = separable_features()
 
     def test_sets(seed: int) -> list[list[int]]:
         splits = group_folds(5, seed).split(np.zeros(len(labels)), labels, groups)
@@ -105,7 +94,7 @@ def test_a_different_seed_changes_the_folds() -> None:
 
 
 def test_unbalanced_classes_still_score_per_class() -> None:
-    matrix, labels, groups = synthetic_features(n_per_class=40)
+    matrix, labels, groups = separable_features(n_per_class=40)
     keep = np.concatenate(
         [np.flatnonzero(labels == 0)[:8], np.flatnonzero(labels != 0)]
     )
@@ -116,7 +105,7 @@ def test_unbalanced_classes_still_score_per_class() -> None:
 
 
 def test_invalid_split_count_is_rejected() -> None:
-    matrix, labels, groups = synthetic_features(n_per_class=4)
+    matrix, labels, groups = separable_features(n_per_class=4)
 
     with pytest.raises(ValueError):
         compare_classifiers(matrix, labels, groups, N_RADIOMIC, n_splits=1)
