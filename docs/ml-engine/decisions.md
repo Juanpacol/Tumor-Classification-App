@@ -136,6 +136,21 @@ Open items:
 - **Status:** the CLI was run end to end only on a synthetic dataset of four texture classes (160 images, about 19 s, real ImageNet weights, test macro-F1 0.987). That number says nothing about the real data, because those classes are trivially separable.
 - **Still needed for AB-112:** a run on the real dataset and its report. The story stays open until then.
 
+## D13. Serving pipeline (AB-113)
+
+`src/pipelines/{artifact,top_features,trained}.py`. `BundleInferencePipeline.from_bundle(folder, triage_threshold=0.75)` loads a training artifact once and `predict(file_bytes)` returns a `PredictionResult`.
+
+- **Name.** The story calls it `InferencePipeline.from_bundle`. `InferencePipeline` stays the protocol, because CI, `CLAUDE.md` and the fake already use that name, and the concrete class is `BundleInferencePipeline`.
+- **The contract takes bytes.** The protocol and `FakeInferencePipeline` took a file path while the story asks for `predict(file_bytes)`. Both now take bytes, so the fake and the real pipeline are interchangeable, and `decode_mri_image` decodes from memory with the same size and format checks as the file loader. Nothing outside `ml_engine` used the old signature.
+- **Triage threshold 0.75**, as the story asks (the fake used 0.7, now both use the shared constant). It has not been calibrated on real data. Status: **Assumption**.
+- **Everything is verified before it is loaded.** The sha256 of each file in the manifest is checked before the pickled classifier or the weights are deserialized, then the manifest classes and radiomic feature names are compared with the code, and the backbone loads through the checks of D9. Any failure is a `ModelUnavailableError`, so the backend can fail fast at start-up and answer 503 `MODEL_UNAVAILABLE`.
+- **Serving rebuilds the preprocessing and radiomics settings from the manifest**, not from the code defaults. A test checks the settings survive the JSON round trip, and another that an edited manifest changes them. If the manifest normalization differs from the backbone it is refused.
+- **Limit of the integrity check.** The hashes live in the manifest, so they only prove the files match the manifest. They do not prove the manifest is genuine. The checksum of the published archive (AB-114) has to cover that. Loading a `.joblib` stays a pickle load (D12).
+- **`top_features`:** the 5 raw radiomic features with the largest |z-score| against the training mean and std. The z-score uses the radiomic features before PCA, because the PCA components have no name. A feature that never varied in training has z-score 0, and ties are ordered by name.
+- **No train/serve skew, checked on 5 images:** the probabilities from `predict(bytes)` equal, within 1e-6, those of the classifier fed with the features of the training code path. Status: **Verified** on synthetic images, in one process on one machine.
+- **Latency:** 99 ms median per image after loading, 0.07 s to load, measured with a 128x128 synthetic PNG, random backbone weights and a classifier trained on synthetic data. The 3 s limit is enforced by a test. A real 512x512 MRI was not measured end to end, only its parts (about 90 ms for the CNN, 8 ms for the radiomics). Status: **Verified** for the synthetic case.
+- **Import weight.** `import src.pipelines` now imports PyTorch and scikit-learn. The backend installs `ml_engine` only in AB-120, so nothing pays for it yet.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
