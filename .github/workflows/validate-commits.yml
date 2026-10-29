@@ -14,11 +14,13 @@ jobs:
           fetch-depth: 0
 
       - name: Validate commit message format
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           echo "Validating commit messages format: AB-{TICKET}: type(scope): description"
 
           # Get commits in this PR
-          commits=$(git log origin/main..HEAD --format=%H --no-merges)
+          commits=$(git log "origin/$BASE_REF"..HEAD --format=%H --no-merges)
 
           if [ -z "$commits" ]; then
             echo "No commits to validate"
