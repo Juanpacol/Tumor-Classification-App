@@ -161,6 +161,12 @@ Modules:
 - ESLint + Prettier
 - JSDoc for public props
 
+### Code Quality (All Modules)
+
+- **Modularize long code**: when a file or function grows too long to read comfortably, split it into smaller modules/functions, each with one clear responsibility.
+- **Single, specific purpose**: every module, class and function exists to do one thing. If it does two, split it.
+- **Refactor until nothing is left to remove**: delete unused code, dead branches, unnecessary parameters, speculative options and redundant abstractions. If removing something does not change the required behavior, remove it.
+
 ---
 
 ## Key Decisions (Don't Change Without Consensus)
