@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import styles from "./Hero.module.css";
 
@@ -30,6 +31,9 @@ export function Hero() {
         <span className={styles.wordmark}>ETHER</span>
         <p className={styles.tagline}>Built to see what others miss.</p>
         <h1 className={styles.headline}>What the eye misses, Ether finds.</h1>
+        <Link href="/studies" className={styles.cta}>
+          Open the portal
+        </Link>
       </div>
     </section>
   );

@@ -27,6 +27,8 @@
 .cta {
   position: relative;
   z-index: 1;
+  display: inline-block;
+  text-decoration: none;
   background: #141210;
   color: #e5e4e1;
   border: none;
