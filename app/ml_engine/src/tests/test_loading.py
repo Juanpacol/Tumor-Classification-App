@@ -6,7 +6,12 @@ from PIL import Image
 
 from src.errors import UnsupportedImageError
 from src.preprocessing import loading
-from src.preprocessing.loading import MAX_PIXELS, MIN_SIDE, load_mri_image
+from src.preprocessing.loading import (
+    MAX_PIXELS,
+    MIN_SIDE,
+    decode_mri_image,
+    load_mri_image,
+)
 from src.tests.synthetic import save, synthetic_slice
 
 
@@ -147,3 +152,18 @@ def test_file_over_byte_limit_is_rejected(
 
     with pytest.raises(UnsupportedImageError, match="exceeds"):
         load_mri_image(path)
+
+
+def test_decoding_bytes_gives_the_same_array_as_loading_the_file(
+    tmp_path: Path,
+) -> None:
+    path = save(synthetic_slice(7, size=128), tmp_path / "a.png")
+
+    assert np.array_equal(decode_mri_image(path.read_bytes()), load_mri_image(path))
+
+
+def test_decode_errors_name_the_given_source() -> None:
+    corrupt = b"\x89PNG\r\n\x1a\n" + b"garbage"
+
+    with pytest.raises(UnsupportedImageError, match="upload-1"):
+        decode_mri_image(corrupt, source="upload-1")
