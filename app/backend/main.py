@@ -12,7 +12,16 @@ from settings import get_settings
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="Ether API")
+    app = FastAPI(
+        title="Ether API",
+        version="0.1.0",
+        description=(
+            "Clinical decision support API for brain tumor detection on MRI scans."
+        ),
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
 
     app.add_middleware(
         CORSMiddleware,
