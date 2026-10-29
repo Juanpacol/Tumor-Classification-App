@@ -53,3 +53,19 @@ def _brain_mask(gray: np.ndarray) -> np.ndarray | None:
     largest = np.argmax(np.bincount(labels.ravel())[1:]) + 1
     brain = ndimage.binary_dilation(labels == largest, structure=disk(2 * radius))
     return ndimage.binary_fill_holes(brain)
+
+
+def foreground_mask(gray: np.ndarray) -> np.ndarray:
+    """Pixels clearly above the background: half the Otsu threshold, largest component, holes filled.
+
+    Used as the region of interest when skull stripping was not applied. A flat
+    image is all foreground if it is not black, and empty otherwise.
+    """
+    if gray.max() <= gray.min():
+        return np.full(gray.shape, gray.max() > 0, dtype=bool)
+    foreground = gray > 0.5 * threshold_otsu(gray)
+    labels, count = ndimage.label(foreground)
+    if count == 0:
+        return foreground
+    largest = np.argmax(np.bincount(labels.ravel())[1:]) + 1
+    return ndimage.binary_fill_holes(labels == largest)

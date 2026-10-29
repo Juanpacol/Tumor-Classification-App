@@ -3,6 +3,7 @@ import numpy as np
 from src.preprocessing.skull_stripping import (
     MAX_MASK_FRACTION,
     MIN_MASK_FRACTION,
+    foreground_mask,
     strip_skull,
 )
 from src.tests.synthetic import head_phantom
@@ -49,3 +50,18 @@ def test_noise_never_raises() -> None:
     result = strip_skull(noise)
 
     assert result.mask.shape == noise.shape
+
+
+def test_foreground_mask_covers_the_head_and_not_the_background() -> None:
+    phantom = head_phantom(256)
+
+    mask = foreground_mask(phantom)
+
+    assert mask[128, 128]
+    assert not mask[0, 0]
+    assert mask.dtype == bool
+
+
+def test_foreground_mask_of_flat_images() -> None:
+    assert foreground_mask(np.full((32, 32), 0.5, dtype=np.float32)).all()
+    assert not foreground_mask(np.zeros((32, 32), dtype=np.float32)).any()

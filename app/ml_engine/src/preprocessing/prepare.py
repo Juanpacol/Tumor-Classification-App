@@ -9,7 +9,7 @@ import numpy as np
 
 from src.contracts import QualityMetrics
 from src.preprocessing.quality import QualityThresholds, check_quality, measure_quality
-from src.preprocessing.skull_stripping import strip_skull
+from src.preprocessing.skull_stripping import foreground_mask, strip_skull
 
 
 @dataclass(frozen=True)
@@ -27,9 +27,13 @@ class PreprocessingConfig:
 
 @dataclass(frozen=True)
 class PreprocessedImage:
-    """``radiomics_image`` is (H, W) float32 in [0, 1]; ``cnn_input`` is (3, S, S) float32."""
+    """``radiomics_image`` is (H, W) float32 in [0, 1]; ``mask`` is its (H, W) boolean region
+    of interest (the brain mask, or the foreground when skull stripping was not applied);
+    ``cnn_input`` is (3, S, S) float32.
+    """
 
     radiomics_image: np.ndarray
+    mask: np.ndarray
     cnn_input: np.ndarray
     quality: QualityMetrics
 
@@ -49,7 +53,8 @@ def prepare_image(
     check_quality(quality, config.thresholds)
 
     image = stripped.image if stripped else gray
-    return PreprocessedImage(image, _to_cnn_input(image, config), quality)
+    mask = stripped.mask if stripped and stripped.applied else foreground_mask(gray)
+    return PreprocessedImage(image, mask, _to_cnn_input(image, config), quality)
 
 
 def _to_cnn_input(image: np.ndarray, config: PreprocessingConfig) -> np.ndarray:

@@ -25,6 +25,24 @@ def test_outputs_have_the_expected_shape_and_type() -> None:
     assert result.cnn_input.dtype == np.float32
 
 
+def test_mask_is_the_foreground_when_skull_stripping_is_off() -> None:
+    result = prepare_image(slice_array())
+
+    assert result.mask.shape == (256, 256) and result.mask.dtype == bool
+    assert result.mask[128, 128] and not result.mask[0, 0]
+
+
+def test_mask_is_the_brain_mask_when_skull_stripping_is_applied() -> None:
+    config = PreprocessingConfig(
+        skull_stripping=True, thresholds=QualityThresholds(0, 0)
+    )
+
+    result = prepare_image(head_phantom(), config)
+
+    assert result.mask[128, 128]
+    assert not result.mask[128, int(128 + 0.4 * 256)]
+
+
 def test_cnn_input_is_normalized_per_channel() -> None:
     config = PreprocessingConfig(cnn_mean=(0.5, 0.5, 0.5), cnn_std=(0.25, 0.25, 0.25))
     gray = slice_array()
