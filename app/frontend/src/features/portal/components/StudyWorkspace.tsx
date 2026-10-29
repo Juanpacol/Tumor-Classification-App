@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ClinicalSummary } from "@/features/clinical_summary/ClinicalSummary";
+import { InteractiveChat } from "@/features/llm_assistant/InteractiveChat";
 import { ReportSection } from "@/features/llm_assistant/ReportSection";
 import { StudyViewer } from "@/features/dicom_viewer/StudyViewer";
 import {
@@ -75,10 +76,7 @@ export function StudyWorkspace({
               <ClinicalSummary study={state.study} />
             </Card>
             <ReportSection client={api} study={state.study} />
-            <Card aria-label="Chat">
-              <h2 className={styles.heading}>Chat</h2>
-              <p className={styles.message}>Not available yet.</p>
-            </Card>
+            <InteractiveChat client={api} study={state.study} />
           </div>
         </div>
       )}
