@@ -31,8 +31,10 @@ export function CallToAction() {
       className={`${styles.section} fadeUp ${isVisible ? "isVisible" : ""}`}
     >
       <div className={styles.inner}>
-        <h2 className={styles.title}>Request a demo of Ether.</h2>
-        <button className={styles.cta}>Request a demo</button>
+        <h2 className={styles.title}>Try the Ether demo.</h2>
+        <Link href="/studies" className={styles.cta}>
+          Open the portal
+        </Link>
 
         <a
           href="https://github.com/Juanpacol/Tumor-Classification-App"
