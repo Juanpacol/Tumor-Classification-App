@@ -72,8 +72,8 @@ In Azure DevOps:
 ### 2. Create Branch
 
 ```bash
-git checkout main
-git pull origin main
+git checkout develop
+git pull origin develop
 git checkout -b AB-88-feature-name
 ```
 
@@ -96,13 +96,15 @@ git push -u origin AB-88-feature-name
 
 ### 5. Create Pull Request
 
-1. Azure DevOps → **Repos** → **Pull Requests** → **New**
+1. Open the PR against `develop` (QA branch), never `main`
 2. Title: `AB-88: Feature name`
 3. Description includes: What, How to test, Screenshots
 4. Add: `Closes #88`
 5. Requires minimum 1 review
 
 ### 6. Merge
+
+Feature PRs merge into `develop` (QA). Once QA passes, a PR from `develop` to `main` promotes all changes together.
 
 Only after:
 - ✅ All tests pass
@@ -211,7 +213,7 @@ Browser DevTools: Network, Console, React Profiler
 | Issue | Solution |
 |-------|----------|
 | "Device not configured" (Azure CLI) | `az login` |
-| Branch conflicts | `git fetch origin && git rebase origin/main` |
+| Branch conflicts | `git fetch origin && git rebase origin/develop` |
 | Docker container crash | `docker-compose logs -f {service}` |
 | ML model not loading | Check `app/ml_engine/weights/` exists |
 | Cornerstone3D black screen | Check canvas size + WebGL support |
