@@ -27,7 +27,7 @@ function prediction(
   };
 }
 
-const COMPLETED_REPORT: Report = {
+export const SAMPLE_REPORT: Report = {
   status: "completed",
   model: "mock",
   created_at: "2026-10-28T10:05:00Z",
@@ -52,7 +52,7 @@ export const SAMPLE_STUDIES: StudyDetail[] = [
     status: "completed",
     created_at: "2026-10-28T10:00:00Z",
     prediction: prediction("meningioma", 0.93, false),
-    report: COMPLETED_REPORT,
+    report: SAMPLE_REPORT,
   },
   {
     ...base,
@@ -61,9 +61,9 @@ export const SAMPLE_STUDIES: StudyDetail[] = [
     created_at: "2026-10-27T10:00:00Z",
     prediction: prediction("glioma", 0.52, true),
     report: {
-      ...COMPLETED_REPORT,
+      ...SAMPLE_REPORT,
       content: {
-        ...COMPLETED_REPORT.content!,
+        ...SAMPLE_REPORT.content!,
         ai_agreement: "uncertain",
       },
     },
@@ -74,6 +74,14 @@ export const SAMPLE_STUDIES: StudyDetail[] = [
     status: "completed",
     created_at: "2026-10-26T10:00:00Z",
     prediction: prediction("no_tumor", 0.88, false),
+    report: null,
+  },
+  {
+    ...base,
+    id: "study-report-unavailable",
+    status: "completed",
+    created_at: "2026-10-25T12:00:00Z",
+    prediction: prediction("pituitary", 0.81, false),
     report: null,
   },
   {
