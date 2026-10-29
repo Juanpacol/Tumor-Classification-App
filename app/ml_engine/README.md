@@ -1,0 +1,34 @@
+# ml_engine
+
+Standalone hybrid (radiomics + CNN) brain MRI tumor classifier. Decisions and their evidence are in `docs/ml-engine/decisions.md`.
+
+## Setup
+
+```bash
+cd app/ml_engine
+pip install -r requirements.lock   # exact versions
+pytest src/tests -v
+```
+
+## Preprocessing
+
+`load_mri_image` (JPG/PNG to a 2D float32 array in [0, 1]) followed by `prepare_image`, which runs the quality gate and builds both model inputs (a masked grayscale image for radiomics and a normalized 3-channel array for the CNN).
+
+### Quality thresholds
+
+| Metric | Minimum | Method |
+|---|---|---|
+| SNR | 4.0 | mean intensity above the Otsu threshold divided by a wavelet noise estimate |
+| Shannon entropy | 2.0 bits | 256-bin intensity histogram |
+
+**These values are provisional and not calibrated yet.** They are guesses because the training dataset is not in the repo. Calibrate them with:
+
+```bash
+python -m src.preprocessing.calibrate --data-dir src/data
+```
+
+The command prints the 1st percentile of each metric over the dataset, so at least 99% of the training images pass. Then set the result in `QualityThresholds` (`src/preprocessing/quality.py`) and record it in `docs/ml-engine/decisions.md`.
+
+### Skull stripping
+
+Disabled by default (`PreprocessingConfig(skull_stripping=False)`). Enable it only after an ablation with a patient-level split shows it helps. When enabled and the mask is implausible (under 15% or over 95% of the image) the image is used unchanged and `skull_stripped=false` is reported.
