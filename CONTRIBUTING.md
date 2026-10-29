@@ -77,6 +77,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 
 **Rule**: All implementation (code, commit messages, PR titles/descriptions, code comments, in-app copy) MUST be written in English. This is MANDATORY and applies regardless of the language used in Azure Boards discussions or team chat.
 
+## Branching Model
+
+- `develop`: QA branch. Every feature PR targets `develop`, never `main` directly.
+- `main`: production. Updated only by a PR from `develop` once QA passes, which promotes all accumulated changes together.
+
 ## Pull Requests
 
 1. **PR Title**: Same as branch name, in English
@@ -101,9 +106,9 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 ## Contributing Steps
 
 ```bash
-# 1. Update main branch
-git checkout main
-git pull origin main
+# 1. Update develop branch
+git checkout develop
+git pull origin develop
 
 # 2. Create branch from issue
 git checkout -b AB-{ID}-{description}
@@ -118,7 +123,7 @@ git commit -m "AB-{ID}: type(scope): description"
 # 5. Push to branch
 git push -u origin AB-{ID}-{description}
 
-# 6. Create PR in GitHub (not Azure DevOps)
+# 6. Create PR in GitHub (not Azure DevOps), base branch: develop
 # github.com/Juanpacol/Tumor-Classification-App → Pull Requests → New
 
 # 7. Once merged, close the matching Azure Boards work item manually
