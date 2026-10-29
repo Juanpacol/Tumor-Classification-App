@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.adapters.inbound.http.error_handlers import register_exception_handlers
-from app.domain.errors import DomainError
+from adapters.inbound.http.error_handlers import register_exception_handlers
+from domain.errors import DomainError
 
 
 def test_domain_error_maps_to_consistent_json_body():

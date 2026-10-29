@@ -38,3 +38,10 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
+
+[tool.setuptools.packages.find]
+include = ["domain*", "application*", "ports*", "adapters*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

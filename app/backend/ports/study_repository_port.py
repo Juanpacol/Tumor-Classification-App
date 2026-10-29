@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.domain.models import Study
+from domain.models import Study
 
 
 class StudyRepositoryPort(Protocol):
