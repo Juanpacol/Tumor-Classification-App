@@ -2,7 +2,7 @@ import asyncio
 import base64
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import httpx
@@ -33,7 +33,9 @@ class MetaModelLLM:
         model: str,
         client: httpx.AsyncClient | None = None,
         retry_backoff_seconds: float = RETRY_BACKOFF_SECONDS,
+        on_usage: Callable[[dict[str, Any] | None], None] | None = None,
     ) -> None:
+        self._on_usage = on_usage
         self._api_key = api_key
         self._model = model
         self._retry_backoff_seconds = retry_backoff_seconds
@@ -198,7 +200,8 @@ class MetaModelLLM:
                 status_code=502,
             )
 
-    @staticmethod
-    def _log_usage(usage: dict[str, Any] | None) -> None:
+    def _log_usage(self, usage: dict[str, Any] | None) -> None:
         if usage:
             logger.info("muse_spark_usage", extra={"usage": usage})
+        if self._on_usage:
+            self._on_usage(usage)
