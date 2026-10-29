@@ -1,3 +1,5 @@
+@import "../features/portal/tokens.css";
+
 :root {
   --bg: #050505;
   --bg-elevated: #0d0d0d;
@@ -64,6 +66,14 @@ img {
 .fadeUp.isVisible {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fadeUp {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 .crtOverlay {

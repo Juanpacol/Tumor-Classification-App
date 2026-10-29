@@ -1,0 +1,14 @@
+.portal {
+  --paper: #e5e4e1;
+  --ink: #141210;
+  --muted: #6b6760;
+  --accent: #8a2c22;
+  --rule: rgba(20, 18, 16, 0.15);
+  --plate: #141210;
+  --plate-text: #e5e4e1;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}

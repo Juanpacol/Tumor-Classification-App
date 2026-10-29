@@ -1,0 +1,14 @@
+.card {
+  border-radius: 6px;
+  padding: 1.5rem;
+}
+
+.paper {
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.plate {
+  background: var(--plate);
+  color: var(--plate-text);
+}
