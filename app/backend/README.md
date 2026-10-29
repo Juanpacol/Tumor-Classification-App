@@ -52,6 +52,16 @@ USD 150 credit budget. The API key itself is never logged.
 
 The startup log says which one is in use and whether a key is set, never the key. The HTTP client is closed when the app shuts down, and the adapter is available to routers as `app.state.llm`.
 
+## Spend cap
+
+Meta offers no hard spending cap (only an e-mail alert) and the backend is public, so the backend enforces its own, behind the real LLM adapter (`adapters/outbound/llm/spend_cap.py`):
+
+- `LLM_DAILY_TOKEN_BUDGET` (default 1,000,000 tokens a day, UTC) and `LLM_MAX_REQUESTS_PER_MINUTE` (default 30). When either is reached the call answers **429**, `LLM_BUDGET_EXCEEDED` or `LLM_RATE_LIMITED`, and never reaches Meta. Both limits are logged at startup and when they are hit.
+- The tokens come from the `usage` Meta returns. A call that reports none counts a default of 4,000. Streamed answers carry no usage, so they are **estimated** (4 characters a token, plus 1,500 for an image), and what was sent counts even if the reader stops early. These two numbers are guesses until the live validation (AB-161) measures them.
+- The limits are checked before a call and the tokens are added after it, so one call can overshoot. A stream is checked when iteration starts, not when it is created.
+- **Limits of this design:** the counters live in memory. They reset when the process restarts (Cloud Run scales to zero) and each instance counts on its own, so with N instances the real cap is up to N times larger. A counter in the database would remove that, and has not been built.
+- The fake LLM is not capped: it costs nothing.
+
 ## Clinical report (core of AB-122)
 
 `application/` holds the part of the report that needs no HTTP and no database:
