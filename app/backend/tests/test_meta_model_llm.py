@@ -41,9 +41,7 @@ async def test_complete_json_success_without_image():
         assert request.headers["Authorization"] == "Bearer test-key"
         payload = json.loads(request.content)
         assert payload["messages"] == [{"role": "user", "content": "hi"}]
-        return _completion_response(
-            json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"})
-        )
+        return _completion_response(json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"}))
 
     llm = _llm(handler)
     result = await llm.complete_json([{"role": "user", "content": "hi"}], Address)
@@ -58,9 +56,7 @@ async def test_complete_json_success_with_image():
         content = payload["messages"][-1]["content"]
         assert content[1]["type"] == "image_url"
         assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
-        return _completion_response(
-            json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"})
-        )
+        return _completion_response(json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"}))
 
     llm = _llm(handler)
     result = await llm.complete_json(
@@ -78,9 +74,7 @@ async def test_complete_json_retries_once_on_429_then_succeeds():
         calls["count"] += 1
         if calls["count"] == 1:
             return httpx.Response(429, json={"error": "rate limited"})
-        return _completion_response(
-            json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"})
-        )
+        return _completion_response(json.dumps({"street": "1 Hacker Wy", "city": "Menlo Park"}))
 
     llm = _llm(handler)
     result = await llm.complete_json([{"role": "user", "content": "hi"}], Address)
@@ -141,9 +135,7 @@ async def test_stream_yields_text_chunks():
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, content=sse_body, headers={"Content-Type": "text/event-stream"}
-        )
+        return httpx.Response(200, content=sse_body, headers={"Content-Type": "text/event-stream"})
 
     llm = _llm(handler)
     chunks = [chunk async for chunk in llm.stream([{"role": "user", "content": "hi"}])]
@@ -154,15 +146,11 @@ async def test_stream_yields_text_chunks():
 @pytest.mark.asyncio
 async def test_stream_skips_malformed_chunks():
     sse_body = (
-        "data: not-json\n"
-        'data: {"choices": [{"delta": {"content": "ok"}}]}\n'
-        "data: [DONE]\n"
+        "data: not-json\n" 'data: {"choices": [{"delta": {"content": "ok"}}]}\n' "data: [DONE]\n"
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, content=sse_body, headers={"Content-Type": "text/event-stream"}
-        )
+        return httpx.Response(200, content=sse_body, headers={"Content-Type": "text/event-stream"})
 
     llm = _llm(handler)
     chunks = [chunk async for chunk in llm.stream([{"role": "user", "content": "hi"}])]

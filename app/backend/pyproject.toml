@@ -8,7 +8,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
-    "sqlalchemy>=2.0.35",
+    "sqlalchemy[asyncio]>=2.0.35",
     "asyncpg>=0.30.0",
     "psycopg2-binary>=2.9.9",
     "alembic>=1.13.0",
@@ -45,3 +45,7 @@ include = ["domain*", "application*", "ports*", "adapters*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = ["integration: requires a reachable PostgreSQL at DATABASE_URL"]
