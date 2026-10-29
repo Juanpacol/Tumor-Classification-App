@@ -177,6 +177,8 @@ Clinician           FastAPI Router       Celery Worker        ML Engine       Me
 
 ## 📜 Third-party assets and licenses
 
+The code in this repository is released under the [MIT License](./LICENSE). That license does not cover the third-party assets below, which keep their own terms.
+
 Ether is a hackathon prototype. These are the external assets it depends on and what is known about their terms. "Not verified" means nobody on the team has checked them yet, not that they are permissive.
 
 | Asset | Used for | Status |
