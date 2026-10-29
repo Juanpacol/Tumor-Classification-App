@@ -1,57 +1,16 @@
 import json
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import joblib
 import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
-from src.deep_learning.backbones import build_backbone
-from src.deep_learning.bundle import write_bundle
-from src.seed import set_seed
-from src.tests.synthetic import write_labeled_dataset
+from src.tests.training_support import NOW, PER_CLASS, make_config
 from src.training import __main__ as cli
 from src.training import run
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE
 from src.training.model import candidate_classifiers
-from src.training.run import TrainingConfig, TrainingResult, train
-
-PER_CLASS = 20
-NOW = datetime(2026, 10, 29, 10, 0, 0, tzinfo=UTC)
-
-
-@pytest.fixture(scope="module")
-def workspace(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    set_seed(0)
-    root = tmp_path_factory.mktemp("training-run")
-    data_dir, manifest = write_labeled_dataset(root, PER_CLASS)
-    backbone = root / "backbone"
-    state = build_backbone("efficientnet_b0").state_dict()
-    write_bundle(backbone, "efficientnet_b0", state, "RANDOM")
-    return {"data": data_dir, "manifest": manifest, "backbone": backbone, "root": root}
-
-
-def make_config(
-    workspace: dict[str, Path], out: Path, **overrides: Any
-) -> TrainingConfig:
-    return TrainingConfig(
-        data_dir=workspace["data"],
-        manifest=workspace["manifest"],
-        backbone_bundle=workspace["backbone"],
-        out_dir=out,
-        n_splits=3,
-        version="9.9.9",
-        cache_dir=workspace["root"] / "cache",
-        **overrides,
-    )
-
-
-@pytest.fixture(scope="module")
-def result(
-    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
-) -> TrainingResult:
-    return train(make_config(workspace, tmp_path_factory.mktemp("out")), now=NOW)
+from src.training.run import TrainingResult, train
 
 
 def test_a_run_writes_the_artifact_and_a_timestamped_report(
