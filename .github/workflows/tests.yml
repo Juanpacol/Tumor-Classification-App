@@ -22,6 +22,7 @@ jobs:
           filters: |
             backend:
               - 'app/backend/**'
+              - 'app/ml_engine/**'
             ml_engine:
               - 'app/ml_engine/**'
             frontend:
@@ -66,8 +67,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd app/backend
           pip install --upgrade pip
+          pip install -r app/ml_engine/requirements.lock
+          pip install --no-deps ./app/ml_engine
+          cd app/backend
           pip install -e ".[dev]"
 
       - name: Run tests with coverage

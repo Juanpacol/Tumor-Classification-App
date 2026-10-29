@@ -55,6 +55,8 @@ services:
     build:
       context: ./app/backend
       dockerfile: Dockerfile
+      additional_contexts:
+        ml_engine: ./app/ml_engine
     container_name: ether-backend
     environment:
       DATABASE_URL: postgresql://ether_user:ether_password@postgres:5432/ether_db
@@ -63,6 +65,8 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       ENVIRONMENT: development
+      # Set MODEL_BUNDLE_PATH= (empty) to start without a model
+      MODEL_BUNDLE_PATH: ${MODEL_BUNDLE_PATH-/models/current}
     ports:
       - "8000:8000"
     depends_on:
@@ -74,6 +78,7 @@ services:
         condition: service_healthy
     volumes:
       - ./app/backend:/app
+      - ${MODEL_BUNDLE_DIR:-./app/ml_engine/artifacts/current}:/models/current:ro
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # Celery Worker
