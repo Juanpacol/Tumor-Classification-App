@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     llm_provider: Literal["meta", "fake"] = "meta"
     meta_model_api_key: str | None = None
     meta_model_id: str = "muse-spark-1.3"
+    llm_daily_token_budget: int = Field(default=1_000_000, gt=0)
+    llm_max_requests_per_minute: int = Field(default=30, gt=0)
     cors_origins: str = "http://localhost:3000"
 
     @property

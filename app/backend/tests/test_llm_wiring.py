@@ -7,10 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from adapters.outbound.llm import factory
 from adapters.outbound.llm.factory import build_llm
 from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.llm.meta_model_llm import MetaModelLLM
+from adapters.outbound.llm.spend_cap import CappedLLM
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from application.clinical_report import ClinicalReportOutput
 from application.report_guardrails import find_violations
@@ -27,12 +27,6 @@ def fresh_settings() -> Iterator[None]:
     get_settings.cache_clear()
 
 
-@pytest.fixture()
-def factory_logging(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Alembic's fileConfig, run by the integration tests, disables existing loggers
-    monkeypatch.setattr(factory.logger, "disabled", False)
-
-
 def settings(**overrides: Any) -> Settings:
     return Settings(_env_file=None, **overrides)
 
@@ -46,10 +40,10 @@ def test_an_unknown_provider_is_rejected() -> None:
         settings(llm_provider="llama")
 
 
-def test_with_a_key_the_real_adapter_is_built() -> None:
+def test_with_a_key_the_real_adapter_is_built_behind_the_cap() -> None:
     llm = build_llm(settings(meta_model_api_key="a-key"))
 
-    assert isinstance(llm, MetaModelLLM)
+    assert isinstance(llm, CappedLLM) and isinstance(llm.inner, MetaModelLLM)
 
 
 async def test_without_a_key_the_real_adapter_answers_503_instead_of_inventing() -> (
@@ -57,20 +51,38 @@ async def test_without_a_key_the_real_adapter_answers_503_instead_of_inventing()
 ):
     llm = build_llm(settings(meta_model_api_key=None))
 
-    assert isinstance(llm, MetaModelLLM)
+    assert isinstance(llm, CappedLLM) and isinstance(llm.inner, MetaModelLLM)
     with pytest.raises(DomainError) as error:
         await llm.complete_json([], ClinicalReportOutput)
 
     assert error.value.status_code == 503 and error.value.code == "LLM_UNAVAILABLE"
 
 
-def test_the_fake_is_only_built_when_asked_for() -> None:
+def test_the_fake_is_only_built_when_asked_for_and_is_not_capped() -> None:
     assert isinstance(build_llm(settings(llm_provider="fake")), FakeLLM)
 
 
-def test_the_choice_is_logged_without_the_key(
-    factory_logging: None, caplog: pytest.LogCaptureFixture
+def test_the_limits_come_from_the_settings_and_are_logged(
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    with caplog.at_level(logging.INFO):
+        build_llm(
+            settings(llm_daily_token_budget=50_000, llm_max_requests_per_minute=7)
+        )
+
+    assert "50000 tokens a day" in caplog.text and "7 requests a minute" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [{"llm_daily_token_budget": 0}, {"llm_max_requests_per_minute": -1}],
+)
+def test_the_limits_must_be_positive(limits: dict[str, int]) -> None:
+    with pytest.raises(ValidationError):
+        settings(**limits)
+
+
+def test_the_choice_is_logged_without_the_key(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.INFO):
         build_llm(settings(meta_model_api_key="super-secret-key"))
         build_llm(settings(llm_provider="fake"))
@@ -88,7 +100,7 @@ def test_the_app_starts_with_the_real_adapter_even_without_a_key(
 
     with TestClient(app) as client:
         assert client.get("/health").status_code == 200
-        assert isinstance(app.state.llm, MetaModelLLM)
+        assert isinstance(app.state.llm.inner, MetaModelLLM)
 
 
 def test_the_app_starts_with_the_fake_when_configured(

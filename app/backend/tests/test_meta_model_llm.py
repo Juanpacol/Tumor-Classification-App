@@ -168,3 +168,42 @@ async def test_stream_skips_malformed_chunks():
     chunks = [chunk async for chunk in llm.stream([{"role": "user", "content": "hi"}])]
 
     assert chunks == ["ok"]
+
+
+async def test_usage_is_handed_to_the_listener():
+    seen: list[dict | None] = []
+    usage = {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _completion_response('{"street": "Main", "city": "Bogota"}', usage)
+
+    llm = MetaModelLLM(
+        api_key="test-key",
+        model="muse-spark-1.3",
+        client=_client(handler),
+        retry_backoff_seconds=0,
+        on_usage=seen.append,
+    )
+
+    await llm.complete_json([{"role": "user", "content": "x"}], Address)
+
+    assert seen == [usage]
+
+
+async def test_a_response_without_usage_still_notifies_the_listener():
+    seen: list[dict | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _completion_response('{"street": "Main", "city": "Bogota"}')
+
+    llm = MetaModelLLM(
+        api_key="test-key",
+        model="muse-spark-1.3",
+        client=_client(handler),
+        retry_backoff_seconds=0,
+        on_usage=seen.append,
+    )
+
+    await llm.complete_json([{"role": "user", "content": "x"}], Address)
+
+    assert seen == [None]
