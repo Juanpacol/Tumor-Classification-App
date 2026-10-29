@@ -32,3 +32,7 @@ The command prints the 1st percentile of each metric over the dataset, so at lea
 ### Skull stripping
 
 Disabled by default (`PreprocessingConfig(skull_stripping=False)`). Enable it only after an ablation with a patient-level split shows it helps. When enabled and the mask is implausible (under 15% or over 95% of the image) the image is used unchanged and `skull_stripped=false` is reported.
+
+## Radiomic features
+
+`extract_radiomics(radiomics_image, mask)` (from `PreprocessedImage`) returns a fixed-length vector of 45 finite features with stable names: GLCM (5), LBP (10), wavelet (21) and first-order intensity (9). All parameters are in `RadiomicsConfig`. Details and deviations from PyRadiomics and IBSI are in `docs/ml-engine/decisions.md` (D8).
