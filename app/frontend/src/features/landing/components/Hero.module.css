@@ -104,6 +104,18 @@
     0 2px 3px rgba(20, 18, 16, 0.18);
 }
 
+.cta {
+  display: inline-block;
+  margin-top: 2rem;
+  background: #141210;
+  color: #e5e4e1;
+  border-radius: 3px;
+  padding: 1rem 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
 @media (max-width: 860px) {
   .headline {
     font-size: 2.5rem;
