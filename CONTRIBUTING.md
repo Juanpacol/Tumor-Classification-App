@@ -95,9 +95,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
    - Related ticket ("Closes #88")
    - Screenshots/links (if applicable, remove section otherwise)
 
-3. **Reviewers**: Minimum 1 review before merge
+3. **Base branch**: every PR targets `develop`. Only a hotfix targets `main`, and its title gets a `[HOTFIX]` prefix (e.g. `AB-120: [HOTFIX] Fix upload crash`); merge the fix back into `develop` afterward
 
-4. **Merge Strategy**: MANDATORY - Use **Rebase and merge** ONLY
+4. **Reviewers**: Minimum 1 review before merge
+
+5. **Merge Strategy**: MANDATORY - Use **Rebase and merge** ONLY
    - This is the ONLY allowed merge strategy
    - Preserves all commits in linear history
    - All commits remain traceable to the ticket
@@ -106,7 +108,7 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 ## Contributing Steps
 
 ```bash
-# 1. Update develop branch
+# 1. Update develop branch (use main only for hotfixes)
 git checkout develop
 git pull origin develop
 
@@ -136,6 +138,8 @@ git push -u origin AB-{ID}-{description}
 - PEP 8 + Black formatter
 - Type hints mandatory
 - Docstrings for public functions
+- Flat layout in `app/backend/` (`domain/`, `ports/`, `adapters/`, `application/`, `tests/`, `main.py`); imports have no `app.` prefix
+- Every endpoint MUST be documented in Swagger/OpenAPI: `tags`, `summary`, `description` and `response_model` (plus `responses` for error codes). Enforced by `tests/test_api_documentation.py`; docs at `/docs`
 
 ### ML Engine (Python)
 - Comments only for non-obvious WHY

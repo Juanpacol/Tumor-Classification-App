@@ -87,8 +87,8 @@ Edit files according to architecture. Respect:
 ### 4. Commit & Push
 
 ```bash
-git add .
-git commit -m "type(scope): description #ID"
+git add <files>
+git commit -m "AB-88: type(scope): description"
 git push -u origin AB-88-feature-name
 ```
 
@@ -96,11 +96,14 @@ git push -u origin AB-88-feature-name
 
 ### 5. Create Pull Request
 
-1. Open the PR against `develop` (QA branch), never `main`
-2. Title: `AB-88: Feature name`
-3. Description includes: What, How to test, Screenshots
-4. Add: `Closes #88`
+1. GitHub → **Pull Requests** → **New** (Azure DevOps is used for Boards only)
+2. Base branch: `develop` (QA). Only hotfixes target `main` (title gets `[HOTFIX]`)
+3. Title: `AB-88: Feature name`
+4. Description follows `.github/pull_request_template.md`: What, How to test, Related ticket (`Closes #88`)
 5. Requires minimum 1 review
+6. Merge strategy: Rebase and merge only
+
+Project skills: `create-commit` and `create-pull-request` (`.claude/skills/`) automate steps 4-5.
 
 ### 6. Merge
 
@@ -119,18 +122,19 @@ Only after:
 
 **Pattern**: Hexagonal (Ports and Adapters)
 
-Layers:
-- `app/domain/`: Entities and domain errors (no framework imports)
-- `app/application/`: Use cases
-- `app/ports/`: Interfaces (ClassifierPort, LLMPort, StoragePort, StudyRepositoryPort)
-- `app/adapters/inbound/http/`: FastAPI routers and Pydantic schemas
-- `app/adapters/outbound/`: Concrete implementations (ml, llm, storage, persistence)
+Layers (relative to `app/backend/`, flat layout with no inner `app` package):
+- `domain/`: Entities and domain errors (no framework imports)
+- `application/`: Use cases
+- `ports/`: Interfaces (ClassifierPort, LLMPort, StoragePort, StudyRepositoryPort)
+- `adapters/inbound/http/`: FastAPI routers and Pydantic schemas
+- `adapters/outbound/`: Concrete implementations (ml, llm, storage, persistence)
 
 **Standards**:
 - Type hints mandatory
 - Docstrings for public functions
 - Pytest for tests
 - PEP 8 + Black
+- Swagger/OpenAPI documentation is mandatory for every endpoint: `tags`, `summary`, `description` and `response_model` (plus `responses` for error codes). Enforced by `tests/test_api_documentation.py`; docs served at `/docs`
 
 ### ML Engine
 
