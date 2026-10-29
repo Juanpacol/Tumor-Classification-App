@@ -26,7 +26,9 @@ class Decision:
     keeper: int | None = None
 
 
-def _majority_label(fingerprints: Sequence[ImageFingerprint], indices: list[int]) -> str | None:
+def _majority_label(
+    fingerprints: Sequence[ImageFingerprint], indices: list[int]
+) -> str | None:
     counts = Counter(fingerprints[i].label for i in indices).most_common(2)
     if len(counts) > 1 and counts[0][1] == counts[1][1]:
         return None
@@ -56,7 +58,10 @@ def select_representatives(
             if fingerprints[i].label == majority and not fingerprints[i].is_augmented
         ]
         keeper = (
-            min(originals, key=lambda i: (-fingerprints[i].area, fingerprints[i].path.as_posix()))
+            min(
+                originals,
+                key=lambda i: (-fingerprints[i].area, fingerprints[i].path.as_posix()),
+            )
             if originals
             else None
         )
@@ -70,8 +75,12 @@ def select_representatives(
             else:
                 outcomes[i] = (False, "duplicate", keeper)
 
-    kept_per_group = Counter(grouping.group_ids[i] for i, outcome in outcomes.items() if outcome[0])
+    kept_per_group = Counter(
+        grouping.group_ids[i] for i, outcome in outcomes.items() if outcome[0]
+    )
     return [
-        Decision(grouping.group_ids[i], kept_per_group[grouping.group_ids[i]], *outcomes[i])
+        Decision(
+            grouping.group_ids[i], kept_per_group[grouping.group_ids[i]], *outcomes[i]
+        )
         for i in range(len(fingerprints))
     ]

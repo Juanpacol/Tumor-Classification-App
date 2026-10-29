@@ -11,7 +11,9 @@ from src.preprocessing.deduplication.pipeline import run
 
 def main() -> None:
     """Parse arguments, run the cleaning and print the summary."""
-    parser = argparse.ArgumentParser(description="Detect and remove duplicate MRI slices.")
+    parser = argparse.ArgumentParser(
+        description="Detect and remove duplicate MRI slices."
+    )
     parser.add_argument("--data-dir", type=Path, default=Path("src/data"))
     parser.add_argument("--max-distance", type=int, default=6)
     parser.add_argument("--duplicate-correlation", type=float, default=0.98)
@@ -19,7 +21,10 @@ def main() -> None:
     args = parser.parse_args()
 
     output_dir = run(
-        args.data_dir, args.max_distance, args.duplicate_correlation, args.related_correlation
+        args.data_dir,
+        args.max_distance,
+        args.duplicate_correlation,
+        args.related_correlation,
     )
     summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
     print(f"Output: {output_dir}")

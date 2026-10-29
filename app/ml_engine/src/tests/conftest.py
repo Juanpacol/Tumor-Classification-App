@@ -4,7 +4,10 @@ import pytest
 from PIL import Image
 
 from src.preprocessing.deduplication.discovery import discover_images
-from src.preprocessing.deduplication.fingerprint import ImageFingerprint, compute_fingerprint
+from src.preprocessing.deduplication.fingerprint import (
+    ImageFingerprint,
+    compute_fingerprint,
+)
 from src.tests.synthetic import save, synthetic_slice
 
 
@@ -32,9 +35,15 @@ def dataset(tmp_path: Path) -> Path:
         quality=80,
     )
     save(c, data_dir / "Train/glioma/c.png")
-    save(c.transpose(Image.Transpose.FLIP_LEFT_RIGHT), data_dir / "Train/glioma/c_flip.png")
+    save(
+        c.transpose(Image.Transpose.FLIP_LEFT_RIGHT),
+        data_dir / "Train/glioma/c_flip.png",
+    )
     save(d, data_dir / "Train/meningioma/d.png")
-    save(d.point(lambda v: min(255, int(v * 1.05))), data_dir / "Train/meningioma/Tr-aug-me_1.png")
+    save(
+        d.point(lambda v: min(255, int(v * 1.05))),
+        data_dir / "Train/meningioma/Tr-aug-me_1.png",
+    )
     save(e, data_dir / "Train/meningioma/e.png")
     save(e, data_dir / "Test/pituitary/e_other.png")
     save(f, data_dir / "Test/meningioma/f.png")

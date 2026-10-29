@@ -10,7 +10,9 @@ from src.tests.conftest import index_of
 
 
 def test_duplicates_are_clustered(fingerprints: list[ImageFingerprint]) -> None:
-    grouping = group_duplicates(fingerprints, find_similar_pairs(fingerprints, 6), 0.98, 0.95)
+    grouping = group_duplicates(
+        fingerprints, find_similar_pairs(fingerprints, 6), 0.98, 0.95
+    )
 
     def same(x: str, y: str) -> bool:
         ids = grouping.duplicate_ids
@@ -23,7 +25,9 @@ def test_duplicates_are_clustered(fingerprints: list[ImageFingerprint]) -> None:
     assert not same("a.png", "b.png")
 
 
-def test_candidate_without_correlation_is_not_merged(fingerprints: list[ImageFingerprint]) -> None:
+def test_candidate_without_correlation_is_not_merged(
+    fingerprints: list[ImageFingerprint],
+) -> None:
     a, b = index_of(fingerprints, "a.png"), index_of(fingerprints, "b.png")
     pairs = find_similar_pairs(fingerprints, max_distance=64)
 
@@ -33,7 +37,9 @@ def test_candidate_without_correlation_is_not_merged(fingerprints: list[ImageFin
     assert grouping.group_ids[a] != grouping.group_ids[b]
 
 
-def test_related_pairs_share_group_only_within_label(fingerprints: list[ImageFingerprint]) -> None:
+def test_related_pairs_share_group_only_within_label(
+    fingerprints: list[ImageFingerprint],
+) -> None:
     b, c, f = (index_of(fingerprints, n) for n in ("b.png", "c.png", "f.png"))
     pairs = [SimilarPair(b, c, 0.96), SimilarPair(b, f, 0.97)]
 
@@ -44,8 +50,12 @@ def test_related_pairs_share_group_only_within_label(fingerprints: list[ImageFin
     assert grouping.group_ids[b] != grouping.group_ids[f]
 
 
-def test_augmented_images_do_not_bridge_groups(fingerprints: list[ImageFingerprint]) -> None:
-    aug, d, e = (index_of(fingerprints, n) for n in ("Tr-aug-me_1.png", "d.png", "e.png"))
+def test_augmented_images_do_not_bridge_groups(
+    fingerprints: list[ImageFingerprint],
+) -> None:
+    aug, d, e = (
+        index_of(fingerprints, n) for n in ("Tr-aug-me_1.png", "d.png", "e.png")
+    )
     pairs = [SimilarPair(aug, d, 0.96), SimilarPair(aug, e, 0.96)]
 
     grouping = group_duplicates(fingerprints, pairs, 0.98, 0.95)
@@ -53,6 +63,8 @@ def test_augmented_images_do_not_bridge_groups(fingerprints: list[ImageFingerpri
     assert grouping.group_ids[d] != grouping.group_ids[e]
 
 
-def test_rejects_related_above_duplicate_threshold(fingerprints: list[ImageFingerprint]) -> None:
+def test_rejects_related_above_duplicate_threshold(
+    fingerprints: list[ImageFingerprint],
+) -> None:
     with pytest.raises(ValueError):
         group_duplicates(fingerprints, [], 0.95, 0.99)
