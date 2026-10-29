@@ -15,7 +15,8 @@ Status: **Verified** (checked against source, docs or a run), **Assumption** (ou
 
 - **Decision:** keep `from src...` imports for now.
 - **Known problem:** setuptools treats `src/` as a src-layout, so `pip install -e` exposes `preprocessing`, `pipelines`, ... as top-level packages, not `src.*`. `from src.pipelines import ...` only works when run from `app/ml_engine`, which is how CI runs it. Status: **Verified** (stale `top_level.txt` and `.pth` in the old venv, setuptools discovery docs).
-- **Revisit:** rename to a real package (`ml_engine`) before the backend installs it as a dependency (#117, #120).
+- **Resolved for installs (AB-159, 2026-10-29):** `[tool.setuptools.packages.find]` with `include = ["src*"]`, `exclude = ["src.tests*"]` and `namespaces = false` makes `import src.pipelines` work from any directory after an editable and after a regular install, without packaging the tests or the dataset. The `ml-validation` job now checks both from outside `app/ml_engine`. Status: **Verified** locally with `uv`, the CI check uses `pip`.
+- **Still open:** the top-level name `src` is generic and could clash with another project's `src` in the same environment. Rename to a real package (`ml_engine`) if that happens.
 
 ## D3. Dependencies: ranges in `pyproject.toml`, exact pins in `requirements.lock` (AB-107)
 
