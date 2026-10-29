@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -45,3 +46,51 @@ def textured_slice(seed: int, sigma: float, size: int = 128) -> Image.Image:
     yy, xx = np.mgrid[:size, :size]
     head = ((yy - size / 2) ** 2 + (xx - size / 2) ** 2) < (size * 0.4) ** 2
     return Image.fromarray(np.where(head, 40 + texture * 215, 0).astype(np.uint8))
+
+
+TEXTURE_SIGMAS = {"glioma": 3.0, "meningioma": 6.0, "notumor": 12.0, "pituitary": 24.0}
+
+
+def write_labeled_dataset(root: Path, per_class: int) -> tuple[Path, Path]:
+    """Four texture classes in Train/ and Test/ folders plus the cleaning ``manifest.csv``."""
+    data_dir = root / "data"
+    rows = []
+    group = 0
+    for split in ("Train", "Test"):
+        for label, sigma in TEXTURE_SIGMAS.items():
+            for index in range(per_class):
+                relative = f"{split}/{label}/{index}.png"
+                save(textured_slice(group, sigma), data_dir / relative)
+                rows.append([relative, split, label, group, 1, 1, "kept"])
+                group += 1
+    manifest = root / "manifest.csv"
+    with manifest.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            ["path", "split", "label", "group_id", "group_size", "keep", "reason"]
+        )
+        writer.writerows(rows)
+    return data_dir, manifest
+
+
+def separable_features(
+    n_per_class: int = 30,
+    seed: int = 0,
+    n_radiomic: int = 45,
+    n_cnn: int = 20,
+    informative: tuple[str, ...] = ("radiomic", "cnn"),
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Feature matrix, labels and groups for four classes that are separable only in the
+    ``informative`` blocks; the other block is pure noise. Groups pair near-duplicates.
+    """
+    rng = np.random.default_rng(seed)
+    labels = np.array(list(TEXTURE_SIGMAS))[np.repeat(np.arange(4), n_per_class)]
+    blocks = []
+    for name, width in (("radiomic", n_radiomic), ("cnn", n_cnn)):
+        noise = rng.normal(size=(len(labels), width))
+        if name in informative:
+            centers = rng.normal(scale=3.0, size=(4, width))
+            noise += centers[np.repeat(np.arange(4), n_per_class)]
+        blocks.append(noise)
+    groups = np.arange(len(labels)) // 2
+    return np.hstack(blocks), labels, groups
