@@ -27,13 +27,21 @@ jobs:
 
       - name: Verify ML Pipeline imports
         run: |
-          cd app/ml_engine
+          # Run from outside app/ml_engine so the installed package is what gets imported
+          cd "$RUNNER_TEMP"
           echo "Verifying ML pipeline imports..."
           python -c "from src.pipelines import InferencePipeline; print('✓ InferencePipeline loaded')"
           python -c "from src.preprocessing.loading import load_mri_image; print('✓ MRI loader loaded')"
           python -c "from src.preprocessing.prepare import prepare_image; print('✓ Preprocessing loaded')"
           python -c "from src.classical.extractor import extract_radiomics; print('✓ Radiomic extractor loaded')"
           python -c "from src.deep_learning.extractor import DeepFeatureExtractor; print('✓ Deep feature extractor loaded')"
+
+      - name: Verify a regular (non-editable) install
+        run: |
+          pip install --no-deps --target "$RUNNER_TEMP/regular" ./app/ml_engine
+          cd "$RUNNER_TEMP"
+          PYTHONPATH="$RUNNER_TEMP/regular" python -c "from src.pipelines import BundleInferencePipeline; print('✓ regular install imports')"
+          if PYTHONPATH="$RUNNER_TEMP/regular" python -c "import src.tests" 2>/dev/null; then echo "tests were packaged"; exit 1; fi
 
       - name: Test reproducibility (random seeds)
         run: |
