@@ -38,7 +38,7 @@
 
 ## 7. Integration check
 
-- [ ] 7.1 Run the full backend suite with `DATABASE_URL` pointing to docker-compose Postgres and confirm coverage stays at or above the CI gate (80%); verify the GitHub Actions `tests.yml` backend job passes on the branch
+- [x] 7.1 Run the full backend suite with `DATABASE_URL` pointing to docker-compose Postgres and confirm coverage stays at or above the CI gate (80%); verify the GitHub Actions `tests.yml` backend job passes on the branch
 
 ## Workflow follow-up
 
