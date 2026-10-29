@@ -53,6 +53,17 @@ Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK
 - **Not adopted:** the operator DAG, the executor and container packaging (MAP). They are more than this project needs. MONAI Deploy also requires Holoscan and CUDA 12.
 - **Not verified:** the MAP manifest format (not read) and the MONAI Bundle specification itself (only seen through this SDK's loader).
 
+## D7. Quality gate, skull stripping and model inputs (AB-109)
+
+`src/preprocessing/{quality,skull_stripping,prepare,calibrate}.py`.
+
+- **Quality gate is always on.** `prepare_image` measures SNR and Shannon entropy on the original image (before any stripping, so stripping cannot hide a bad scan) and raises `QualityCheckError` with the measured values below the thresholds.
+- **SNR definition (ours):** mean intensity above the Otsu threshold divided by a wavelet noise estimate (`skimage.restoration.estimate_sigma`). It needs no noise-only background, which cropped MRI slices do not have. A flat image returns 0. Status: **Assumption**, not compared against other SNR estimators.
+- **Entropy:** Shannon entropy in bits of a 256-bin histogram of the [0, 1] image.
+- **Skull stripping is off by default.** Otsu threshold, opening, erosion to cut the scalp links, largest component, dilation and hole filling, CPU only. If the mask covers under 15% or over 95% of the image, or the image is flat, the input is returned unchanged and `skull_stripped=false`. It never raises. Off by default because our literature review rates the evidence as weak and contradictory (`docs/research/preprocessing-2d-mri-cnn-ml.md`, 3/10) and recommends treating it as an ablation variable. Status: **Verified** that the review says so. The algorithm has only been tested on a synthetic phantom.
+- **Model inputs:** `radiomics_image` is (H, W) float32 in [0, 1]. `cnn_input` is a NumPy (3, S, S) float32 array, resized (S = 224 by default) and normalized with ImageNet mean and std. Both are configurable in `PreprocessingConfig`, because the real backbone is chosen in AB-111. Status: **Assumption**. Convert with `torch.from_numpy` in the consumer, so preprocessing does not depend on PyTorch.
+- **Thresholds are provisional.** `min_snr = 4.0` and `min_entropy = 2.0` are our guesses (uniform noise measures about 2.6 SNR, and a synthetic slice far above). They have **not** been calibrated on the training set because the Kaggle dataset is not available in the repo. Wrong values can reject good images or let bad ones through. Status: **Open**.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
@@ -72,6 +83,12 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 
 ## Open verifications
 
+- [ ] **Calibrate the quality thresholds (D7).** Needs the dataset in `app/ml_engine/src/data` (`Train/` and `Test/`). Run from `app/ml_engine`:
+  ```bash
+  python -m src.preprocessing.calibrate --data-dir src/data
+  ```
+  It prints the 1st percentile of SNR and entropy, so at least 99% of the training images pass. Put the result in `QualityThresholds` and record the numbers and the date here.
+- [ ] **Skull stripping on real images.** Run it on real slices and look at the masks before any ablation. Only the synthetic phantom is tested so far.
 - [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
   ```bash
   python -c "
