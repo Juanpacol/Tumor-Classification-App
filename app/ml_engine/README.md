@@ -57,4 +57,19 @@ The `weights/` folder is ignored by git. Details are in `docs/ml-engine/decision
 
 ## Training data and model selection
 
-The cleaned dataset is described by the `manifest.csv` that the deduplication step writes (`python -m src.preprocessing.deduplication --data-dir src/data`). `load_samples` reads the kept images from it, `FeatureCache` computes radiomic and CNN features once per image and `compare_classifiers` cross-validates logistic regression, an RBF SVM and a random forest with group-aware folds. The training command, calibration, report and artifact bundle come in the next part of AB-112. Decisions are in `docs/ml-engine/decisions.md` (D11).
+The cleaned dataset is described by the `manifest.csv` that the deduplication step writes (`python -m src.preprocessing.deduplication --data-dir src/data`). `load_samples` reads the kept images from it, `FeatureCache` computes radiomic and CNN features once per image and `compare_classifiers` cross-validates logistic regression, an RBF SVM and a random forest with group-aware folds. Decisions are in `docs/ml-engine/decisions.md` (D11, D12).
+
+### Train
+
+With the backbone bundle exported (see *Deep features*) and the cleaning `manifest.csv`:
+
+```bash
+python -m src.training --data-dir src/data --manifest <path>/manifest.csv --version 0.1.0
+```
+
+It selects a classifier by group-aware cross-validation, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
+
+- `model-v<version>/`: `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
+- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics, confusion matrix, selection, ablation, and whether the 0.90 macro-F1 target was met).
+
+The same `--seed` (default 42) reproduces the same metrics. Features are cached under `artifacts/feature-cache`, so a second run skips the extraction. An existing artifact or report is never overwritten.

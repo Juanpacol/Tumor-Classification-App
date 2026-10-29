@@ -122,6 +122,20 @@ Open items:
 - **Feature cache.** One `.npz` per image, keyed by the file sha256 and a fingerprint of the preprocessing config, the radiomics config and the backbone sha256, so a changed config, backbone or image recomputes only what is stale. Images the engine rejects are cached with their reason and reported, never silently dropped. The quality thresholds are still provisional (D7), so the count of rejected images on the real dataset must be read before trusting any metric.
 - **Status:** validated only on synthetic features and on a synthetic image dataset. The classifier selection on them says nothing about the real data.
 
+## D12. Calibration, test evaluation, artifact bundle and training CLI, part 2 (AB-112)
+
+`src/training/{calibration,evaluation,ablation,stats,artifact,report,run,__main__}.py`. One command runs the whole pipeline: `python -m src.training --data-dir src/data --manifest <manifest.csv>`.
+
+- **Order of a run:** features (cached), classifier selection by cross-validation on Train, ablation, calibration, one evaluation on Test, then artifact and report. The Test split is scored once, by the calibrated model, and a test enforces that `evaluate` is called a single time.
+- **Calibration uses the same group-aware folds as the selection** (`CalibratedClassifierCV` with those splits, sigmoid method), so near-duplicate images are never on both sides of a split. The saved classifier is therefore an ensemble with one fitted pipeline per fold, not a single model refitted on all of Train. Sigmoid was chosen because isotonic needs more samples per class, which is an **Assumption**: the 275 'notumor' Train images may or may not be enough, compare both once the real data is available.
+- **The ablation uses cross-validated macro-F1 on Train**, not the Test split, because scoring Test three times would break the rule that Test is used once. The report therefore compares CNN-only, radiomics-only and hybrid on the same footing as the classifier selection.
+- **Artifact:** `classifier.joblib`, the backbone files copied from a verified bundle (D9), `feature_stats.json` (mean and population std of every radiomic feature, for the z-scores of `top_features`) and `manifest.json`. The manifest records version, date, seed, class names, selected classifier, calibration, the full preprocessing and radiomics configs, the quality thresholds, the feature names, library versions, the cross-validated and test metrics, the dataset counts and the sha256 of every file. The configs are stored so that serving (AB-113) can refuse to run with parameters different from the ones used to train, as D9 does for the backbone.
+- **A `.joblib` file is a pickle.** Loading an untrusted one can run code. The manifest has its sha256, so serving must verify it before loading. This only helps if the manifest itself is trusted, which the checksum of the published archive (AB-114) has to guarantee. Status: **Verified** that the hash is written, the check on load is AB-113.
+- **Target:** the report states whether the test macro-F1 reaches 0.90 and the CLI prints a warning when it does not, to present the results to the team before continuing, as the story asks.
+- **Reproducibility:** the same seed gives the same selection, ablation and test metrics (a test runs the pipeline twice). `joblib` is now a direct dependency because the artifact imports it.
+- **Status:** the CLI was run end to end only on a synthetic dataset of four texture classes (160 images, about 19 s, real ImageNet weights, test macro-F1 0.987). That number says nothing about the real data, because those classes are trivially separable.
+- **Still needed for AB-112:** a run on the real dataset and its report. The story stays open until then.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
