@@ -1,6 +1,6 @@
 # ML Engine status
 
-Last updated 2026-10-29. Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
+Last updated 2026-10-29 (AB-113 in review). Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
 
 ## Data flow
 
@@ -22,7 +22,7 @@ load_mri_image -> prepare_image -> extract_radiomics (45) ----+
 | Radiomic and CNN features | AB-110, AB-111 | Merged. Verified with real ImageNet weights on CPU (D9) |
 | Dataset cleaning | AB-150 | Merged. 3,434 images kept (`DATASET_CLEANING_REPORT.md`) |
 | Training, selection, calibration, artifact, report, CLI | AB-112 | Code done (part 1 merged, part 2 in review). **Needs a run on the real dataset** |
-| End-to-end `InferencePipeline.from_bundle` | AB-113 | Not started. Needs a trained bundle |
+| Serving pipeline (`BundleInferencePipeline.from_bundle`, `predict(bytes)`) | AB-113 | Code done, in review. Tested on a synthetic artifact (D13) |
 | Publish artifacts as a GitHub Release | AB-114 | Not started |
 | CI, lock, branching | AB-151 to AB-154 | Merged. Lock is universal with CPU-only PyTorch (D10) |
 
