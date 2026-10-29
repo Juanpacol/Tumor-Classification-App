@@ -42,6 +42,34 @@ Status: **Verified** (checked against source, docs or a run), **Assumption** (ou
 | EXIF orientation | `ImageOps.exif_transpose` applied | Assumption (blog-level sources). Same function runs for training and inference. |
 | Gray conversion | reuses `to_gray_uint8` (16-bit is rescaled, not clipped) | Verified: MONAI's `PILReader` does no grayscale conversion itself, it leaves that to a user `converter`. |
 
+## D6. Model bundle loading and pipeline structure (for AB-113, AB-114, AB-117)
+
+Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK (commit `3aee3da`, read only, nothing executed).
+
+- **Three internal stages.** `InferenceOperator` splits inference into `pre_process`, `predict` and `post_process`, each raising `NotImplementedError` until overridden. The real pipeline (#113) should keep the same stages internally while the public protocol stays a single `predict`. Status: **Verified** (source).
+- **Unavailable model is a normal state.** MONAI's `Model("")` is a "null model" that evaluates false. #117 needs the same behavior: a missing or invalid bundle must not stop the app, `/health` reports it and uploads return 503. Status: **Verified** (source), the mapping to #117 is our **Assumption**.
+- **Bundle layout is validated file by file.** MONAI expects `configs/metadata.json` and `models/model.pt` or `model.ts`, and raises an error naming the exact missing path. Our bundle loader (#114) should do the same, with a manifest next to the weights (model version, classes, expected input, training data hash, metrics) so the backend can check compatibility before loading. Status: **Verified** that MONAI validates this way, the manifest fields are our **Assumption**.
+- **Path safety.** MONAI rejects config names containing `..`, `/` or `\` before reading them. Never build file paths from names that come from a manifest or from users without the same check. Status: **Verified** (source).
+- **Not adopted:** the operator DAG, the executor and container packaging (MAP). They are more than this project needs. MONAI Deploy also requires Holoscan and CUDA 12.
+- **Not verified:** the MAP manifest format (not read) and the MONAI Bundle specification itself (only seen through this SDK's loader).
+
+## GMLP principles checklist
+
+The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
+
+| # | Principle | Status |
+|---|---|---|
+| 1 | Multidisciplinary expertise across the product life cycle | Not covered, no clinical review so far |
+| 2 | Good software engineering and security practices | Partial: typed contract, input limits in the loader, lock file, `pip-audit` run |
+| 3 | Data and study participants represent the intended population | **Limitation:** the Kaggle dataset has no demographic information |
+| 4 | Training data independent of test data | Covered by deduplication and leak removal (AB-150, see `DATASET_CLEANING_REPORT.md`) |
+| 5 | Reference datasets built with best available methods | Open: labels come from a public dataset, their provenance is not audited |
+| 6 | Model design fits the data and the intended use | In progress (hybrid radiomics and CNN) |
+| 7 | Performance of the human-AI team | By design: `needs_expert_triage`, uncertainty alert (AB-127), Grad-CAM |
+| 8 | Testing under clinically relevant conditions, including subgroups | **Limitation:** no subgroup metadata, so no subgroup evaluation |
+| 9 | Users get clear, essential information | Partial: landing safety rubric exists, a model card is missing |
+| 10 | Deployed models are monitored | Out of scope for the hackathon |
+
 ## Open verifications
 
 - [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
@@ -61,6 +89,8 @@ Status: **Verified** (checked against source, docs or a run), **Assumption** (ou
 
 ## Sources
 
+- GMLP guiding principles (UK government copy): https://www.gov.uk/government/publications/good-machine-learning-practice-for-medical-device-development-guiding-principles/good-machine-learning-practice-for-medical-device-development-guiding-principles
+- MONAI Deploy App SDK: https://github.com/Project-MONAI/monai-deploy-app-sdk
 - Pillow security handbook: https://pillow.readthedocs.io/en/latest/handbook/security.html
 - Pydantic dataclasses: https://docs.pydantic.dev/2.5/concepts/dataclasses
 - setuptools package discovery: https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
