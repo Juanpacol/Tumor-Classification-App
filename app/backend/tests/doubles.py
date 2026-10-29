@@ -1,5 +1,10 @@
+import threading
+import time
 from collections.abc import AsyncIterator
 from typing import Any
+
+from src.contracts import PredictionResult
+from src.pipelines import FakeInferencePipeline
 
 
 class ScriptedLLM:
@@ -37,3 +42,25 @@ class ScriptedLLM:
 
     async def aclose(self) -> None:
         return None
+
+
+class RecordingPipeline:
+    """Fake pipeline that sleeps, records its thread and how many calls overlap."""
+
+    def __init__(self, delay: float = 0.0) -> None:
+        self._fake = FakeInferencePipeline()
+        self._delay = delay
+        self._lock = threading.Lock()
+        self.active = 0
+        self.max_active = 0
+        self.threads: list[int] = []
+
+    def predict(self, file_bytes: bytes) -> PredictionResult:
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            self.threads.append(threading.get_ident())
+        time.sleep(self._delay)
+        with self._lock:
+            self.active -= 1
+        return self._fake.predict(file_bytes)
