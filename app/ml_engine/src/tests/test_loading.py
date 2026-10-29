@@ -5,7 +5,8 @@ import pytest
 from PIL import Image
 
 from src.errors import UnsupportedImageError
-from src.preprocessing.loading import MIN_SIDE, load_mri_image
+from src.preprocessing import loading
+from src.preprocessing.loading import MAX_PIXELS, MIN_SIDE, load_mri_image
 from src.tests.synthetic import save, synthetic_slice
 
 
@@ -119,3 +120,30 @@ def test_minimum_size_is_accepted(tmp_path: Path) -> None:
     path = save(Image.fromarray(pixels), tmp_path / "edge.png")
 
     assert_valid(load_mri_image(path), (MIN_SIDE, MIN_SIDE))
+
+
+def test_exif_orientation_is_applied(tmp_path: Path) -> None:
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    pixels = np.full((96, 128), 128, dtype=np.uint8)
+    path = save(Image.fromarray(pixels), tmp_path / "rotated.jpg", exif=exif)
+
+    assert_valid(load_mri_image(path), (128, 96))
+
+
+def test_image_over_pixel_limit_is_rejected_before_decoding(tmp_path: Path) -> None:
+    side = int(MAX_PIXELS**0.5) + 1
+    path = save(Image.new("L", (side, side)), tmp_path / "huge.png")
+
+    with pytest.raises(UnsupportedImageError, match="maximum"):
+        load_mri_image(path)
+
+
+def test_file_over_byte_limit_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = save(synthetic_slice(6, size=128), tmp_path / "a.png")
+    monkeypatch.setattr(loading, "MAX_FILE_BYTES", path.stat().st_size - 1)
+
+    with pytest.raises(UnsupportedImageError, match="exceeds"):
+        load_mri_image(path)
