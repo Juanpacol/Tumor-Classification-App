@@ -15,7 +15,10 @@ def test_study_round_trip():
 def test_prediction_round_trip_keeps_nested_json():
     prediction = make_prediction(make_study().id)
 
-    assert mappers.prediction_to_domain(mappers.prediction_to_row(prediction)) == prediction
+    assert (
+        mappers.prediction_to_domain(mappers.prediction_to_row(prediction))
+        == prediction
+    )
 
 
 def test_completed_report_content_serialized_as_json_object():
@@ -24,7 +27,10 @@ def test_completed_report_content_serialized_as_json_object():
     row = mappers.report_to_row(report)
 
     assert isinstance(row.content, dict)
-    assert row.content["suggested_next_steps"] == ["Contrast MRI", "Neurosurgery consult"]
+    assert row.content["suggested_next_steps"] == [
+        "Contrast MRI",
+        "Neurosurgery consult",
+    ]
     assert mappers.report_to_domain(row) == report
 
 

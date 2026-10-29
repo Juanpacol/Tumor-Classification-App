@@ -49,7 +49,9 @@ async def test_report_progresses_from_pending_to_completed():
     study = make_study()
     await repo.save(study)
 
-    await repo.save_report(make_report(study.id, status=ReportStatus.PENDING, content=None))
+    await repo.save_report(
+        make_report(study.id, status=ReportStatus.PENDING, content=None)
+    )
     completed = make_report(study.id)
     await repo.save_report(completed)
 

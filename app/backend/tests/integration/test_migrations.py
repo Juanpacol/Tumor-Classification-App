@@ -13,11 +13,15 @@ AGGREGATE_TABLES = {"studies", "predictions", "reports", "chat_messages"}
 PHI_MARKERS = ("patient", "birth", "dob", "filename", "file_name")
 
 
-async def test_database_is_migrated_to_head(engine: AsyncEngine, alembic_config: Config):
+async def test_database_is_migrated_to_head(
+    engine: AsyncEngine, alembic_config: Config
+):
     head = ScriptDirectory.from_config(alembic_config).get_current_head()
 
     async with engine.connect() as connection:
-        current = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+        current = await connection.scalar(
+            text("SELECT version_num FROM alembic_version")
+        )
 
     assert current == head
 

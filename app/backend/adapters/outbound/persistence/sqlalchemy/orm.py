@@ -39,7 +39,9 @@ class Base(DeclarativeBase):
 
 class StudyRow(Base):
     __tablename__ = "studies"
-    __table_args__ = (CheckConstraint(_in_values("status", StudyStatus), name="status"),)
+    __table_args__ = (
+        CheckConstraint(_in_values("status", StudyStatus), name="status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -67,7 +69,9 @@ class PredictionRow(Base):
 
 class ReportRow(Base):
     __tablename__ = "reports"
-    __table_args__ = (CheckConstraint(_in_values("status", ReportStatus), name="status"),)
+    __table_args__ = (
+        CheckConstraint(_in_values("status", ReportStatus), name="status"),
+    )
 
     study_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("studies.id", ondelete="CASCADE"), primary_key=True
@@ -81,10 +85,14 @@ class ReportRow(Base):
 
 class ChatMessageRow(Base):
     __tablename__ = "chat_messages"
-    __table_args__ = (Index("ix_chat_messages_study_id_created_at", "study_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_chat_messages_study_id_created_at", "study_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    study_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("studies.id", ondelete="CASCADE"))
+    study_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="CASCADE")
+    )
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

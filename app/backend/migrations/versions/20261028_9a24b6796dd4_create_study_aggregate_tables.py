@@ -58,11 +58,15 @@ def upgrade() -> None:
         "predictions",
         sa.Column("study_id", sa.Uuid(), nullable=False),
         sa.Column("label", sa.String(length=64), nullable=False),
-        sa.Column("probabilities", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "probabilities", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column("confidence", sa.Float(), nullable=False),
         sa.Column("needs_expert_triage", sa.Boolean(), nullable=False),
         sa.Column("quality", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("top_features", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "top_features", postgresql.JSONB(astext_type=sa.Text()), nullable=False
+        ),
         sa.Column("model_version", sa.String(length=64), nullable=False),
         sa.ForeignKeyConstraint(
             ["study_id"],
@@ -81,7 +85,8 @@ def upgrade() -> None:
         sa.Column("error", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
-            "status IN ('pending', 'completed', 'failed')", name=op.f("ck_reports_status")
+            "status IN ('pending', 'completed', 'failed')",
+            name=op.f("ck_reports_status"),
         ),
         sa.ForeignKeyConstraint(
             ["study_id"],

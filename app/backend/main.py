@@ -11,7 +11,9 @@ from adapters.outbound.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
-from adapters.outbound.persistence.sqlalchemy.repository import SqlAlchemyStudyRepository
+from adapters.outbound.persistence.sqlalchemy.repository import (
+    SqlAlchemyStudyRepository,
+)
 from ports.study_repository_port import StudyRepositoryPort
 from settings import get_settings
 
@@ -33,7 +35,9 @@ def create_app(repository: StudyRepositoryPort | None = None) -> FastAPI:
     app = FastAPI(
         title="Ether API",
         version="0.1.0",
-        description=("Clinical decision support API for brain tumor detection on MRI scans."),
+        description=(
+            "Clinical decision support API for brain tumor detection on MRI scans."
+        ),
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
