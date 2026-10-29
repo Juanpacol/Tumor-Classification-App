@@ -14,7 +14,9 @@ from src.preprocessing.deduplication.selection import Decision
 
 
 def _groups_spanning_splits(
-    fingerprints: Sequence[ImageFingerprint], decisions: Sequence[Decision], kept_only: bool
+    fingerprints: Sequence[ImageFingerprint],
+    decisions: Sequence[Decision],
+    kept_only: bool,
 ) -> int:
     splits: dict[int, set[str]] = defaultdict(set)
     for fingerprint, decision in zip(fingerprints, decisions, strict=True):
@@ -36,12 +38,18 @@ def summarize(
         "kept_images": len(kept),
         "removed_by_reason": dict(Counter(d.reason for d in decisions if not d.keep)),
         "largest_group_size_kept": max((d.group_size for d in decisions), default=0),
-        "groups_spanning_splits_before": _groups_spanning_splits(fingerprints, decisions, False),
-        "groups_spanning_splits_after": _groups_spanning_splits(fingerprints, decisions, True),
+        "groups_spanning_splits_before": _groups_spanning_splits(
+            fingerprints, decisions, False
+        ),
+        "groups_spanning_splits_after": _groups_spanning_splits(
+            fingerprints, decisions, True
+        ),
         "counts_before": dict(
             sorted(Counter(f"{fp.split}/{fp.label}" for fp in fingerprints).items())
         ),
-        "counts_after": dict(sorted(Counter(f"{fp.split}/{fp.label}" for fp in kept).items())),
+        "counts_after": dict(
+            sorted(Counter(f"{fp.split}/{fp.label}" for fp in kept).items())
+        ),
     }
 
 
@@ -63,10 +71,16 @@ def write_outputs(
     def relative(index: int) -> str:
         return fingerprints[index].path.relative_to(data_dir).as_posix()
 
-    with (output_dir / "manifest.csv").open("w", newline="", encoding="utf-8") as handle:
+    with (output_dir / "manifest.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as handle:
         writer = csv.writer(handle)
-        writer.writerow(["path", "split", "label", "group_id", "group_size", "keep", "reason"])
-        for index, (fp, decision) in enumerate(zip(fingerprints, decisions, strict=True)):
+        writer.writerow(
+            ["path", "split", "label", "group_id", "group_size", "keep", "reason"]
+        )
+        for index, (fp, decision) in enumerate(
+            zip(fingerprints, decisions, strict=True)
+        ):
             reason = decision.reason
             if decision.keeper is not None:
                 reason = f"duplicate_of:{relative(decision.keeper)}"
@@ -82,7 +96,9 @@ def write_outputs(
                 ]
             )
 
-    with (output_dir / "review_pairs.csv").open("w", newline="", encoding="utf-8") as handle:
+    with (output_dir / "review_pairs.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as handle:
         writer = csv.writer(handle)
         writer.writerow(["path_a", "label_a", "path_b", "label_b", "correlation"])
         for pair in sorted(review_pairs, key=lambda p: -p.correlation):
@@ -96,4 +112,6 @@ def write_outputs(
                 ]
             )
 
-    (output_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (output_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2), encoding="utf-8"
+    )

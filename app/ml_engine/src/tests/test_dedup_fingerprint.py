@@ -41,7 +41,10 @@ def test_discover_images_reads_split_and_label(dataset: Path) -> None:
     entries = discover_images(dataset)
 
     assert len(entries) == 11
-    assert {(s, label) for _, s, label in entries} >= {("Train", "glioma"), ("Test", "pituitary")}
+    assert {(s, label) for _, s, label in entries} >= {
+        ("Train", "glioma"),
+        ("Test", "pituitary"),
+    }
 
 
 def test_discover_images_fails_on_missing_split(tmp_path: Path) -> None:

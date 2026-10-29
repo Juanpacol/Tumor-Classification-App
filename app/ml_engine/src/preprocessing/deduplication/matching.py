@@ -7,7 +7,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from src.preprocessing.deduplication.fingerprint import ImageFingerprint, thumbnail_correlation
+from src.preprocessing.deduplication.fingerprint import (
+    ImageFingerprint,
+    thumbnail_correlation,
+)
 from src.preprocessing.deduplication.hashing import hamming_distances
 
 

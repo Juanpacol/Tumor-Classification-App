@@ -8,7 +8,10 @@ from pathlib import Path
 
 from src.preprocessing.deduplication.discovery import discover_images
 from src.preprocessing.deduplication.fingerprint import compute_fingerprint
-from src.preprocessing.deduplication.matching import find_similar_pairs, group_duplicates
+from src.preprocessing.deduplication.matching import (
+    find_similar_pairs,
+    group_duplicates,
+)
 from src.preprocessing.deduplication.report import summarize, write_outputs
 from src.preprocessing.deduplication.selection import select_representatives
 
@@ -36,10 +39,14 @@ def run(
     """
     paths, splits, labels = zip(*discover_images(data_dir))
     with ProcessPoolExecutor() as executor:
-        fingerprints = list(executor.map(compute_fingerprint, paths, splits, labels, chunksize=64))
+        fingerprints = list(
+            executor.map(compute_fingerprint, paths, splits, labels, chunksize=64)
+        )
 
     pairs = find_similar_pairs(fingerprints, max_distance)
-    grouping = group_duplicates(fingerprints, pairs, duplicate_correlation, related_correlation)
+    grouping = group_duplicates(
+        fingerprints, pairs, duplicate_correlation, related_correlation
+    )
     decisions = select_representatives(fingerprints, grouping)
     review_pairs = [
         pair

@@ -16,13 +16,19 @@ def test_run_writes_manifest_and_summary(dataset: Path) -> None:
     assert output_dir.parent == dataset / "processed"
     assert summary["total_images"] == 11
     assert summary["kept_images"] == 5
-    assert summary["removed_by_reason"] == {"duplicate": 3, "augmented": 1, "label_conflict": 2}
+    assert summary["removed_by_reason"] == {
+        "duplicate": 3,
+        "augmented": 1,
+        "label_conflict": 2,
+    }
     assert summary["groups_spanning_splits_before"] == 3
     assert summary["groups_spanning_splits_after"] == 0
     assert len(rows) == 11
     assert all("\\" not in path for path in paths)
     duplicate_targets = [
-        r["reason"].split(":", 1)[1] for r in rows if r["reason"].startswith("duplicate_of:")
+        r["reason"].split(":", 1)[1]
+        for r in rows
+        if r["reason"].startswith("duplicate_of:")
     ]
     assert len(duplicate_targets) == 3 and set(duplicate_targets) <= paths
     assert (output_dir / "review_pairs.csv").exists()

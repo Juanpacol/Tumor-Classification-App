@@ -26,7 +26,8 @@ def perceptual_hash(image: Image.Image) -> int:
     """64-bit DCT pHash: the 8x8 lowest frequencies of a 32x32 downscale, thresholded at the median."""
     side = _HASH_SIDE * 4
     pixels = np.asarray(
-        image.convert("L").resize((side, side), Image.Resampling.LANCZOS), dtype=np.float64
+        image.convert("L").resize((side, side), Image.Resampling.LANCZOS),
+        dtype=np.float64,
     )
     low_frequencies = dct(dct(pixels, axis=0), axis=1)[:_HASH_SIDE, :_HASH_SIDE]
     bits = (low_frequencies > np.median(low_frequencies)).flatten()
