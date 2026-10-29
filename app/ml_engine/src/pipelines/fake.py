@@ -1,5 +1,4 @@
 import hashlib
-from pathlib import Path
 
 import numpy as np
 
@@ -19,18 +18,15 @@ _FEATURE_NAMES = ("glcm_contrast", "lbp_uniformity", "wavelet_energy_lh")
 class FakeInferencePipeline:
     """Deterministic stand-in so consumers can integrate before a model exists.
 
-    The result depends only on the bytes of the image: the same file always
+    The result depends only on the bytes of the image: the same input always
     yields the same prediction.
     """
 
-    def predict(self, image_path: str | Path) -> PredictionResult:
-        path = Path(image_path)
-        try:
-            content = path.read_bytes()
-        except OSError as exc:
-            raise UnsupportedImageError(f"cannot read image: {path}") from exc
+    def predict(self, file_bytes: bytes) -> PredictionResult:
+        if not file_bytes:
+            raise UnsupportedImageError("empty input")
 
-        digest = hashlib.sha256(content).digest()
+        digest = hashlib.sha256(file_bytes).digest()
         rng = np.random.default_rng(int.from_bytes(digest[:8], "big"))
 
         logits = rng.normal(size=len(TumorLabel))

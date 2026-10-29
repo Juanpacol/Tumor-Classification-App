@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 PROBABILITY_TOLERANCE = 1e-6
-TRIAGE_CONFIDENCE_THRESHOLD = 0.7
+TRIAGE_CONFIDENCE_THRESHOLD = 0.75
 
 
 class TumorLabel(str, Enum):
