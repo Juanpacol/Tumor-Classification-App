@@ -24,3 +24,14 @@ def save(image: Image.Image, path: Path, **kwargs: object) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path, **kwargs)
     return path
+
+
+def head_phantom(size: int = 256) -> np.ndarray:
+    """[0, 1] float image of a bright brain inside a dark skull gap and a scalp ring."""
+    yy, xx = np.mgrid[:size, :size]
+    radius = np.hypot(yy - size / 2, xx - size / 2) / size
+    image = np.zeros((size, size), dtype=np.float32)
+    image[radius < 0.45] = 0.5
+    image[radius < 0.36] = 0.05
+    image[radius < 0.32] = 0.7
+    return image
