@@ -35,3 +35,13 @@ def head_phantom(size: int = 256) -> np.ndarray:
     image[radius < 0.36] = 0.05
     image[radius < 0.32] = 0.7
     return image
+
+
+def textured_slice(seed: int, sigma: float, size: int = 128) -> Image.Image:
+    """Like ``synthetic_slice`` but with a chosen texture scale, to build separable classes."""
+    rng = np.random.default_rng(seed)
+    texture = gaussian_filter(rng.random((size, size)), sigma=sigma)
+    texture = (texture - texture.min()) / (texture.max() - texture.min())
+    yy, xx = np.mgrid[:size, :size]
+    head = ((yy - size / 2) ** 2 + (xx - size / 2) ** 2) < (size * 0.4) ** 2
+    return Image.fromarray(np.where(head, 40 + texture * 215, 0).astype(np.uint8))

@@ -49,6 +49,10 @@ class DeepFeatureExtractor:
         return cls(model, manifest)
 
     @property
+    def manifest(self) -> BackboneManifest:
+        return self._manifest
+
+    @property
     def embedding_dim(self) -> int:
         return get_spec(self._manifest.backbone).embedding_dim
 
