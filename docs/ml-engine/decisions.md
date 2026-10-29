@@ -19,7 +19,7 @@ Status: **Verified** (checked against source, docs or a run), **Assumption** (ou
 
 ## D3. Dependencies: ranges in `pyproject.toml`, exact pins in `requirements.lock` (AB-107)
 
-- **Decision:** ranges for the installable package, lock file for reproducible installs. Regenerate with `uv pip compile pyproject.toml --extra dev --python-version 3.11 -o requirements.lock`.
+- **Decision:** ranges for the installable package, lock file for reproducible installs. Regenerate it with the command in `app/ml_engine/README.md` (D10 explains why it is universal and CPU-only).
 - **Why:** `==` pins in a library cause resolver conflicts when the backend installs it. Status: **Assumption** (general packaging practice, the search did not cover it).
 - **Checked:** `pip-audit -r requirements.lock` reported no known vulnerabilities on 2026-10-28. Status: **Verified**. Re-run periodically.
 
@@ -102,7 +102,13 @@ Own implementation on scikit-image, PyWavelets and SciPy, following the conventi
 Open items:
 - [ ] **Terms of use of the ImageNet weights for commercial use.** Not checked. Review before publishing the bundle in AB-114.
 - [ ] **Timing on Cloud Run** (AB-120) and **embedding quality on the real MRI dataset** (AB-112, compare the three backbones).
-- [ ] **Linux packaging.** `requirements.lock` was resolved on macOS only, and PyPI `torch` on Linux pulls CUDA libraries (general knowledge, not verified here). Regenerate the lock for Linux and use the CPU-only PyTorch index in the container image before AB-120.
+
+## D10. Universal, CPU-only lock file (AB-154)
+
+- **Problem:** the first `requirements.lock` was resolved on macOS only (no platform markers). A universal resolve showed that on Linux PyPI `torch` depends on 15 `nvidia-*` packages plus `triton`, which would bloat the container image. Status: **Verified** (resolved with `uv pip compile --universal` on 2026-10-29).
+- **Decision:** one universal lock using the CPU-only PyTorch index with `--index-strategy first-index` and `--emit-index-url`, so the lock carries its own indexes and `pip install -r requirements.lock` needs no extra flags. macOS keeps `torch==2.15.0`, other platforms get `torch==2.15.0+cpu`. The result has no `nvidia-*` or `triton`.
+- **Verified in Linux containers:** `uv pip install --dry-run` of the lock inside `python:3.11-slim` resolves 42 packages with `torch==2.15.0+cpu` and `torchvision==0.29.2+cpu` on both `linux/aarch64` and `linux/amd64`. Only a dry run: the wheels were not downloaded or imported on Linux.
+- **Not changed:** CI still installs with `pip install -e ".[dev]"`, which pulls PyPI `torch`, so the CPU lock does not shorten CI yet. The backend `Dockerfile` does not install `ml_engine` yet (AB-120).
 
 ## GMLP principles checklist
 
