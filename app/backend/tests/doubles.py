@@ -34,3 +34,6 @@ class ScriptedLLM:
     ) -> AsyncIterator[str]:
         for chunk in ():
             yield chunk
+
+    async def aclose(self) -> None:
+        return None
