@@ -40,8 +40,8 @@ jobs:
         run: |
           pip install --no-deps --target "$RUNNER_TEMP/regular" ./app/ml_engine
           cd "$RUNNER_TEMP"
-          PYTHONPATH="$RUNNER_TEMP/regular" python -c "from src.pipelines import BundleInferencePipeline; print('✓ regular install imports')"
-          if PYTHONPATH="$RUNNER_TEMP/regular" python -c "import src.tests" 2>/dev/null; then echo "tests were packaged"; exit 1; fi
+          PYTHONPATH="$RUNNER_TEMP/regular" python -c "import sys, src; assert src.__file__.startswith(sys.argv[1]), src.__file__; from src.pipelines import BundleInferencePipeline; print('✓ regular install imports')" "$RUNNER_TEMP/regular"
+          if [ -d "$RUNNER_TEMP/regular/src/tests" ]; then echo "tests were packaged"; exit 1; fi
 
       - name: Test reproducibility (random seeds)
         run: |
