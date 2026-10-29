@@ -64,6 +64,29 @@ Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK
 - **Model inputs:** `radiomics_image` is (H, W) float32 in [0, 1]. `cnn_input` is a NumPy (3, S, S) float32 array, resized (S = 224 by default) and normalized with ImageNet mean and std. Both are configurable in `PreprocessingConfig`, because the real backbone is chosen in AB-111. Status: **Assumption**. Convert with `torch.from_numpy` in the consumer, so preprocessing does not depend on PyTorch.
 - **Thresholds are provisional.** `min_snr = 4.0` and `min_entropy = 2.0` are our guesses (uniform noise measures about 2.6 SNR, and a synthetic slice far above). They have **not** been calibrated on the training set because the Kaggle dataset is not available in the repo. Wrong values can reject good images or let bad ones through. Status: **Open**.
 
+## D8. Radiomic feature extractors (AB-110)
+
+`src/classical/{config,roi,glcm,lbp,wavelet,intensity,extractor}.py`. The combined vector has 45 features in a fixed order: GLCM 5, LBP 10, wavelet 21, intensity 9. Names come from `feature_names(config)` and do not depend on the input.
+
+Own implementation on scikit-image, PyWavelets and SciPy, following the conventions of PyRadiomics and IBSI where cheap. PyRadiomics itself is not used: its build compiles a C extension with `scikit-build-core` and needs `numpy>=2.0` at build time (read from its `pyproject.toml`). Status: **Verified** for the build requirement, the extra friction in CI and Cloud Run is our **Assumption**.
+
+| Choice | Value | Status |
+|---|---|---|
+| Mask handling in GLCM | ROI quantized to levels 1..N, level 0 (background) dropped from the matrix, so only pairs with both pixels in the mask count | **Verified** equivalent to PyRadiomics, which passes the mask to its C routine and drops gray levels absent from the ROI |
+| GLCM setup | distance 1, symmetric, 4 angles, features computed per angle then averaged, empty angles ignored | **Verified** against PyRadiomics defaults. This is IBSI's 2D:avg aggregation, which the IBSI manual says can differ from merging the matrices |
+| Discretization | 32 fixed bins over the ROI min-max | **Assumption.** PyRadiomics defaults to a fixed bin width of 25, and its FAQ says it differs from IBSI here. We recall IBSI recommending a fixed bin number for arbitrary-unit MRI but did not confirm it |
+| Kurtosis | excess kurtosis (`scipy.stats.kurtosis`) | **Verified** that PyRadiomics returns Pearson kurtosis (+3) while IBSI uses excess |
+| GLCM `energy` | scikit-image definition (square root of the angular second moment) | PyRadiomics joint energy is the sum of squares, so values are not comparable with it |
+| Flat or tiny region | zeros, never NaN or inf; flat is detected by value range because the std of a constant float array is not exactly 0 | Found by a unit test |
+| LBP | uniform patterns, 8 points, radius 1, on the 8-bit image; pixels within `radius` of the bounding-box edge are not counted | Found by a unit test: edge pixels were compared with padding |
+| Wavelet | Haar, level 2, run on the bounding box with the outside filled by the ROI mean, statistics only where the mask (downsampled per sub-band) is inside | **Assumption**, modeled on how PyRadiomics applies filters before measuring inside the ROI |
+| Region of interest | the brain mask when skull stripping was applied, otherwise the foreground (half the Otsu threshold, largest component, holes filled) | **Assumption** |
+
+- **Not validated against IBSI.** Training and inference use the same code, so accuracy does not depend on it. It matters only to compare numbers with the literature.
+- **Settings live in `RadiomicsConfig`** and change the vector length and names. Store them with any model trained on these features (AB-114 manifest).
+- **Speed:** 8 ms median for one 512x512 image with a half-image mask on this machine (10 runs, CPU), under the 1 s requirement. A unit test enforces the bound. Shared CI runners are slower, so the margin matters.
+- **`z_score` of `top_features`** needs training means and stds. That is AB-112.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
