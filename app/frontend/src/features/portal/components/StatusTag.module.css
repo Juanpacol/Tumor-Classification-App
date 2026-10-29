@@ -1,0 +1,18 @@
+.tag {
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.neutral {
+  color: var(--muted);
+}
+
+.attention {
+  color: var(--accent);
+}

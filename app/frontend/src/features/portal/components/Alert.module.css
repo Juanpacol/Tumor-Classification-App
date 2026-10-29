@@ -1,0 +1,22 @@
+.alert {
+  border-radius: 3px;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--muted);
+  background: rgba(20, 18, 16, 0.04);
+}
+
+.warning {
+  border-left-color: var(--accent);
+  background: rgba(138, 44, 34, 0.08);
+}
+
+.title {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+}
+
+.warning .title {
+  color: var(--accent);
+}
