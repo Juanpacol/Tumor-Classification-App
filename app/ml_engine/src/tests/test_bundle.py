@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from src.deep_learning.bundle import (
+    LICENSE_NOT_VERIFIED,
     MANIFEST_FILE,
     WEIGHTS_FILE,
     read_bundle,
@@ -74,3 +75,40 @@ def test_unknown_backbone_in_manifest_is_unavailable(tmp_path: Path) -> None:
 
     with pytest.raises(ModelUnavailableError, match="invalid manifest"):
         read_bundle(tmp_path)
+
+
+def test_provenance_is_recorded_and_read_back(tmp_path: Path) -> None:
+    write_bundle(
+        tmp_path,
+        "efficientnet_b0",
+        tiny_state(),
+        "TEST_V1",
+        source_url="https://example.org/weights.pth",
+        license_note="a note",
+    )
+
+    manifest = read_bundle(tmp_path)[1]
+
+    assert manifest.source_url == "https://example.org/weights.pth"
+    assert manifest.license_note == "a note"
+
+
+def test_provenance_defaults_say_the_terms_are_not_verified(tmp_path: Path) -> None:
+    manifest = write_bundle(tmp_path, "efficientnet_b0", tiny_state(), "TEST_V1")
+
+    assert manifest.source_url == ""
+    assert manifest.license_note == LICENSE_NOT_VERIFIED
+
+
+def test_a_bundle_exported_before_provenance_existed_still_loads(
+    tmp_path: Path,
+) -> None:
+    write_bundle(tmp_path, "efficientnet_b0", tiny_state(), "TEST_V1")
+    raw = json.loads((tmp_path / MANIFEST_FILE).read_text())
+    del raw["source_url"], raw["license_note"]
+    (tmp_path / MANIFEST_FILE).write_text(json.dumps(raw))
+
+    manifest = read_bundle(tmp_path)[1]
+
+    assert manifest.source_url == ""
+    assert manifest.license_note == LICENSE_NOT_VERIFIED

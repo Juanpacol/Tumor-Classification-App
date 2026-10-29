@@ -60,6 +60,11 @@ def write_artifact(
         **manifest_fields,
         "classes": [label.value for label in TumorLabel],
         "backbone": backbone.backbone,
+        "backbone_provenance": {
+            "weights_version": backbone.weights_version,
+            "source_url": backbone.source_url,
+            "license_note": backbone.license_note,
+        },
         "libraries": {
             "python": platform.python_version(),
             **{name: version(name) for name in _LIBRARIES},

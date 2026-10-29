@@ -17,13 +17,18 @@ import torchvision
 from src.deep_learning.backbones import get_spec
 from src.errors import ModelUnavailableError
 
+LICENSE_NOT_VERIFIED = "terms of use not verified"
 WEIGHTS_FILE = "backbone.pt"
 MANIFEST_FILE = "backbone.json"
 
 
 @dataclass(frozen=True)
 class BackboneManifest:
-    """What the weights were exported from and what input they expect."""
+    """What the weights were exported from and what input they expect.
+
+    ``source_url`` and ``license_note`` record the provenance of the weights, and
+    have defaults so that bundles exported before they existed still load.
+    """
 
     backbone: str
     embedding_dim: int
@@ -33,6 +38,8 @@ class BackboneManifest:
     sha256: str
     torchvision_version: str
     weights_version: str
+    source_url: str = ""
+    license_note: str = LICENSE_NOT_VERIFIED
 
 
 def sha256_of(path: Path) -> str:
@@ -51,8 +58,10 @@ def write_bundle(
     input_size: int = 224,
     mean: tuple[float, float, float] = (0.485, 0.456, 0.406),
     std: tuple[float, float, float] = (0.229, 0.224, 0.225),
+    source_url: str = "",
+    license_note: str = LICENSE_NOT_VERIFIED,
 ) -> BackboneManifest:
-    """Save the weights and a manifest with their sha256 into ``directory``."""
+    """Save the weights and a manifest with their sha256 and provenance into ``directory``."""
     directory.mkdir(parents=True, exist_ok=True)
     torch.save(state_dict, directory / WEIGHTS_FILE)
     manifest = BackboneManifest(
@@ -64,6 +73,8 @@ def write_bundle(
         sha256=sha256_of(directory / WEIGHTS_FILE),
         torchvision_version=torchvision.__version__,
         weights_version=weights_version,
+        source_url=source_url,
+        license_note=license_note,
     )
     (directory / MANIFEST_FILE).write_text(json.dumps(asdict(manifest), indent=2))
     return manifest

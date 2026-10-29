@@ -15,6 +15,9 @@ from torchvision import models
 from src.deep_learning.backbones import BACKBONES, DEFAULT_BACKBONE
 from src.deep_learning.bundle import write_bundle
 
+_LICENSE_NOTE = (
+    "ImageNet-1K weights distributed by torchvision; terms of use not verified"
+)
 _IMAGENET_WEIGHTS = {
     "efficientnet_b0": models.EfficientNet_B0_Weights.IMAGENET1K_V1,
     "resnet50": models.ResNet50_Weights.IMAGENET1K_V1,
@@ -34,7 +37,14 @@ def main(argv: list[str] | None = None) -> None:
 
     weights = _IMAGENET_WEIGHTS[args.backbone]
     model = getattr(models, args.backbone)(weights=weights)
-    manifest = write_bundle(args.out, args.backbone, model.state_dict(), weights.name)
+    manifest = write_bundle(
+        args.out,
+        args.backbone,
+        model.state_dict(),
+        weights.name,
+        source_url=weights.url,
+        license_note=_LICENSE_NOTE,
+    )
     print(f"wrote {args.out} ({manifest.backbone}, sha256 {manifest.sha256})")
 
 
