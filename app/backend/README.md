@@ -43,6 +43,15 @@ Usage (`usage` field of the response) is logged per call via the standard `loggi
 under the `app.adapters.outbound.llm.meta_model` logger, to track spend against the hackathon's
 USD 150 credit budget. The API key itself is never logged.
 
+## Choosing the LLM
+
+`LLM_PROVIDER` picks the adapter when the app starts (`adapters/outbound/llm/factory.py`):
+
+- `meta` (the default): the real Muse Spark adapter. **Without `META_MODEL_API_KEY` the app still starts and every LLM call answers 503 `LLM_UNAVAILABLE`.** It never falls back to invented answers, so a deployment cannot serve fake reports.
+- `fake`: canned answers, only for local development without a key. Its report says it is a demo and is uncertain by construction.
+
+The startup log says which one is in use and whether a key is set, never the key. The HTTP client is closed when the app shuts down, and the adapter is available to routers as `app.state.llm`.
+
 ## Clinical report (core of AB-122)
 
 `application/` holds the part of the report that needs no HTTP and no database:
