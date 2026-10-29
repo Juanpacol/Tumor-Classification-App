@@ -54,3 +54,7 @@ python -m src.deep_learning.export_backbone --out weights
 ```
 
 The `weights/` folder is ignored by git. Details are in `docs/ml-engine/decisions.md` (D9).
+
+## Training data and model selection
+
+The cleaned dataset is described by the `manifest.csv` that the deduplication step writes (`python -m src.preprocessing.deduplication --data-dir src/data`). `load_samples` reads the kept images from it, `FeatureCache` computes radiomic and CNN features once per image and `compare_classifiers` cross-validates logistic regression, an RBF SVM and a random forest with group-aware folds. The training command, calibration, report and artifact bundle come in the next part of AB-112. Decisions are in `docs/ml-engine/decisions.md` (D11).
