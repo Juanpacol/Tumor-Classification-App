@@ -26,6 +26,11 @@ dev = [
     "ruff>=0.7.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["src*"]
+exclude = ["src.tests*"]
+namespaces = false
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
