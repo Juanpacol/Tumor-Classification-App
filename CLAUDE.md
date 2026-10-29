@@ -147,6 +147,7 @@ Modules:
 - No obvious comments
 - Unit tests per extractor
 - Timestamped outputs
+- Record non-obvious decisions, with their evidence and open checks, in `docs/ml-engine/decisions.md`
 
 ### Frontend
 
