@@ -22,3 +22,11 @@ class QualityCheckError(MLEngineError):
         super().__init__(reason)
         self.reason = reason
         self.metrics = metrics
+
+
+class ModelUnavailableError(MLEngineError):
+    """A model bundle is missing, corrupt or does not match the configuration."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
