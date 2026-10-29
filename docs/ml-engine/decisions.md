@@ -164,7 +164,7 @@ The repository is public for the hackathon evaluation, and the artifact publishe
   - [ ] Ask the hackathon organizers how third-party models and data must be declared.
   - [ ] Check the license of the Kaggle dataset on its page. A secondary source lists CC0, unconfirmed, and the dataset combines figshare, SARTAJ and Br35H, so check those terms too.
   - [ ] Get a legal review of the weights before any commercial use.
-  - [ ] The repository has no `LICENSE` file, which matters because it is public and the landing page presents it as open source. Choosing one is a decision for the team.
+  - [x] The repository had no `LICENSE` file, which matters because it is public and the landing page presents it as open source. The team chose the MIT License (copyright holder "Ether contributors", change it if the team prefers named holders). It covers the code, not the third-party assets above.
 
 ## GMLP principles checklist
 
