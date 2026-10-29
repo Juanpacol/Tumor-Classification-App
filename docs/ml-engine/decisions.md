@@ -87,6 +87,23 @@ Own implementation on scikit-image, PyWavelets and SciPy, following the conventi
 - **Speed:** 8 ms median for one 512x512 image with a half-image mask on this machine (10 runs, CPU), under the 1 s requirement. A unit test enforces the bound. Shared CI runners are slower, so the margin matters.
 - **`z_score` of `top_features`** needs training means and stds. That is AB-112.
 
+## D9. Frozen CNN feature extractor and backbone bundle (AB-111)
+
+`src/deep_learning/{backbones,bundle,extractor,export_backbone}.py`.
+
+- **Backbones:** `efficientnet_b0` (default, 1280-d, as the story asks), `resnet50` (2048-d) and `densenet121` (1024-d). The last two are the baselines recommended by our literature review, kept available for ablations. A test checks each declared embedding size against the real output.
+- **Weights are never downloaded at runtime.** The architecture is built with `weights=None` and the `state_dict` comes from a bundle: `backbone.pt` plus `backbone.json` (backbone, embedding size, input size, mean, std, sha256, torchvision version, weights version). `export_backbone` is the only code that touches the network, run once on a development machine. File names are fixed, so no path is built from manifest content.
+- **Safe loading.** The sha256 is verified before deserializing, and `torch.load(..., weights_only=True)` refuses arbitrary pickled objects (a test saves one with a matching hash and checks it is refused). `ModelUnavailableError` covers a missing, corrupt, tampered or non-fitting bundle, so the backend (AB-117) can map it to 503 `MODEL_UNAVAILABLE`. Status: **Verified** by tests. We did not check what the default of `weights_only` resolves to in torch 2.15 (the signature shows `None`), so it is passed explicitly.
+- **Preprocessing must match the backbone.** `from_bundle` compares the manifest with `PreprocessingConfig` (input size, mean, std) and refuses to load on a mismatch, so changing the normalization cannot silently feed the model different inputs than it was exported with.
+- **Inference:** `eval()`, parameters frozen, `torch.inference_mode()`. The library does not set the global thread count. Same input gives the same output in a process; the last decimals can differ across CPUs, so never compare against stored values.
+- **Measured with real ImageNet weights** (torchvision `IMAGENET1K_V1`, EfficientNet-B0, 4 CPU threads, this machine): downloaded file sha256 `7f5810bc96def8f7552d5b7e68d53c4786f81167d28291b21c0d90e1fca14934` (matches the prefix in the file name), reload with `strict=True` matches every key, 87 ms median per image and about 64 ms per image in a batch of 32. Status: **Verified** here, not on Cloud Run.
+- **Grad-CAM (later) cannot reuse this path:** `inference_mode` removes the gradients it needs.
+
+Open items:
+- [ ] **Terms of use of the ImageNet weights for commercial use.** Not checked. Review before publishing the bundle in AB-114.
+- [ ] **Timing on Cloud Run** (AB-120) and **embedding quality on the real MRI dataset** (AB-112, compare the three backbones).
+- [ ] **Linux packaging.** `requirements.lock` was resolved on macOS only, and PyPI `torch` on Linux pulls CUDA libraries (general knowledge, not verified here). Regenerate the lock for Linux and use the CPU-only PyTorch index in the container image before AB-120.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.

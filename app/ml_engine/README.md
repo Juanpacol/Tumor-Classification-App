@@ -36,3 +36,13 @@ Disabled by default (`PreprocessingConfig(skull_stripping=False)`). Enable it on
 ## Radiomic features
 
 `extract_radiomics(radiomics_image, mask)` (from `PreprocessedImage`) returns a fixed-length vector of 45 finite features with stable names: GLCM (5), LBP (10), wavelet (21) and first-order intensity (9). All parameters are in `RadiomicsConfig`. Details and deviations from PyRadiomics and IBSI are in `docs/ml-engine/decisions.md` (D8).
+
+## Deep features
+
+`DeepFeatureExtractor.from_bundle(folder)` loads a frozen ImageNet backbone (EfficientNet-B0 by default) and `extract` / `extract_batch` turn the `cnn_input` of `prepare_image` into 1280-d embeddings. Weights are never downloaded at runtime. Create the bundle once on a development machine:
+
+```bash
+python -m src.deep_learning.export_backbone --out weights
+```
+
+The `weights/` folder is ignored by git. Details are in `docs/ml-engine/decisions.md` (D9).
