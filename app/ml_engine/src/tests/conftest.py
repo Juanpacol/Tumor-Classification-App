@@ -3,12 +3,17 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from src.deep_learning.backbones import build_backbone
+from src.deep_learning.bundle import write_bundle
 from src.preprocessing.deduplication.discovery import discover_images
 from src.preprocessing.deduplication.fingerprint import (
     ImageFingerprint,
     compute_fingerprint,
 )
-from src.tests.synthetic import save, synthetic_slice
+from src.seed import set_seed
+from src.tests.synthetic import save, synthetic_slice, write_labeled_dataset
+from src.tests.training_support import NOW, PER_CLASS, make_config
+from src.training.run import TrainingResult, train
 
 
 @pytest.fixture()
@@ -59,3 +64,23 @@ def fingerprints(dataset: Path) -> list[ImageFingerprint]:
 def index_of(fingerprints: list[ImageFingerprint], name: str) -> int:
     """Position of the image with file name ``name``."""
     return [fp.path.name for fp in fingerprints].index(name)
+
+
+@pytest.fixture(scope="session")
+def workspace(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+    """A synthetic labeled dataset, its manifest and a backbone bundle with random weights."""
+    set_seed(0)
+    root = tmp_path_factory.mktemp("training-workspace")
+    data_dir, manifest = write_labeled_dataset(root, PER_CLASS)
+    backbone = root / "backbone"
+    state = build_backbone("efficientnet_b0").state_dict()
+    write_bundle(backbone, "efficientnet_b0", state, "RANDOM")
+    return {"data": data_dir, "manifest": manifest, "backbone": backbone, "root": root}
+
+
+@pytest.fixture(scope="session")
+def result(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> TrainingResult:
+    """One training run on the synthetic dataset, shared by every test that needs an artifact."""
+    return train(make_config(workspace, tmp_path_factory.mktemp("out")), now=NOW)
