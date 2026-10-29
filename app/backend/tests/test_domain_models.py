@@ -18,7 +18,9 @@ def _content() -> ClinicalReport:
 
 
 def test_pending_report_has_no_content_or_error():
-    report = Report(study_id="s1", status=ReportStatus.PENDING, model="m", created_at=NOW)
+    report = Report(
+        study_id="s1", status=ReportStatus.PENDING, model="m", created_at=NOW
+    )
 
     assert report.content is None
     assert report.error is None

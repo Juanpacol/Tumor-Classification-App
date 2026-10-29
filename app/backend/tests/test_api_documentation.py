@@ -32,4 +32,6 @@ def test_openapi_schema_exposes_all_operations():
                 continue
             assert operation.get("tags"), f"{method.upper()} {path} has no tags"
             assert operation.get("summary"), f"{method.upper()} {path} has no summary"
-            assert operation.get("description"), f"{method.upper()} {path} has no description"
+            assert operation.get(
+                "description"
+            ), f"{method.upper()} {path} has no description"

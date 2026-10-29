@@ -83,7 +83,9 @@ class MetaModelLLM:
             "messages": self._build_messages(messages, image),
             "stream": True,
         }
-        response = await self._send(self._headers(api_key, streaming=True), payload, stream=True)
+        response = await self._send(
+            self._headers(api_key, streaming=True), payload, stream=True
+        )
         self._raise_for_error(response)
         try:
             async for line in response.aiter_lines():
@@ -167,7 +169,8 @@ class MetaModelLLM:
             if response.status_code in (401, 403):
                 return response
             if attempt == 0 and (
-                response.status_code in RETRYABLE_STATUS_CODES or response.status_code >= 500
+                response.status_code in RETRYABLE_STATUS_CODES
+                or response.status_code >= 500
             ):
                 if stream:
                     await response.aclose()

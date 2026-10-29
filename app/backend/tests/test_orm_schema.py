@@ -4,7 +4,12 @@ PHI_MARKERS = ("patient", "birth", "dob", "filename", "file_name")
 
 
 def test_schema_has_the_four_aggregate_tables():
-    assert set(Base.metadata.tables) == {"studies", "predictions", "reports", "chat_messages"}
+    assert set(Base.metadata.tables) == {
+        "studies",
+        "predictions",
+        "reports",
+        "chat_messages",
+    }
 
 
 def test_schema_has_no_phi_or_original_filename_columns():

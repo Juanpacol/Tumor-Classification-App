@@ -38,7 +38,9 @@ def _insert(row: Base) -> Insert:
 
 def _upsert(row: Base) -> Insert:
     keys = [column.name for column in cast(Table, row.__table__).primary_key.columns]
-    updates = {name: value for name, value in _row_values(row).items() if name not in keys}
+    updates = {
+        name: value for name, value in _row_values(row).items() if name not in keys
+    }
     return _insert(row).on_conflict_do_update(index_elements=keys, set_=updates)
 
 

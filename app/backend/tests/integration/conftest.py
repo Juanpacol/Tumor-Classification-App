@@ -13,7 +13,9 @@ from adapters.outbound.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
-from adapters.outbound.persistence.sqlalchemy.repository import SqlAlchemyStudyRepository
+from adapters.outbound.persistence.sqlalchemy.repository import (
+    SqlAlchemyStudyRepository,
+)
 from settings import Settings
 
 ALEMBIC_INI = pathlib.Path(__file__).resolve().parents[2] / "alembic.ini"

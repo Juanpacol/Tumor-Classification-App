@@ -9,27 +9,35 @@ from adapters.outbound.persistence.sqlalchemy.engine import (
     create_engine,
     create_session_factory,
 )
-from adapters.outbound.persistence.sqlalchemy.repository import SqlAlchemyStudyRepository
+from adapters.outbound.persistence.sqlalchemy.repository import (
+    SqlAlchemyStudyRepository,
+)
 from domain.errors import DomainError
 from domain.models import ReportStatus, StudyStatus
 from settings import Settings
 from tests.factories import make_message, make_prediction, make_report, make_study
 
 
-async def test_saved_study_readable_from_a_fresh_engine(repository: SqlAlchemyStudyRepository):
+async def test_saved_study_readable_from_a_fresh_engine(
+    repository: SqlAlchemyStudyRepository,
+):
     study = make_study()
     await repository.save(study)
 
     fresh_engine = create_engine(Settings())
     try:
-        stored = await SqlAlchemyStudyRepository(create_session_factory(fresh_engine)).get(study.id)
+        stored = await SqlAlchemyStudyRepository(
+            create_session_factory(fresh_engine)
+        ).get(study.id)
     finally:
         await fresh_engine.dispose()
 
     assert stored == study
 
 
-async def test_unknown_or_malformed_study_returns_none(repository: SqlAlchemyStudyRepository):
+async def test_unknown_or_malformed_study_returns_none(
+    repository: SqlAlchemyStudyRepository,
+):
     assert await repository.get(str(uuid.uuid4())) is None
     assert await repository.get("not-a-uuid") is None
 
@@ -66,9 +74,14 @@ async def test_ping_reports_reachable_database(repository: SqlAlchemyStudyReposi
 
 
 async def test_ping_returns_false_when_database_unreachable():
-    engine = create_engine(Settings(database_url="postgresql://x:y@localhost:5499/none"))
+    engine = create_engine(
+        Settings(database_url="postgresql://x:y@localhost:5499/none")
+    )
     try:
-        assert await SqlAlchemyStudyRepository(create_session_factory(engine)).ping() is False
+        assert (
+            await SqlAlchemyStudyRepository(create_session_factory(engine)).ping()
+            is False
+        )
     finally:
         await engine.dispose()
 
@@ -79,7 +92,9 @@ async def test_prediction_round_trip_and_replacement(
     study = make_study()
     await repository.save(study)
     await repository.save_prediction(make_prediction(study.id))
-    latest = make_prediction(study.id, label="no_tumor", top_features=[], quality={"snr": 3.0})
+    latest = make_prediction(
+        study.id, label="no_tumor", top_features=[], quality={"snr": 3.0}
+    )
 
     await repository.save_prediction(latest)
 
@@ -88,7 +103,9 @@ async def test_prediction_round_trip_and_replacement(
         assert await connection.scalar(text("SELECT count(*) FROM predictions")) == 1
 
 
-async def test_missing_prediction_and_report_return_none(repository: SqlAlchemyStudyRepository):
+async def test_missing_prediction_and_report_return_none(
+    repository: SqlAlchemyStudyRepository,
+):
     study = make_study()
     await repository.save(study)
 
@@ -101,7 +118,9 @@ async def test_report_progresses_from_pending_to_completed(
 ):
     study = make_study()
     await repository.save(study)
-    await repository.save_report(make_report(study.id, status=ReportStatus.PENDING, content=None))
+    await repository.save_report(
+        make_report(study.id, status=ReportStatus.PENDING, content=None)
+    )
     completed = make_report(study.id)
 
     await repository.save_report(completed)
@@ -112,7 +131,9 @@ async def test_report_progresses_from_pending_to_completed(
 async def test_failed_report_keeps_error(repository: SqlAlchemyStudyRepository):
     study = make_study()
     await repository.save(study)
-    failed = make_report(study.id, status=ReportStatus.FAILED, content=None, error="LLM timeout")
+    failed = make_report(
+        study.id, status=ReportStatus.FAILED, content=None, error="LLM timeout"
+    )
 
     await repository.save_report(failed)
 
@@ -152,7 +173,9 @@ async def test_messages_listed_oldest_first(repository: SqlAlchemyStudyRepositor
     assert await repository.list_messages(study.id) == [earlier, middle, later]
 
 
-async def test_study_without_messages_lists_empty(repository: SqlAlchemyStudyRepository):
+async def test_study_without_messages_lists_empty(
+    repository: SqlAlchemyStudyRepository,
+):
     study = make_study()
     await repository.save(study)
 
@@ -170,7 +193,9 @@ async def test_deleting_study_cascades_to_children(
     await repository.add_message(make_message(study.id))
 
     async with engine.begin() as connection:
-        await connection.execute(text("DELETE FROM studies WHERE id = :id"), {"id": study.id})
+        await connection.execute(
+            text("DELETE FROM studies WHERE id = :id"), {"id": study.id}
+        )
 
     assert await repository.get_prediction(study.id) is None
     assert await repository.get_report(study.id) is None

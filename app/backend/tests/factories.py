@@ -32,7 +32,12 @@ def make_prediction(study_id: str, **overrides: object) -> Prediction:
     fields: dict[str, object] = {
         "study_id": study_id,
         "label": "glioma",
-        "probabilities": {"glioma": 0.7, "meningioma": 0.1, "pituitary": 0.1, "no_tumor": 0.1},
+        "probabilities": {
+            "glioma": 0.7,
+            "meningioma": 0.1,
+            "pituitary": 0.1,
+            "no_tumor": 0.1,
+        },
         "confidence": 0.7,
         "needs_expert_triage": True,
         "quality": {"snr": 12.5, "passed": True},
