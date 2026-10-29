@@ -143,3 +143,25 @@ def test_a_tampered_backbone_is_refused_before_anything_is_written(
         write_artifact(tmp_path / "model", fitted[0], backbone, stats(), FIELDS)
 
     assert not (tmp_path / "model").exists()
+
+
+def test_manifest_carries_the_backbone_provenance(
+    tmp_path: Path, fitted: tuple
+) -> None:
+    source = tmp_path / "source"
+    write_bundle(
+        source,
+        "efficientnet_b0",
+        {"w": torch.ones(2)},
+        "TEST_V1",
+        source_url="https://example.org/weights.pth",
+        license_note="a note",
+    )
+
+    manifest = write_artifact(tmp_path / "model", fitted[0], source, stats(), FIELDS)
+
+    assert manifest["backbone_provenance"] == {
+        "weights_version": "TEST_V1",
+        "source_url": "https://example.org/weights.pth",
+        "license_note": "a note",
+    }
