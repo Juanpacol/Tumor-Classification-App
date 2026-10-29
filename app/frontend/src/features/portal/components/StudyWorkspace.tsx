@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ClinicalSummary } from "@/features/clinical_summary/ClinicalSummary";
+import { ReportSection } from "@/features/llm_assistant/ReportSection";
 import { StudyViewer } from "@/features/dicom_viewer/StudyViewer";
 import {
   createApiClient,
@@ -73,10 +74,7 @@ export function StudyWorkspace({
               <h2 className={styles.heading}>Clinical summary</h2>
               <ClinicalSummary study={state.study} />
             </Card>
-            <Card aria-label="AI clinical report">
-              <h2 className={styles.heading}>AI clinical report</h2>
-              <p className={styles.message}>Not available yet.</p>
-            </Card>
+            <ReportSection client={api} study={state.study} />
             <Card aria-label="Chat">
               <h2 className={styles.heading}>Chat</h2>
               <p className={styles.message}>Not available yet.</p>
