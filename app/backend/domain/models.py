@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class StudyStatus(str, Enum):
@@ -11,12 +12,21 @@ class StudyStatus(str, Enum):
     FAILED = "failed"
 
 
+class ReportStatus(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 @dataclass
 class Study:
     id: str
-    image_path: str
+    file_key: str
+    original_format: str
     status: StudyStatus
     created_at: datetime
+    clinical_notes: str | None = None
+    rejection_reason: str | None = None
 
 
 @dataclass
@@ -26,6 +36,8 @@ class Prediction:
     probabilities: dict[str, float]
     confidence: float
     needs_expert_triage: bool
+    quality: dict[str, Any]
+    top_features: list[dict[str, Any]]
     model_version: str
 
 
@@ -38,6 +50,16 @@ class ClinicalReport:
     differential_considerations: str
     suggested_next_steps: list[str]
     ai_agreement: str
+
+
+@dataclass
+class Report:
+    study_id: str
+    status: ReportStatus
+    model: str
+    created_at: datetime
+    content: ClinicalReport | None = None
+    error: str | None = None
 
 
 @dataclass

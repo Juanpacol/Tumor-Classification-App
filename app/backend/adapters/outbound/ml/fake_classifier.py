@@ -14,6 +14,8 @@ class FakeClassifier:
             },
             confidence=0.85,
             needs_expert_triage=False,
+            quality={},
+            top_features=[],
             model_version="fake-0.0.0",
         )
 

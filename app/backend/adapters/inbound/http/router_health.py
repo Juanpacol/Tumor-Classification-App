@@ -30,7 +30,7 @@ def create_health_router(
         return HealthResponse(
             status="ok",
             model_loaded=classifier.is_ready(),
-            database_reachable=repository.ping(),
+            database_reachable=await repository.ping(),
         )
 
     return router

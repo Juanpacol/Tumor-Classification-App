@@ -41,9 +41,36 @@ Vercel setup notes:
 One engine, two places:
 
 - **Local development**: the `postgres:15-alpine` container already defined in `docker-compose.yml`. No changes.
-- **Cloud demo**: Supabase (same Postgres engine, hosted). Only the `DATABASE_URL` connection string changes between environments — no code or driver changes, since `app/backend/pyproject.toml` already uses `asyncpg` + `psycopg2-binary`, both standard Postgres drivers.
+- **Cloud demo**: Supabase (same Postgres engine, hosted). Only the `DATABASE_URL` connection string changes between environments — no code or driver changes. The backend uses async SQLAlchemy with `asyncpg`; a plain `postgresql://` URL (as Supabase and docker-compose provide it) is rewritten to `postgresql+asyncpg://` by `app/backend/settings.py`.
 
 Supabase free-tier note: projects pause after 7 days of inactivity and need a manual restore from the dashboard. Touch the project (or restore it) the day before presenting.
+
+### Which Supabase connection string
+
+Supabase offers three connection strings (Project → Connect):
+
+| Option | Port | Use it? | Notes |
+|---|---|---|---|
+| Direct connection | 5432 | No | IPv6-only on the free tier; Cloud Run egress is IPv4 by default |
+| **Session pooler** | 5432 | **Yes** (app + migrations) | IPv4, behaves like a normal connection |
+| Transaction pooler | 6543 | Only with `DB_STATEMENT_CACHE_SIZE=0` | PgBouncer transaction mode breaks asyncpg's prepared-statement cache |
+
+### Migrations
+
+The schema is created by Alembic (`app/backend/migrations/`); it is **not** created on app startup.
+
+```bash
+cd app/backend
+alembic upgrade head          # create/upgrade the schema
+alembic downgrade base        # drop it (rollback)
+```
+
+- **Local**: `docker-compose up -d postgres`, then run `alembic upgrade head` from `app/backend` (the default `DATABASE_URL` points to the compose database).
+- **Supabase**: Cloud Run redeploys on every push to `main`, so run the migration **before** merging a change that adds one: `DATABASE_URL=<Supabase session pooler URL> alembic upgrade head` from a local checkout.
+
+### Tests
+
+Backend integration tests (`app/backend/tests/integration/`) run against the PostgreSQL at `DATABASE_URL` (never SQLite). They migrate it to head and truncate the tables between tests, so point them at a disposable database (the compose one or CI's), never at Supabase. Without a reachable database they are skipped with the reason shown in the pytest summary (`pytest -rs`).
 
 ## What's simplified for the cloud demo vs local dev
 
@@ -59,7 +86,8 @@ This means local dev and the cloud demo are not identical environments. If the b
 ## Environment variables (cloud demo)
 
 ```
-DATABASE_URL=<Supabase connection string>
+DATABASE_URL=<Supabase session pooler connection string>
+DB_STATEMENT_CACHE_SIZE=   # set to 0 only if using the transaction pooler (port 6543)
 ENVIRONMENT=demo
 NEXT_PUBLIC_API_URL=<Cloud Run service URL>
 ```
