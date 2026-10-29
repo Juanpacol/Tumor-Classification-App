@@ -1,4 +1,4 @@
-from app.domain.models import Prediction
+from domain.models import Prediction
 
 
 class FakeClassifier:

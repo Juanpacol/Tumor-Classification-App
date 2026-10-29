@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from app.domain.errors import DomainError
+from domain.errors import DomainError
 
 BASE_URL = "https://api.meta.ai/v1"
 CHAT_COMPLETIONS_PATH = "/chat/completions"
@@ -16,7 +16,7 @@ READ_TIMEOUT_SECONDS = 90.0
 RETRY_BACKOFF_SECONDS = 0.5
 RETRYABLE_STATUS_CODES = {429}
 
-logger = logging.getLogger("app.adapters.outbound.llm.meta_model")
+logger = logging.getLogger("adapters.outbound.llm.meta_model")
 
 
 class MetaModelLLM:

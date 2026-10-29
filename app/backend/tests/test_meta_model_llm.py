@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from app.adapters.outbound.llm.meta_model_llm import MetaModelLLM
-from app.domain.errors import DomainError
+from adapters.outbound.llm.meta_model_llm import MetaModelLLM
+from domain.errors import DomainError
 
 
 class Address(BaseModel):

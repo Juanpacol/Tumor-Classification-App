@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.domain.errors import DomainError
+from domain.errors import DomainError
 
 
 def register_exception_handlers(app: FastAPI) -> None:

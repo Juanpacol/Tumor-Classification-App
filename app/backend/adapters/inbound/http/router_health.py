@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from app.ports.classifier_port import ClassifierPort
-from app.ports.study_repository_port import StudyRepositoryPort
+from ports.classifier_port import ClassifierPort
+from ports.study_repository_port import StudyRepositoryPort
 
 
 def create_health_router(

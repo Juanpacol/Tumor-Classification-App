@@ -1,4 +1,4 @@
-from app.domain.models import Study
+from domain.models import Study
 
 
 class InMemoryStudyRepository:

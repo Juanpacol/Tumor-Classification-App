@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.domain.models import Prediction
+from domain.models import Prediction
 
 
 class ClassifierPort(Protocol):
