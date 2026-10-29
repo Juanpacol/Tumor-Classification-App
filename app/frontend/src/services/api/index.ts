@@ -13,6 +13,8 @@ export function createApiClient(
     baseUrl: process.env.NEXT_PUBLIC_API_URL,
   },
 ): ApiClient {
-  if (env.mode === "mock") return createMockClient();
+  if (env.mode === "mock") {
+    return createMockClient({ tokenDelayMs: 40, reportDelayMs: 800 });
+  }
   return createHttpClient(env.baseUrl ?? "http://localhost:8000");
 }

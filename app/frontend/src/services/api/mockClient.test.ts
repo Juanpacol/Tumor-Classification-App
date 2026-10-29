@@ -47,10 +47,22 @@ describe("mock client", () => {
     expect(study.clinical_notes).toBe("note");
   });
 
-  it("answers 503 when a study has no report to return", async () => {
+  it("generates a report for a completed study that has none", async () => {
+    const report = await client.generateReport("study-no-report");
+    expect(report.status).toBe("completed");
+    expect((await client.getStudy("study-no-report")).report).toEqual(report);
+  });
+
+  it("answers 503 when the report service is unavailable", async () => {
     await expect(
-      client.generateReport("study-no-report"),
-    ).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" });
+      client.generateReport("study-report-unavailable"),
+    ).rejects.toMatchObject({ code: "LLM_UNAVAILABLE", status: 503 });
+  });
+
+  it("refuses a report for a study that is not completed", async () => {
+    await expect(client.generateReport("study-rejected")).rejects.toMatchObject(
+      { code: "STUDY_NOT_COMPLETED", status: 409 },
+    );
   });
 
   it("streams tokens and ends with the full message", async () => {

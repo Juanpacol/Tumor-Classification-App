@@ -1,12 +1,17 @@
 import type { ApiClient } from "./client";
 import { ApiError } from "./apiError";
-import { SAMPLE_STUDIES } from "./sampleData";
+import { SAMPLE_REPORT, SAMPLE_STUDIES } from "./sampleData";
 import type { ChatEvent, ChatMessage, StudyDetail } from "./types";
 
 export interface MockOptions {
   /** Pauses between streamed tokens, in milliseconds. */
   tokenDelayMs?: number;
+  /** Time a report takes to generate, in milliseconds. */
+  reportDelayMs?: number;
 }
+
+/** Studies whose report cannot be generated, to exercise the 503 path. */
+const REPORT_UNAVAILABLE = new Set(["study-report-unavailable"]);
 
 const ANSWER =
   "This is a sample answer from the mock assistant. It is not a diagnosis.";
@@ -34,6 +39,7 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
  */
 export function createMockClient({
   tokenDelayMs = 0,
+  reportDelayMs = 0,
 }: MockOptions = {}): ApiClient {
   const studies = new Map<string, StudyDetail>(
     SAMPLE_STUDIES.map((study) => [study.id, study]),
@@ -87,14 +93,27 @@ export function createMockClient({
       return `/mock/${studyId}.png`;
     },
     async generateReport(studyId) {
-      const report = find(studyId).report;
-      if (!report) {
+      const study = find(studyId);
+      if (study.status !== "completed") {
+        throw new ApiError(
+          "STUDY_NOT_COMPLETED",
+          "The study has no result to report on yet.",
+          409,
+        );
+      }
+      await wait(reportDelayMs);
+      if (REPORT_UNAVAILABLE.has(studyId)) {
         throw new ApiError(
           "LLM_UNAVAILABLE",
           "The report service is not available.",
           503,
         );
       }
+      const report = {
+        ...(study.report ?? SAMPLE_REPORT),
+        created_at: new Date().toISOString(),
+      };
+      studies.set(studyId, { ...study, report });
       return report;
     },
     async listChatMessages(studyId) {
