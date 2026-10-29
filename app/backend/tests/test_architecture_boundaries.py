@@ -1,7 +1,7 @@
 import ast
 import pathlib
 
-FORBIDDEN_IMPORTS = {"fastapi", "sqlalchemy", "httpx", "ml_engine"}
+FORBIDDEN_IMPORTS = {"fastapi", "sqlalchemy", "httpx", "ml_engine", "src"}
 PURE_LAYERS = ("domain", "application")
 
 

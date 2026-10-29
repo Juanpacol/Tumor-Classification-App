@@ -81,3 +81,38 @@ The Billing page of the Meta console says: "While using free credits your conten
 - Do not use the `-contributor` model variants either: they are cheaper in exchange for training on the content.
 - Before any use with real data, either stop using the free credits (the "Stop using free credits" link in Billing, which moves the usage to the card) or do not send that data to this service.
 
+
+## MRI classifier (ml_engine)
+
+`adapters/outbound/ml/ml_engine_classifier.py` puts the ml_engine `InferencePipeline` behind `ClassifierPort`. It is the only module that imports ml_engine (`src.*`), and `tests/test_architecture_boundaries.py` keeps it out of `domain/` and `application/`.
+
+- **Install** (local): `pip install -r ../ml_engine/requirements.lock`, then `pip install --no-deps -e ../ml_engine`, then the backend as usual.
+- **Model bundle**: `MODEL_BUNDLE_PATH` is the folder the ml_engine training writes (`artifacts/model-v<version>/`). It is loaded **once, at startup** (lifespan), in a worker thread.
+- **No usable model is a normal state.** If `MODEL_BUNDLE_PATH` is unset, the folder is missing, or the bundle is incomplete or altered, the app still starts, logs `model unavailable: <reason>`, `GET /health` reports `model_loaded: false`, and every classification answers 503 `MODEL_UNAVAILABLE`.
+- **Inference** runs in a worker thread, one at a time per process, so the event loop keeps serving other requests.
+
+| Condition | code | HTTP status | `details` |
+|---|---|---|---|
+| No model loaded | `MODEL_UNAVAILABLE` | 503 | — |
+| File is not a supported image | `UNSUPPORTED_IMAGE` | 422 | `reason` |
+| Image fails the quality gate | `QUALITY_CHECK_FAILED` | 422 | `reason`, `snr`, `entropy`, `skull_stripped` |
+
+### Docker
+
+The image installs ml_engine from a second build context named `ml_engine`. docker-compose passes it. A plain build needs it too:
+
+```bash
+docker build --build-context ml_engine=app/ml_engine -t ether-backend app/backend
+```
+
+In docker-compose the bundle is mounted read-only at `/models/current` from `MODEL_BUNDLE_DIR` (default `./app/ml_engine/artifacts/current`):
+
+```bash
+docker compose up --build --no-deps backend postgres              # bundle from the default folder
+MODEL_BUNDLE_DIR=./app/ml_engine/artifacts/model-v0.1.0 docker compose up --no-deps backend postgres
+MODEL_BUNDLE_PATH= docker compose up --no-deps backend postgres   # start without a model
+```
+
+`--no-deps` skips Redis and MinIO, which the backend does not use yet (the `minio/minio` image can no longer be pulled from Docker Hub). If the default folder does not exist, Docker creates it empty and the app starts without a model.
+
+The integration test `tests/integration/test_ml_engine_bundle.py` runs only when `MODEL_BUNDLE_PATH` points to a bundle folder, and classifies `ML_SAMPLE_IMAGE` when that file exists.
