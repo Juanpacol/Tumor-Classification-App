@@ -151,6 +151,21 @@ Open items:
 - **Latency:** 99 ms median per image after loading, 0.07 s to load, measured with a 128x128 synthetic PNG, random backbone weights and a classifier trained on synthetic data. The 3 s limit is enforced by a test. A real 512x512 MRI was not measured end to end, only its parts (about 90 ms for the CNN, 8 ms for the radiomics). Status: **Verified** for the synthetic case.
 - **Import weight.** `import src.pipelines` now imports PyTorch and scikit-learn. The backend installs `ml_engine` only in AB-120, so nothing pays for it yet.
 
+## D14. Provenance of third-party assets (AB-156)
+
+The repository is public for the hackathon evaluation, and the artifact published in AB-114 bundles the ImageNet-pretrained backbone weights.
+
+- **Decision:** publish the weights inside the artifact (the simplest option) and make the reservations explicit instead of hiding them. The weights stay out of git (`weights/*.pt` is ignored), and only a Release would make them public.
+- **Why it is safe to decide this now:** the backbone is a replaceable component (registry, bundle, manifest, one training command). If cleaner weights are needed, swap them and retrain, with no change to the rest of the pipeline.
+- **What was added:** the backbone manifest records `source_url` and `license_note`, with defaults so bundles exported earlier still load, and the artifact manifest carries them as `backbone_provenance`. The README lists every external asset and its status.
+- **What is not known:** the terms of the torchvision weights (no license statement was found for them, only the BSD license of the code), whether weights trained on ImageNet inherit its non-commercial terms, and the licenses of the Kaggle dataset and of the Python dependencies. This is not legal advice.
+- **Alternative kept for later:** publish the artifact without `backbone.pt` and download the weights from torchvision when the image is built. It avoids redistributing them but not the question of the terms, and it needs the manifest to record the hash of the original file, because re-saving the weights changes the file hash.
+- **Open items:**
+  - [ ] Ask the hackathon organizers how third-party models and data must be declared.
+  - [ ] Check the license of the Kaggle dataset on its page. A secondary source lists CC0, unconfirmed, and the dataset combines figshare, SARTAJ and Br35H, so check those terms too.
+  - [ ] Get a legal review of the weights before any commercial use.
+  - [ ] The repository has no `LICENSE` file, which matters because it is public and the landing page presents it as open source. Choosing one is a decision for the team.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
