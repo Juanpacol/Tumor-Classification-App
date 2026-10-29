@@ -24,6 +24,13 @@ describe("StudyWorkspace", () => {
     );
   });
 
+  it("fills the summary area with the prediction", async () => {
+    render(<StudyWorkspace id="study-uncertain" client={createMockClient()} />);
+    expect(
+      await screen.findAllByText("Needs expert review", { selector: "strong" }),
+    ).toHaveLength(2);
+  });
+
   it("explains a study that does not exist", async () => {
     render(<StudyWorkspace id="nope" client={createMockClient()} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(
