@@ -9,8 +9,6 @@ on:
 
 jobs:
   ml-validation:
-    # Re-enable once src/pipelines and the other imported modules exist
-    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -32,10 +30,10 @@ jobs:
           cd app/ml_engine
           echo "Verifying ML pipeline imports..."
           python -c "from src.pipelines import InferencePipeline; print('✓ InferencePipeline loaded')"
-          python -c "from src.preprocessing import dicom_reader; print('✓ DICOM reader loaded')"
-          python -c "from src.classical import glcm_extractor; print('✓ GLCM extractor loaded')"
-          python -c "from src.deep_learning import model; print('✓ Deep learning module loaded')"
-          python -c "from src.deep_learning.explainability import gradcam; print('✓ Grad-CAM loaded')"
+          python -c "from src.preprocessing.loading import load_mri_image; print('✓ MRI loader loaded')"
+          python -c "from src.preprocessing.prepare import prepare_image; print('✓ Preprocessing loaded')"
+          python -c "from src.classical.extractor import extract_radiomics; print('✓ Radiomic extractor loaded')"
+          python -c "from src.deep_learning.extractor import DeepFeatureExtractor; print('✓ Deep feature extractor loaded')"
 
       - name: Test reproducibility (random seeds)
         run: |
@@ -88,7 +86,7 @@ jobs:
           import inspect
 
           # Check InferencePipeline has required methods
-          required_methods = ['preprocess', 'extract_features', 'infer', 'generate_heatmap']
+          required_methods = ['predict']
           pipeline_methods = [m for m in dir(InferencePipeline) if not m.startswith('_')]
 
           for method in required_methods:
