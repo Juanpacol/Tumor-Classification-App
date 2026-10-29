@@ -104,6 +104,9 @@ class MetaModelLLM:
         finally:
             await response.aclose()
 
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
     def _require_api_key(self) -> str:
         if not self._api_key:
             raise DomainError(
