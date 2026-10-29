@@ -110,6 +110,18 @@ Open items:
 - **Verified in Linux containers:** `uv pip install --dry-run` of the lock inside `python:3.11-slim` resolves 42 packages with `torch==2.15.0+cpu` and `torchvision==0.29.2+cpu` on both `linux/aarch64` and `linux/amd64`. Only a dry run: the wheels were not downloaded or imported on Linux.
 - **Not changed:** CI still installs with `pip install -e ".[dev]"`, which pulls PyPI `torch`, so the CPU lock does not shorten CI yet. The backend `Dockerfile` does not install `ml_engine` yet (AB-120).
 
+## D11. Training data, feature cache and classifier selection, part 1 (AB-112)
+
+`src/training/{dataset,features,model}.py`. Part 2 will add calibration, the report with the ablation, the bundle and the CLI.
+
+- **Dataset size.** After the cleaning of AB-150 the kept images are 3,434 (Train 2,325, Test 1,109), and Train is unbalanced: glioma 992, meningioma 539, notumor 275, pituitary 519 (`DATASET_CLEANING_REPORT.md`). Status: **Verified** from that report. An earlier estimate in this project used 6,878 images, which was the count of exact-unique images before the rest of the cleaning, so the feature extraction should take about 5 minutes (3,434 images at roughly 90 ms, **not measured** on the real set).
+- **Classes are balanced by weight, models are compared by macro-F1.** All three candidates use `class_weight="balanced"`. Status: **Assumption**, to confirm with the per-class report.
+- **Cross-validation is grouped.** `StratifiedGroupKFold` (5 folds, shuffled, fixed seed) with the `group_id` of the cleaning manifest, so near-duplicate images never straddle two folds. The story asks for a plain stratified 5-fold, this is a deliberate deviation. **Limitation:** the dataset has no patient id, so the groups are only a proxy. Duplicates of one scan that the cleaning did not link can still leak, and the metrics can be optimistic.
+- **Everything fitted lives inside the sklearn pipeline.** Scaler and PCA (32 components) on the radiomic block, scaler on the CNN block, then the classifier, so each fold refits them (a test checks the scaler statistics come from the training rows only). PCA needs at least 32 training rows per fold, which the real data satisfies and tiny datasets do not.
+- **Candidates:** logistic regression, SVM with RBF kernel and random forest. XGBoost is not a dependency, and the story accepts a random forest instead.
+- **Feature cache.** One `.npz` per image, keyed by the file sha256 and a fingerprint of the preprocessing config, the radiomics config and the backbone sha256, so a changed config, backbone or image recomputes only what is stale. Images the engine rejects are cached with their reason and reported, never silently dropped. The quality thresholds are still provisional (D7), so the count of rejected images on the real dataset must be read before trusting any metric.
+- **Status:** validated only on synthetic features and on a synthetic image dataset. The classifier selection on them says nothing about the real data.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
