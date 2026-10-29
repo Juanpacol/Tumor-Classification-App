@@ -6,8 +6,16 @@ Standalone hybrid (radiomics + CNN) brain MRI tumor classifier. Decisions and th
 
 ```bash
 cd app/ml_engine
-pip install -r requirements.lock   # exact versions
+pip install -r requirements.lock   # exact versions, CPU-only PyTorch on Linux
 pytest src/tests -v
+```
+
+`requirements.lock` is universal (macOS and Linux) and carries its package indexes, so the command above needs no extra flags. On Linux it installs the CPU-only PyTorch wheels (`+cpu`), which avoids the CUDA libraries that PyPI's `torch` pulls in. To regenerate it after changing dependencies:
+
+```bash
+uv pip compile pyproject.toml --extra dev --python-version 3.11 --universal \
+  --index https://download.pytorch.org/whl/cpu --index-strategy first-index \
+  --emit-index-url -o requirements.lock
 ```
 
 ## Preprocessing
