@@ -1,0 +1,15 @@
+.list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1.5rem;
+  font-size: 0.875rem;
+}
+
+.list dt {
+  color: var(--muted);
+}
+
+.list dd {
+  font-family: var(--font-mono);
+  text-align: right;
+}

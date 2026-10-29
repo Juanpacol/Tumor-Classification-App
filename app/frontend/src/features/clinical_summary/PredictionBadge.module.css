@@ -1,0 +1,28 @@
+.badge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.caption {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.label {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.uncertain .label {
+  color: var(--accent);
+}
+
+.confidence {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
