@@ -77,6 +77,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 
 **Rule**: All implementation (code, commit messages, PR titles/descriptions, code comments, in-app copy) MUST be written in English. This is MANDATORY and applies regardless of the language used in Azure Boards discussions or team chat.
 
+## Branching Model
+
+- `develop`: QA branch. Every feature PR targets `develop`, never `main` directly.
+- `main`: production. Updated only by a PR from `develop` once QA passes, which promotes all accumulated changes together.
+
 ## Pull Requests
 
 1. **PR Title**: Same as branch name, in English
@@ -90,9 +95,11 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
    - Related ticket ("Closes #88")
    - Screenshots/links (if applicable, remove section otherwise)
 
-3. **Reviewers**: Minimum 1 review before merge
+3. **Base branch**: every PR targets `develop`. Only a hotfix targets `main`, and its title gets a `[HOTFIX]` prefix (e.g. `AB-120: [HOTFIX] Fix upload crash`); merge the fix back into `develop` afterward
 
-4. **Merge Strategy**: MANDATORY - Use **Rebase and merge** ONLY
+4. **Reviewers**: Minimum 1 review before merge
+
+5. **Merge Strategy**: MANDATORY - Use **Rebase and merge** ONLY
    - This is the ONLY allowed merge strategy
    - Preserves all commits in linear history
    - All commits remain traceable to the ticket
@@ -101,9 +108,9 @@ git commit -m "88: feat(backend): add endpoint"  # Wrong prefix format
 ## Contributing Steps
 
 ```bash
-# 1. Update main branch
-git checkout main
-git pull origin main
+# 1. Update develop branch (use main only for hotfixes)
+git checkout develop
+git pull origin develop
 
 # 2. Create branch from issue
 git checkout -b AB-{ID}-{description}
@@ -118,7 +125,7 @@ git commit -m "AB-{ID}: type(scope): description"
 # 5. Push to branch
 git push -u origin AB-{ID}-{description}
 
-# 6. Create PR in GitHub (not Azure DevOps)
+# 6. Create PR in GitHub (not Azure DevOps), base branch: develop
 # github.com/Juanpacol/Tumor-Classification-App → Pull Requests → New
 
 # 7. Once merged, close the matching Azure Boards work item manually
@@ -131,6 +138,8 @@ git push -u origin AB-{ID}-{description}
 - PEP 8 + Black formatter
 - Type hints mandatory
 - Docstrings for public functions
+- Flat layout in `app/backend/` (`domain/`, `ports/`, `adapters/`, `application/`, `tests/`, `main.py`); imports have no `app.` prefix
+- Every endpoint MUST be documented in Swagger/OpenAPI: `tags`, `summary`, `description` and `response_model` (plus `responses` for error codes). Enforced by `tests/test_api_documentation.py`; docs at `/docs`
 
 ### ML Engine (Python)
 - Comments only for non-obvious WHY

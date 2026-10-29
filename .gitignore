@@ -73,6 +73,8 @@ app/ml_engine/weights/*.pt
 app/ml_engine/weights/*.pth
 app/ml_engine/weights/*.onnx
 app/ml_engine/weights/*.pkl
+app/ml_engine/weights/*.json
+app/ml_engine/artifacts/
 !app/ml_engine/weights/.gitkeep
 
 # Data

@@ -29,7 +29,7 @@ jobs:
       - name: Type check backend
         run: |
           echo "Type checking backend..."
-          mypy app/backend/app --show-error-codes --strict || true
+          mypy app/backend --show-error-codes --strict || true
           # Note: using 'strict' but not failing to allow gradual typing adoption
           # Change to strict enforcement as coverage improves
 

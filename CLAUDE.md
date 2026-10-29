@@ -72,8 +72,8 @@ In Azure DevOps:
 ### 2. Create Branch
 
 ```bash
-git checkout main
-git pull origin main
+git checkout develop
+git pull origin develop
 git checkout -b AB-88-feature-name
 ```
 
@@ -87,8 +87,8 @@ Edit files according to architecture. Respect:
 ### 4. Commit & Push
 
 ```bash
-git add .
-git commit -m "type(scope): description #ID"
+git add <files>
+git commit -m "AB-88: type(scope): description"
 git push -u origin AB-88-feature-name
 ```
 
@@ -96,13 +96,18 @@ git push -u origin AB-88-feature-name
 
 ### 5. Create Pull Request
 
-1. Azure DevOps → **Repos** → **Pull Requests** → **New**
-2. Title: `AB-88: Feature name`
-3. Description includes: What, How to test, Screenshots
-4. Add: `Closes #88`
+1. GitHub → **Pull Requests** → **New** (Azure DevOps is used for Boards only)
+2. Base branch: `develop` (QA). Only hotfixes target `main` (title gets `[HOTFIX]`)
+3. Title: `AB-88: Feature name`
+4. Description follows `.github/pull_request_template.md`: What, How to test, Related ticket (`Closes #88`)
 5. Requires minimum 1 review
+6. Merge strategy: Rebase and merge only
+
+Project skills: `create-commit` and `create-pull-request` (`.claude/skills/`) automate steps 4-5.
 
 ### 6. Merge
+
+Feature PRs merge into `develop` (QA). Once QA passes, a PR from `develop` to `main` promotes all changes together.
 
 Only after:
 - ✅ All tests pass
@@ -117,18 +122,19 @@ Only after:
 
 **Pattern**: Hexagonal (Ports and Adapters)
 
-Layers:
-- `app/domain/`: Entities and domain errors (no framework imports)
-- `app/application/`: Use cases
-- `app/ports/`: Interfaces (ClassifierPort, LLMPort, StoragePort, StudyRepositoryPort)
-- `app/adapters/inbound/http/`: FastAPI routers and Pydantic schemas
-- `app/adapters/outbound/`: Concrete implementations (ml, llm, storage, persistence)
+Layers (relative to `app/backend/`, flat layout with no inner `app` package):
+- `domain/`: Entities and domain errors (no framework imports)
+- `application/`: Use cases
+- `ports/`: Interfaces (ClassifierPort, LLMPort, StoragePort, StudyRepositoryPort)
+- `adapters/inbound/http/`: FastAPI routers and Pydantic schemas
+- `adapters/outbound/`: Concrete implementations (ml, llm, storage, persistence)
 
 **Standards**:
 - Type hints mandatory
 - Docstrings for public functions
 - Pytest for tests
 - PEP 8 + Black
+- Swagger/OpenAPI documentation is mandatory for every endpoint: `tags`, `summary`, `description` and `response_model` (plus `responses` for error codes). Enforced by `tests/test_api_documentation.py`; docs served at `/docs`
 
 ### ML Engine
 
@@ -145,6 +151,7 @@ Modules:
 - No obvious comments
 - Unit tests per extractor
 - Timestamped outputs
+- Record non-obvious decisions, with their evidence and open checks, in `docs/ml-engine/decisions.md`
 
 ### Frontend
 
@@ -160,6 +167,12 @@ Modules:
 - Functional components + hooks
 - ESLint + Prettier
 - JSDoc for public props
+
+### Code Quality (All Modules)
+
+- **Modularize long code**: when a file or function grows too long to read comfortably, split it into smaller modules/functions, each with one clear responsibility.
+- **Single, specific purpose**: every module, class and function exists to do one thing. If it does two, split it.
+- **Refactor until nothing is left to remove**: delete unused code, dead branches, unnecessary parameters, speculative options and redundant abstractions. If removing something does not change the required behavior, remove it.
 
 ---
 
@@ -211,7 +224,7 @@ Browser DevTools: Network, Console, React Profiler
 | Issue | Solution |
 |-------|----------|
 | "Device not configured" (Azure CLI) | `az login` |
-| Branch conflicts | `git fetch origin && git rebase origin/main` |
+| Branch conflicts | `git fetch origin && git rebase origin/develop` |
 | Docker container crash | `docker-compose logs -f {service}` |
 | ML model not loading | Check `app/ml_engine/weights/` exists |
 | Cornerstone3D black screen | Check canvas size + WebGL support |
