@@ -47,11 +47,11 @@ describe("StudyViewer", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("explains a browser without WebGL", async () => {
-    mockCreateViewer.mockRejectedValue(new ViewerUnavailableError("no_webgl"));
+  it("says so when the viewer could not load the image", async () => {
+    mockCreateViewer.mockRejectedValue(new ViewerUnavailableError("failed"));
     render(<StudyViewer imageUrl="http://api.test/image" />);
     expect(
-      await screen.findByText(/WebGL is not available/),
+      await screen.findByText("The viewer could not load the image."),
     ).toBeInTheDocument();
   });
 });

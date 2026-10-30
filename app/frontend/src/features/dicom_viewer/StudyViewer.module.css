@@ -6,8 +6,9 @@
 }
 
 .canvas {
-  flex: 1;
-  min-height: 480px;
+  /* An explicit height: Cornerstone3D sizes its canvas to 100% of this box, and a
+     percentage does not resolve against a height that only comes from flex. */
+  height: 30rem;
   background: #000;
   border-radius: 3px;
 }

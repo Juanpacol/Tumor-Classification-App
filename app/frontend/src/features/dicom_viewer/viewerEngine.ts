@@ -1,10 +1,14 @@
 import type { Types } from "@cornerstonejs/core";
 import { ImageFetchError } from "./webImage";
-import { webImageId, registerWebImageLoader } from "./webImageLoader";
+import {
+  preloadWebImage,
+  registerWebImageLoader,
+  webImageId,
+} from "./webImageLoader";
 
 export type ViewerTool = "zoom" | "pan" | "windowLevel";
 
-export type UnavailableReason = "no_webgl" | "image_not_found" | "failed";
+export type UnavailableReason = "image_not_found" | "failed";
 
 /** The viewer cannot show the image; `reason` picks the message the reader sees. */
 export class ViewerUnavailableError extends Error {
@@ -36,11 +40,6 @@ export const DEFAULT_TOOL: ViewerTool = "windowLevel";
 let counter = 0;
 let ready: Promise<void> | undefined;
 
-function webglAvailable(): boolean {
-  const canvas = document.createElement("canvas");
-  return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
-}
-
 function initialize(
   core: typeof import("@cornerstonejs/core"),
   tools: typeof import("@cornerstonejs/tools"),
@@ -49,22 +48,63 @@ function initialize(
     await core.init();
     tools.init();
     registerWebImageLoader(core);
-    tools.addTool(tools.ZoomTool);
-    tools.addTool(tools.PanTool);
-    tools.addTool(tools.WindowLevelTool);
+    [tools.ZoomTool, tools.PanTool, tools.WindowLevelTool].forEach((tool) => {
+      if (!tools.state.tools[tool.toolName]) tools.addTool(tool);
+    });
   })();
   return ready;
 }
 
-/** Shows one JPG or PNG in a Cornerstone3D stack viewport inside `element`. */
-export const createViewer: CreateViewer = async (element, imageUrl) => {
-  if (!webglAvailable()) throw new ViewerUnavailableError("no_webgl");
+/**
+ * Cornerstone3D Tools logs an error from its annotation renderer while an
+ * element is disabled. It comes from its own teardown and changes nothing, but
+ * it fills the console (and the development overlay) on every study, so it is
+ * muted for the duration of the teardown only.
+ */
+function withoutTeardownNoise(run: () => void) {
+  const original = console.error;
+  console.error = (...args: unknown[]) => {
+    const first = String(args[0] ?? "");
+    if (
+      first.startsWith("error in event listener of type:") &&
+      first.includes("CORNERSTONE_ELEMENT_DISABLED")
+    ) {
+      return;
+    }
+    original(...args);
+  };
+  try {
+    run();
+  } finally {
+    console.error = original;
+  }
+}
 
-  const [core, tools] = await Promise.all([
-    import("@cornerstonejs/core"),
-    import("@cornerstonejs/tools"),
-  ]);
-  await initialize(core, tools);
+function unavailable(error: unknown): ViewerUnavailableError {
+  console.error("The viewer could not show the image.", error);
+  if (error instanceof ImageFetchError && error.status === 404) {
+    return new ViewerUnavailableError("image_not_found");
+  }
+  return new ViewerUnavailableError("failed");
+}
+
+/**
+ * Shows one JPG or PNG in a Cornerstone3D stack viewport inside `element`.
+ * Without WebGL, Cornerstone3D renders on the CPU, so the viewer still works.
+ */
+export const createViewer: CreateViewer = async (element, imageUrl) => {
+  let core: typeof import("@cornerstonejs/core");
+  let tools: typeof import("@cornerstonejs/tools");
+  try {
+    await preloadWebImage(imageUrl);
+    [core, tools] = await Promise.all([
+      import("@cornerstonejs/core"),
+      import("@cornerstonejs/tools"),
+    ]);
+    await initialize(core, tools);
+  } catch (error) {
+    throw unavailable(error);
+  }
 
   counter += 1;
   const viewportId = `viewport-${counter}`;
@@ -73,10 +113,21 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
   const imageId = webImageId(imageUrl);
   let engine: InstanceType<typeof core.RenderingEngine> | undefined;
 
+  let destroyed = false;
   function destroy() {
-    tools.ToolGroupManager.destroyToolGroup(toolGroupId);
-    engine?.destroy();
-    core.cache.removeImageLoadObject(imageId);
+    if (destroyed) return;
+    destroyed = true;
+    // The engine goes first: disabling its viewports tells the tools package,
+    // which still needs the tool group to exist.
+    withoutTeardownNoise(() => {
+      engine?.destroy();
+      tools.ToolGroupManager.destroyToolGroup(toolGroupId);
+    });
+    try {
+      core.cache.removeImageLoadObject(imageId);
+    } catch {
+      // The image was never cached, so there is nothing to release.
+    }
   }
 
   try {
@@ -119,9 +170,6 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
     };
   } catch (error) {
     destroy();
-    if (error instanceof ImageFetchError && error.status === 404) {
-      throw new ViewerUnavailableError("image_not_found");
-    }
-    throw new ViewerUnavailableError("failed");
+    throw unavailable(error);
   }
 };
