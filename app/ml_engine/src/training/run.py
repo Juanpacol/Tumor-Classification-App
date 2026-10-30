@@ -104,7 +104,9 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
     )
 
     created_at = now.isoformat()
-    dataset = _dataset_summary(train_table, test_table, skipped, split.removed_per_class)
+    dataset = _dataset_summary(
+        train_table, test_table, skipped, split.removed_per_class
+    )
     selection_dict = {
         "scores": {name: asdict(score) for name, score in selection.scores.items()},
         "best": selection.best,
