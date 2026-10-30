@@ -7,7 +7,7 @@
   inset: 0;
   z-index: -1;
   background-image: var(--backdrop-bottom-left);
-  background-size: contain;
+  background-size: cover;
   background-repeat: no-repeat;
   background-position: left bottom;
   opacity: 0.22;
