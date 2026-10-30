@@ -4,10 +4,10 @@
 
 .bottomLeft {
   position: fixed;
-  left: -4%;
+  left: 0;
   bottom: 0;
-  width: 42%;
-  height: 72vh;
+  width: 60%;
+  height: 100vh;
   z-index: -1;
   background-image: var(--backdrop-bottom-left);
   background-size: contain;
@@ -15,28 +15,24 @@
   background-position: left bottom;
   opacity: 0.3;
   mask-image: radial-gradient(
-      ellipse 90% 90% at 35% 75%,
-      #000 40%,
-      transparent 92%
-    ),
-    linear-gradient(0deg, #000 78%, transparent 100%);
+    ellipse 120% 120% at 0% 100%,
+    #000 55%,
+    transparent 100%
+  );
   -webkit-mask-image: radial-gradient(
-      ellipse 90% 90% at 35% 75%,
-      #000 40%,
-      transparent 92%
-    ),
-    linear-gradient(0deg, #000 78%, transparent 100%);
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
+    ellipse 120% 120% at 0% 100%,
+    #000 55%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
 .topRight {
   position: fixed;
-  right: -4%;
+  right: 0;
   top: 0;
-  width: 40%;
-  height: 62vh;
+  width: 58%;
+  height: 100vh;
   z-index: -1;
   background-image: var(--backdrop-top-right);
   background-size: contain;
@@ -44,19 +40,15 @@
   background-position: right top;
   opacity: 0.3;
   mask-image: radial-gradient(
-      ellipse 90% 90% at 65% 25%,
-      #000 40%,
-      transparent 92%
-    ),
-    linear-gradient(180deg, #000 78%, transparent 100%);
+    ellipse 120% 120% at 100% 0%,
+    #000 55%,
+    transparent 100%
+  );
   -webkit-mask-image: radial-gradient(
-      ellipse 90% 90% at 65% 25%,
-      #000 40%,
-      transparent 92%
-    ),
-    linear-gradient(180deg, #000 78%, transparent 100%);
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
+    ellipse 120% 120% at 100% 0%,
+    #000 55%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
