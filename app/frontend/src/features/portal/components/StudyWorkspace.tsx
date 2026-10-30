@@ -11,7 +11,6 @@ import {
 import { formatDate } from "../labels";
 import { Alert } from "./Alert";
 import { AnalysisPanel } from "./AnalysisPanel";
-import { WorkspaceBackdrop } from "./WorkspaceBackdrop";
 import styles from "./StudyWorkspace.module.css";
 
 type State =
@@ -53,7 +52,6 @@ export function StudyWorkspace({
 
   return (
     <div className={styles.stage}>
-      <WorkspaceBackdrop />
       <Link href="/studies" className={styles.back}>
         ← All studies
       </Link>
