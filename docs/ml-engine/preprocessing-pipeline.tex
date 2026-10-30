@@ -339,9 +339,9 @@ Augmentation of validation or test data & Not allowed: it leaks \cite{r4} \\
 Block & Boards & \texttt{app/ml\_engine/src} module & State \\
 \midrule
 B1  & \board{150} & \texttt{preprocessing/deduplication/} & Done \\
-B2  & \board{165} & \texttt{training/dataset.py} & To do \\
+B2  & \board{165} & \texttt{training/dataset.py} & Done \\
 B3  & \board{108} & \texttt{preprocessing/loading.py} & Done \\
-B4  & \board{109}, \board{165} & \texttt{preprocessing/quality.py}, \texttt{preprocessing/calibrate.py} & Gate done, calibration scope to do \\
+B4  & \board{109}, \board{165} & \texttt{preprocessing/quality.py}, \texttt{training/thresholds.py} & Gate and Training-only calibration done; calibrated values not applied (decision D15) \\
 B5  & \board{166} & foreground mask, today in \texttt{preprocessing/skull\_stripping.py} & To do \\
 B6  & \board{166} & \texttt{preprocessing/prepare.py} & To do \\
 B7  & \board{167} & \texttt{training/} (new) & To do \\

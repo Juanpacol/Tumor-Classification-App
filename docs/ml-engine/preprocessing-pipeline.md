@@ -151,6 +151,7 @@ Each block has one purpose, a defined input and output, and testable rules.
 - **Input:** 2D image. **Output:** SNR and Shannon entropy, or `QualityCheckError` with the measured values.
 - **Rule:** measured on the original image. Thresholds are the 1st percentile over the purged Training split only. Testing images are never read during calibration.
 - **Tools:** scikit-image. **Cost:** low.
+- **Calibration:** `python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>`. The 2026-10-30 values, their per-class rejections and why they are not applied are in `decisions.md` (D15).
 - **Evidence:** no external evidence for the thresholds; they are calibrated on our data. **Boards:** #109 (gate, Done), #165 (calibration).
 
 ### B5. Brain mask
@@ -256,9 +257,9 @@ Each guarantee is a unit test or a report entry.
 | Block | Boards | `app/ml_engine/src` module | State |
 |---|---|---|---|
 | B1 | #150 | `preprocessing/deduplication/` | Done |
-| B2 | #165 | `training/dataset.py` | To do |
+| B2 | #165 | `training/dataset.py` | Done |
 | B3 | #108 | `preprocessing/loading.py` | Done |
-| B4 | #109, #165 | `preprocessing/quality.py`, `preprocessing/calibrate.py` | Gate done, calibration scope to do |
+| B4 | #109, #165 | `preprocessing/quality.py`, `training/thresholds.py` | Gate and Training-only calibration done; calibrated values not applied (decision D15) |
 | B5 | #166 | foreground mask, today in `preprocessing/skull_stripping.py` | To do |
 | B6 | #166 | `preprocessing/prepare.py` | To do |
 | B7 | #167 | `training/` (new) | To do |
