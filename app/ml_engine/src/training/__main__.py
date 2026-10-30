@@ -6,7 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.training.model import DEFAULT_SEED, N_SPLITS
+from src.training.folds import N_SPLITS
+from src.training.model import DEFAULT_SEED
 from src.training.run import TrainingConfig, train
 
 
