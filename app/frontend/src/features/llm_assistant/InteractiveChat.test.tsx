@@ -243,7 +243,7 @@ describe("InteractiveChat", () => {
       const study = SAMPLE_STUDIES.find((candidate) => candidate.id === id)!;
       render(<InteractiveChat client={createMockClient()} study={study} />);
       expect(
-        screen.queryByRole("heading", { name: "Chat" }),
+        screen.queryByRole("region", { name: "Chat" }),
       ).not.toBeInTheDocument();
     },
   );

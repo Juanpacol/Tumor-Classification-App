@@ -150,7 +150,7 @@ describe("ReportSection", () => {
   it.each(["study-rejected", "study-failed"])("is hidden for %s", (id) => {
     render(<ReportSection client={clientWith(jest.fn())} study={study(id)} />);
     expect(
-      screen.queryByRole("heading", { name: "AI clinical report" }),
+      screen.queryByRole("region", { name: "AI clinical report" }),
     ).not.toBeInTheDocument();
   });
 
