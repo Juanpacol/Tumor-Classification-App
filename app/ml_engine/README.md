@@ -29,13 +29,13 @@ uv pip compile pyproject.toml --extra dev --python-version 3.11 --universal \
 | SNR | 4.0 | mean intensity above the Otsu threshold divided by a wavelet noise estimate |
 | Shannon entropy | 2.0 bits | 256-bin intensity histogram |
 
-**These values are provisional and not calibrated yet.** They are guesses because the training dataset is not in the repo. Calibrate them with:
+**These values are provisional.** A calibration on the training data was run and recorded but not applied, because the current metrics reject usable scans and concentrate the rejections in notumor (`docs/ml-engine/decisions.md`, D15). The calibration command reads only the leakage-free Training split and never opens a Testing image:
 
 ```bash
-python -m src.preprocessing.calibrate --data-dir src/data
+python -m src.training.thresholds --data-dir src/data --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv
 ```
 
-The command prints the 1st percentile of each metric over the dataset, so at least 99% of the training images pass. Then set the result in `QualityThresholds` (`src/preprocessing/quality.py`) and record it in `docs/ml-engine/decisions.md`.
+It prints the 1st percentile of each metric, the percentile and the number of images used. Before changing `QualityThresholds` (`src/preprocessing/quality.py`), check the per-class rejections against a visual review and record them in `docs/ml-engine/decisions.md`.
 
 ### Skull stripping
 
@@ -67,7 +67,7 @@ With the backbone bundle exported (see *Deep features*) and the cleaning `manife
 python -m src.training --data-dir src/data --manifest <path>/manifest.csv --version 0.1.0
 ```
 
-It selects a classifier by group-aware cross-validation, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
+It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then selects a classifier by group-aware cross-validation, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
 
 - `model-v<version>/`: `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
 - `reports/<timestamp>/`: `report.json` and `report.md` (test metrics, confusion matrix, selection, ablation, and whether the 0.90 macro-F1 target was met).

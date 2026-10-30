@@ -56,14 +56,14 @@ Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK
 
 ## D7. Quality gate, skull stripping and model inputs (AB-109)
 
-`src/preprocessing/{quality,skull_stripping,prepare,calibrate}.py`.
+`src/preprocessing/{quality,skull_stripping,prepare}.py`. Threshold calibration moved to `src/training/thresholds.py` in AB-165 (D15).
 
 - **Quality gate is always on.** `prepare_image` measures SNR and Shannon entropy on the original image (before any stripping, so stripping cannot hide a bad scan) and raises `QualityCheckError` with the measured values below the thresholds.
 - **SNR definition (ours):** mean intensity above the Otsu threshold divided by a wavelet noise estimate (`skimage.restoration.estimate_sigma`). It needs no noise-only background, which cropped MRI slices do not have. A flat image returns 0. Status: **Assumption**, not compared against other SNR estimators.
 - **Entropy:** Shannon entropy in bits of a 256-bin histogram of the [0, 1] image.
 - **Skull stripping is off by default.** Otsu threshold, opening, erosion to cut the scalp links, largest component, dilation and hole filling, CPU only. If the mask covers under 15% or over 95% of the image, or the image is flat, the input is returned unchanged and `skull_stripped=false`. It never raises. Off by default because our literature review rates the evidence as weak and contradictory (`docs/research/preprocessing-2d-mri-cnn-ml.md`, 3/10) and recommends treating it as an ablation variable. Status: **Verified** that the review says so. The algorithm has only been tested on a synthetic phantom.
 - **Model inputs:** `radiomics_image` is (H, W) float32 in [0, 1]. `cnn_input` is a NumPy (3, S, S) float32 array, resized (S = 224 by default) and normalized with ImageNet mean and std. Both are configurable in `PreprocessingConfig`, because the real backbone is chosen in AB-111. Status: **Assumption**. Convert with `torch.from_numpy` in the consumer, so preprocessing does not depend on PyTorch.
-- **Thresholds are provisional.** `min_snr = 4.0` and `min_entropy = 2.0` are our guesses (uniform noise measures about 2.6 SNR, and a synthetic slice far above). They have **not** been calibrated on the training set because the Kaggle dataset is not available in the repo. Wrong values can reject good images or let bad ones through. Status: **Open**.
+- **Thresholds are provisional.** `min_snr = 4.0` and `min_entropy = 2.0` are our guesses (uniform noise measures about 2.6 SNR, and a synthetic slice far above). Wrong values can reject good images or let bad ones through. Calibration on the purged training set was run in AB-165 and recorded, but not applied, because the current metrics reject usable scans (D15). Status: **Open**.
 
 ## D8. Radiomic feature extractors (AB-110)
 
@@ -167,6 +167,27 @@ The repository is public for the hackathon evaluation, and the artifact publishe
   - [ ] Get a legal review of the weights before any commercial use.
   - [x] The repository had no `LICENSE` file, which matters because it is public and the landing page presents it as open source. The team chose the MIT License (copyright holder "Ether contributors", change it if the team prefers named holders). It covers the code, not the third-party assets above.
 
+## D15. Leakage-free split and threshold calibration on Training only (AB-165)
+
+`src/training/{dataset,thresholds,run}.py`. Pipeline blocks B2 and B4.
+
+- **Split rule.** The official Testing folder is the held-out set. Every kept Training image whose `group_id` also belongs to a kept Testing image is removed. `split_samples` returns the train set, the test set and the removed count per class. Training runs report the counts in the CLI output, the report and the artifact manifest (`split_removed_per_class`). Status: **Verified** by unit tests, including a test on the versioned manifest.
+- **Only kept Testing images define the purge.** Using all Testing rows, including the ones #150 dropped, would remove 504 images instead of 495. The extra 9 Training images only share a group with Testing images that are never scored, so they are kept. Status: **Verified** on the manifest.
+- **Removed on `dedup_20261028T234450903626Z`:** glioma 142, meningioma 93, notumor 15, pituitary 245. Training goes from 2,325 to 1,830 images; Testing stays at 1,109. Pituitary drops from 519 to 274. Metrics from earlier runs are not comparable.
+- **Calibration reads Training only.** `python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>` measures only the purged Training split and never opens a Testing image. The manifest is required. It replaces `src.preprocessing.calibrate`, which scanned `Train/` and `Test/`.
+- **Calibrated values, 2026-10-30:** `min_snr = 42.8567` and `min_entropy = 4.0914` (1st percentile, 1,830 images, none unreadable). Environment: Python 3.11 in Docker with `requirements.lock`.
+- **Rejections with those values:**
+
+  | Class | Training | Testing |
+  |---|---|---|
+  | glioma | 11 / 850 (1.3%) | 5 / 354 (1.4%) |
+  | meningioma | 1 / 446 (0.2%) | 5 / 273 (1.8%) |
+  | notumor | **21 / 260 (8.1%)** | **10 / 125 (8.0%)** |
+  | pituitary | 5 / 274 (1.8%) | 3 / 357 (0.8%) |
+
+  Overall, 2.1% of Training is rejected; two thresholds at the 1st percentile reject up to 2% between them.
+- **Not applied, the defaults stay at 4.0 / 2.0.** A visual review of the 61 rejected images found mostly clean diagnostic scans. The wavelet noise estimate reads fine FLAIR/T2 anatomy as noise (SNR 14-40). Some glioma copies reach an SNR above 250,000, so the SNR scale is not comparable across sources. Low-entropy rejections are dark slices with little brain. Applying the values would remove 8% of notumor non-randomly from training and reject valid scans at inference. Status: **Open**, the metrics need redefining before any recalibration (AB-175).
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
@@ -176,7 +197,7 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 | 1 | Multidisciplinary expertise across the product life cycle | Not covered, no clinical review so far |
 | 2 | Good software engineering and security practices | Partial: typed contract, input limits in the loader, lock file, `pip-audit` run |
 | 3 | Data and study participants represent the intended population | **Limitation:** the Kaggle dataset has no demographic information |
-| 4 | Training data independent of test data | Covered by deduplication and leak removal (AB-150, see `DATASET_CLEANING_REPORT.md`) |
+| 4 | Training data independent of test data | Covered by deduplication and leak removal (AB-150, see `DATASET_CLEANING_REPORT.md`) and the leakage-free split (AB-165, D15) |
 | 5 | Reference datasets built with best available methods | Open: labels come from a public dataset, their provenance is not audited |
 | 6 | Model design fits the data and the intended use | In progress (hybrid radiomics and CNN) |
 | 7 | Performance of the human-AI team | By design: `needs_expert_triage`, uncertainty alert (AB-127), Grad-CAM |
@@ -186,11 +207,11 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 
 ## Open verifications
 
-- [ ] **Calibrate the quality thresholds (D7).** Needs the dataset in `app/ml_engine/src/data` (`Train/` and `Test/`). Run from `app/ml_engine`:
+- [ ] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** The current SNR and entropy reject usable scans and concentrate in notumor. Follow-up ticket: AB-175. Once the metrics change, recalibrate from `app/ml_engine`:
   ```bash
-  python -m src.preprocessing.calibrate --data-dir src/data
+  python -m src.training.thresholds --data-dir src/data --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv
   ```
-  It prints the 1st percentile of SNR and entropy, so at least 99% of the training images pass. Put the result in `QualityThresholds` and record the numbers and the date here.
+  Then check the per-class rejections against a visual review before putting the values in `QualityThresholds`.
 - [ ] **Skull stripping on real images.** Run it on real slices and look at the masks before any ablation. Only the synthetic phantom is tested so far.
 - [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
   ```bash
