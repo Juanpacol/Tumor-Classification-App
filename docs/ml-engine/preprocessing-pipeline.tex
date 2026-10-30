@@ -22,7 +22,6 @@
 \setlength{\parskip}{4pt}
 
 \newcommand{\board}[1]{\textsf{\##1}}
-\newcommand{\ev}[1]{\textbf{[#1]}}
 
 \title{Preprocessing pipeline for 2D brain MRI tumor classification\\[2pt]
 \large Agreed version, aligned with Azure Boards epic \#103}
@@ -185,7 +184,7 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Input:} \texttt{Train/} and \texttt{Test/} folders. \textbf{Output:} \texttt{manifest.csv} with \texttt{path, split, label, group\_id, group\_size, keep, reason}.
   \item \textbf{Rule:} exact copies (pixel SHA-256) and near-copies (pHash distance $\le 6$ confirmed by thumbnail correlation $\ge 0.98$) form one cluster, of which one image is kept. Neighbouring slices (correlation 0.95--0.98, same class) share a \texttt{group\_id}. Augmented files and label conflicts are dropped. Raw images are never modified.
   \item \textbf{Tools:} Pillow, NumPy, SciPy. \textbf{Cost:} low, run once.
-  \item \textbf{Evidence:} \ev{R1}, \ev{R2}. Details in \texttt{app/ml\_engine/DATASET\_CLEANING\_REPORT.md}.
+  \item \textbf{Evidence:} \cite{r1}, \cite{r2}. Details in \texttt{app/ml\_engine/DATASET\_CLEANING\_REPORT.md}.
 \end{itemize}
 
 \subsection*{B2. Leakage-free split \hfill \board{165}}
@@ -194,7 +193,7 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Rule:} the official Testing folder is the held-out set. Every Training image whose \texttt{group\_id} also appears in Testing is removed. Removed counts are reported per class.
   \item \textbf{Guarantee:} no \texttt{group\_id} in both splits (unit test).
   \item \textbf{Tools:} Python only. \textbf{Cost:} very low.
-  \item \textbf{Evidence:} \ev{R1} (28.8\% of the official test split of this dataset has a near-twin in training), \ev{R3} (slice-level splits inflate accuracy by 29 to 55 points).
+  \item \textbf{Evidence:} \cite{r1} (28.8\% of the official test split of this dataset has a near-twin in training), \cite{r3} (slice-level splits inflate accuracy by 29 to 55 points).
 \end{itemize}
 
 \subsection*{B3. Canonical load \hfill \board{108} (Done)}
@@ -202,7 +201,7 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Input:} JPG/PNG bytes. \textbf{Output:} 2D \texttt{float32} array in $[0,1]$.
   \item \textbf{Rule:} format detected by content, gray conversion, 16-bit images rescaled (not clipped), size limits, \texttt{UnsupportedImageError} for anything else.
   \item \textbf{Tools:} Pillow, NumPy. \textbf{Cost:} low.
-  \item \textbf{Evidence:} convention \ev{R5}.
+  \item \textbf{Evidence:} convention \cite{r5}.
 \end{itemize}
 
 \subsection*{B4. Quality gate \hfill \board{109} (gate, Done), \board{165} (calibration)}
@@ -218,7 +217,7 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Input:} 2D image. \textbf{Output:} boolean mask.
   \item \textbf{Rule:} Otsu threshold, largest connected component, hole filling. \textbf{No skull stripping.} An empty or implausible mask falls back to the full image without failing.
   \item \textbf{Tools:} scikit-image, SciPy. \textbf{Cost:} low.
-  \item \textbf{Evidence:} skull stripping lowered accuracy with a patient-level split \ev{R6} and had a negligible effect in \ev{R7}. Replaces the skull-stripping step of \board{109}.
+  \item \textbf{Evidence:} skull stripping lowered accuracy with a patient-level split \cite{r6} and had a negligible effect in \cite{r7}. Replaces the skull-stripping step of \board{109}.
 \end{itemize}
 
 \subsection*{B6. Geometry \hfill \board{166}}
@@ -226,7 +225,7 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Input:} image and mask. \textbf{Output:} $224\times224$ image.
   \item \textbf{Rule:} crop to the bounding box of the mask plus a small margin, pad to a square with black, resize (\texttt{INTER\_AREA} to shrink, \texttt{INTER\_LINEAR} to enlarge). The aspect ratio of the crop is preserved.
   \item \textbf{Tools:} OpenCV. \textbf{Cost:} very low.
-  \item \textbf{Evidence:} cropping is common practice \ev{R5}, \ev{R8}. The square padding fixes the class-dependent distortion measured in section~\ref{sec:data}.
+  \item \textbf{Evidence:} cropping is common practice \cite{r5}, \cite{r8}. The square padding fixes the class-dependent distortion measured in section~\ref{sec:data}.
 \end{itemize}
 
 \subsection*{B7. Train-only augmentation \hfill \board{167}}
@@ -234,15 +233,15 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Input:} a Training image after B6. \textbf{Output:} $k$ augmented copies (default $k=1$).
   \item \textbf{Rule:} fixed seed. Rotation $\pm10^\circ$, horizontal flip, scale $\pm10\%$, brightness and contrast $\pm10\%$. Each copy inherits the label, \texttt{group\_id} and fold of its original. Copies are used only as fit rows of a fold and in the final fit; never in validation folds, Testing or inference. The feature cache key includes the transform parameters.
   \item \textbf{Tools:} OpenCV, NumPy (no new dependency). \textbf{Cost:} about 3 extra minutes of CPU feature extraction (1,830 images at about 90\,ms).
-  \item \textbf{Evidence:} train-only augmentation is a strong rule \ev{R4}, \ev{R2}. Its gain with a frozen CNN is weak evidence \ev{R9}, \ev{R5}, so a $\pm$augmentation ablation decides whether it stays enabled.
+  \item \textbf{Evidence:} train-only augmentation is a strong rule \cite{r4}, \cite{r2}. Its gain with a frozen CNN is weak evidence \cite{r9}, \cite{r5}, so a $\pm$augmentation ablation decides whether it stays enabled.
 \end{itemize}
 
 \subsection*{B8. CNN tensor \hfill \board{166}, \board{111}}
 \begin{itemize}
   \item \textbf{Input:} $224\times224$ image. \textbf{Output:} $(3, 224, 224)$ \texttt{float32}.
-  \item \textbf{Rule:} gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone, read from its configuration and checked against the backbone bundle. Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 \ev{R11}.
+  \item \textbf{Rule:} gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone, read from its configuration and checked against the backbone bundle. Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 \cite{r11}.
   \item \textbf{Tools:} NumPy. \textbf{Cost:} very low.
-  \item \textbf{Evidence:} \ev{R5}, \ev{R10}, \ev{R11}.
+  \item \textbf{Evidence:} \cite{r5}, \cite{r10}, \cite{r11}.
 \end{itemize}
 
 \subsection*{B9. Validation protocol \hfill \board{112}}
@@ -251,14 +250,14 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Metrics:} accuracy, macro-F1, balanced accuracy, per-class precision and recall, confusion matrix. Expected hardest pair: glioma vs meningioma.
   \item \textbf{Ablations (CV macro-F1, never on Testing):} CNN-only vs radiomics-only vs hybrid, and $\pm$augmentation (\board{167}).
   \item \textbf{Tools:} scikit-learn. \textbf{Cost:} low.
-  \item \textbf{Evidence:} \ev{R2}, \ev{R4}, \ev{R9}, \ev{R12}.
+  \item \textbf{Evidence:} \cite{r2}, \cite{r4}, \cite{r9}, \cite{r12}.
 \end{itemize}
 
 \subsection*{B10. Shortcut audit \hfill \board{168}}
 \begin{itemize}
   \item \textbf{Rule:} a metadata-only baseline (width, height, file size) is evaluated with the same grouped CV, and its balanced accuracy is written in the report. The report also gives the Testing recall of notumor split by source size ($512\times512$ vs other) and the status of every guarantee of section~\ref{sec:guarantees}. If the baseline reaches 0.70 balanced accuracy or more, the CLI warns and the result is presented to the team before a model is published.
   \item \textbf{Tools:} scikit-learn. \textbf{Cost:} very low.
-  \item \textbf{Evidence:} \ev{R1} (file-header features with no anatomy separated tumor from no tumor at 0.959 balanced accuracy). The 0.70 level is our choice.
+  \item \textbf{Evidence:} \cite{r1} (file-header features with no anatomy separated tumor from no tumor at 0.959 balanced accuracy). The 0.70 level is our choice.
 \end{itemize}
 
 %--------------------------------------------------------------------
@@ -306,15 +305,15 @@ G7 & Testing is scored exactly once per run & B9 & \board{112} \\
 \toprule
 Option & Why not \\
 \midrule
-Skull stripping (morphological or HD-BET/SynthStrip) & Lowered accuracy with a patient-level split \ev{R6}, negligible effect \ev{R7}; deep tools need GPU or large models \\
-CLAHE & Contradictory evidence; harmful with a patient-level split \ev{R6} \\
-N4 bias correction, histogram matching, denoising & No measurable gain \ev{R7}; images are already windowed 8-bit JPEGs \\
-SMOTE & New dependency; \texttt{class\_weight="balanced"} already handles the imbalance \ev{R12} \\
+Skull stripping (morphological or HD-BET/SynthStrip) & Lowered accuracy with a patient-level split \cite{r6}, negligible effect \cite{r7}; deep tools need GPU or large models \\
+CLAHE & Contradictory evidence; harmful with a patient-level split \cite{r6} \\
+N4 bias correction, histogram matching, denoising & No measurable gain \cite{r7}; images are already windowed 8-bit JPEGs \\
+SMOTE & New dependency; \texttt{class\_weight="balanced"} already handles the imbalance \cite{r12} \\
 albumentations, torchvision transforms v2 & OpenCV covers the four transforms; preprocessing stays independent of PyTorch \\
 Keras / TensorFlow & A second framework for one model \\
 ResNet50V2 (timm) & Postponed: weak evidence of a gain over the torchvision backbones, and a new dependency \\
-CNN fine-tuning & Out of scope of epic \board{103}; a frozen CNN is stable with little data \ev{R10} \\
-Augmentation of validation or test data & Not allowed: it leaks \ev{R4} \\
+CNN fine-tuning & Out of scope of epic \board{103}; a frozen CNN is stable with little data \cite{r10} \\
+Augmentation of validation or test data & Not allowed: it leaks \cite{r4} \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -323,7 +322,7 @@ Augmentation of validation or test data & Not allowed: it leaks \ev{R4} \\
 \section{Known limitations and open decisions}
 
 \begin{itemize}
-  \item \textbf{No patient IDs.} \texttt{group\_id} is a proxy. Distant slices of one patient can still fall in different groups, so metrics can be optimistic \ev{R3}.
+  \item \textbf{No patient IDs.} \texttt{group\_id} is a proxy. Distant slices of one patient can still fall in different groups, so metrics can be optimistic \cite{r3}.
   \item \textbf{B4 is not fitted per fold.} Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter at the 1st percentile. The effect is small and Testing is not involved. Accepted to keep the pipeline simple.
   \item \textbf{Resolution shortcut remains.} B6 removes the aspect-ratio cue, but not the differences in source resolution and compression. B10 measures what is left; only an external dataset can rule it out.
   \item \textbf{Feature cache invalidation.} The cache key is built from the configuration. \board{166} and \board{167} must add configuration fields (such as the crop margin and the transform parameters) so that new code never reuses stale features.
@@ -358,24 +357,39 @@ Implementation order, from the Boards dependencies: \board{165} and \board{166},
 %--------------------------------------------------------------------
 \section{References}\label{sec:refs}
 
-Evidence IDs used in this document, in epic \board{103} and in issues \board{112} and \board{165}--\board{168}.
+References follow the IEEE style. Their numbers match the evidence IDs used in Azure Boards (epic \#103, issues \#112 and \#165-\#168): [$n$] is R$n$ there. Every DOI was checked against Crossref or DataCite on 2026-10-29 (title, authors and venue).
 
-\begin{description}[style=nextline]
-  \item[{[R1]} B1, B2, B10] Vangala et al. (2026). \emph{Scores That Hold, Benchmarks That Leak: Measuring Dataset Contamination in Public Brain-Tumor MRI Classification.} \url{https://consensus.app/papers/scores-that-hold-benchmarks-that-leak-measuring-dataset-vangala-guda/d0911bae424c591daab2cbcc7609c7dc/}
-  \item[{[R2]} B1, B7, B9] Saifullah et al. (2025). \emph{Reliable Brain Tumor Classification Without Metadata: A Step-by-Step Guideline with Duplicate Removal.} \url{https://consensus.app/papers/reliable-brain-tumor-classification-without-metadata-a-saifullah-baldauf/1fdc0eb9ec175f06b1c421925a964869/}
-  \item[{[R3]} B2] Yagis et al. (2021). \emph{Effect of data leakage in brain MRI classification using 2D convolutional neural networks.} Scientific Reports. \url{https://consensus.app/papers/details/4a618dc480585c0ba2fef48846c002d9/}
-  \item[{[R4]} B7, B9] Chakraborty (2026). \emph{CatBoost-Stacked Heterogeneous Deep Ensembles for Explainable Multi-Class Brain Tumor MRI Classification.} \url{https://consensus.app/papers/catbooststacked-heterogeneous-deep-ensembles-for-chakraborty/c545ad671e6f562d8811c1a302e37369/}
-  \item[{[R5]} B3, B6, B7, B8] Kang et al. (2021). \emph{MRI-Based Brain Tumor Classification Using Ensemble of Deep Features and Machine Learning Classifiers.} Sensors. \url{https://consensus.app/papers/details/bdb919749ffd50b2a2d4c51066c9e155/}
-  \item[{[R6]} B5, exclusions] Chhetri \& Kumar (2026). \emph{Optimizing Deep Learning for Brain Tumor Classification: A Comparative Ablation Study of Preprocessing and Augmentation Strategies.} IEEE GCON. \url{https://consensus.app/papers/details/dc7827953aaa53fd8326bd97b27415f6/}
-  \item[{[R7]} B5, exclusions] Kondrateva et al. (2022). \emph{Negligible effect of brain MRI data preprocessing for tumor segmentation.} Biomed.\ Signal Process.\ Control. \url{https://consensus.app/papers/details/70e323e3132b521baede10bf2b0b0dda/}
-  \item[{[R8]} B6] Prayogo et al. (2025). \emph{Hybrid CNN-Based Transfer Learning Enhances Brain Tumor Classification on MRI Images.} IEEE Access. \url{https://consensus.app/papers/details/c0d97f8f5b90504493d9ed1cb2a3834f/}
-  \item[{[R9]} B7, B9] Kibriya et al. (2022). \emph{A Novel and Effective Brain Tumor Classification Model Using Deep Feature Fusion and Famous Machine Learning Classifiers.} \url{https://consensus.app/papers/a-novel-and-effective-brain-tumor-classification-model-kibriya-amin/c4be65c4eaff5f05a2c999740c5e338f/}
-  \item[{[R10]} B8, exclusions] Al-Sarairah et al. (2026). \emph{Evaluating transfer learning for brain tumor MRI classification: frozen VGG16 feature extraction versus end-to-end training.} \url{https://consensus.app/papers/evaluating-transfer-learning-for-brain-tumor-mri-al-sarairah-tawil/9ef7e942eedf536bad96508e3210ad34/}
-  \item[{[R11]} B8] timm, \texttt{resnetv2.py} (pretrained configurations). \url{https://github.com/huggingface/pytorch-image-models/blob/main/timm/models/resnetv2.py}
-  \item[{[R12]} B9, exclusions] Deepak \& Ameer (2023). \emph{Brain tumor categorization from imbalanced MRI dataset using weighted loss and deep feature fusion.} \url{https://consensus.app/papers/brain-tumor-categorization-from-imbalanced-mri-dataset-deepak-ameer/df66aa1c63f75c6c9f69f2f643c3e596/}
-\end{description}
+\renewcommand{\refname}{}
+\vspace{-2\baselineskip}
+\begin{thebibliography}{99}
 
-\textbf{Quality of the evidence.} Only \ev{R1}, \ev{R2} and \ev{R4} control leakage explicitly. \ev{R10} splits by slice. Several sources (\ev{R4}, \ev{R6}, \ev{R10}) are 2026 papers with few or no citations. Most image-preprocessing choices therefore rest on convention, while the split and fold rules rest on strong evidence.
+\bibitem{r1} B. P. Vangala, S. Guda, L. Peddi, and N. Vangala, ``Scores that hold, benchmarks that leak: Measuring dataset contamination in public brain-tumor MRI classification,'' arXiv:2610.00421, 2026, doi: \href{https://doi.org/10.48550/arXiv.2610.00421}{10.48550/arXiv.2610.00421}. \emph{Used in: B1, B2, B10.}
+
+\bibitem{r2} M. Saifullah, D. Baldauf, and Y. Sakumura, ``Reliable brain tumor classification without metadata: A step-by-step guideline with duplicate removal,'' in \emph{Proc. IEEE 37th Int. Conf. Tools Artif. Intell. (ICTAI)}, 2025, pp. 1237--1244, doi: \href{https://doi.org/10.1109/ICTAI66417.2025.00180}{10.1109/ICTAI66417.2025.00180}. \emph{Used in: B1, B7, B9.}
+
+\bibitem{r3} E. Yagis \emph{et al.}, ``Effect of data leakage in brain MRI classification using 2D convolutional neural networks,'' \emph{Sci. Rep.}, vol.~11, no.~1, Art.~no.~22544, Nov. 2021, doi: \href{https://doi.org/10.1038/s41598-021-01681-w}{10.1038/s41598-021-01681-w}. \emph{Used in: B2.}
+
+\bibitem{r4} P. Chakraborty, ``CatBoost-stacked heterogeneous deep ensembles for explainable multi-class brain tumor MRI classification,'' \emph{J. Med. Health Stud.}, vol.~7, no.~5, pp. 18--24, Mar. 2026, doi: \href{https://doi.org/10.32996/jmhs.2026.7.5.4}{10.32996/jmhs.2026.7.5.4}. \emph{Used in: B7, B9.}
+
+\bibitem{r5} J. Kang, Z. Ullah, and J. Gwak, ``MRI-based brain tumor classification using ensemble of deep features and machine learning classifiers,'' \emph{Sensors}, vol.~21, no.~6, Art.~no.~2222, Mar. 2021, doi: \href{https://doi.org/10.3390/s21062222}{10.3390/s21062222}. \emph{Used in: B3, B6, B7, B8.}
+
+\bibitem{r6} L. Chhetri and A. Kumar, ``Optimizing deep learning for brain tumor classification: A comparative ablation study of preprocessing and augmentation strategies,'' in \emph{Proc. IEEE Guwahati Subsection Conf. (GCON)}, 2026, pp. 1--6, doi: \href{https://doi.org/10.1109/GCON69192.2026.11649062}{10.1109/GCON69192.2026.11649062}. \emph{Used in: B5, exclusions.}
+
+\bibitem{r7} E. Kondrateva \emph{et al.}, ``Negligible effect of brain MRI data preprocessing for tumor segmentation,'' \emph{Biomed. Signal Process. Control}, vol.~96, Art.~no.~106599, Oct. 2024, doi: \href{https://doi.org/10.1016/j.bspc.2024.106599}{10.1016/j.bspc.2024.106599}. \emph{Used in: B5, exclusions.}
+
+\bibitem{r8} R. D. Prayogo, N. Hamid, and H. Nambo, ``Hybrid CNN-based transfer learning enhances brain tumor classification on MRI images,'' \emph{IEEE Access}, vol.~13, pp. 116654--116668, 2025, doi: \href{https://doi.org/10.1109/ACCESS.2025.3584376}{10.1109/ACCESS.2025.3584376}. \emph{Used in: B6.}
+
+\bibitem{r9} H. Kibriya, R. Amin, A. H. Alshehri, M. Masood, S. S. Alshamrani, and A. Alshehri, ``A novel and effective brain tumor classification model using deep feature fusion and famous machine learning classifiers,'' \emph{Comput. Intell. Neurosci.}, vol.~2022, Art.~no.~7897669, Mar. 2022, doi: \href{https://doi.org/10.1155/2022/7897669}{10.1155/2022/7897669}. \emph{Used in: B7, B9.}
+
+\bibitem{r10} A. H. Al-Sarairah, O. A. A. M. Al-Lasasmeh, A. Al Tawil, M. S. Alkasasbeh, and N. M. Gharaibeh, ``Evaluating transfer learning for brain tumor MRI classification: Frozen VGG16 feature extraction versus end-to-end CNN training,'' \emph{Egypt. J. Radiol. Nucl. Med.}, vol.~57, no.~1, Art.~no.~129, Jun. 2026, doi: \href{https://doi.org/10.1186/s43055-026-01782-4}{10.1186/s43055-026-01782-4}. \emph{Used in: B8, exclusions.}
+
+\bibitem{r11} R. Wightman, ``PyTorch image models (timm),'' GitHub repository, 2019, file \texttt{timm/models/resnetv2.py}. Accessed: Oct. 29, 2026. [Online]. Available: \url{https://github.com/huggingface/pytorch-image-models}, doi: \href{https://doi.org/10.5281/zenodo.4414861}{10.5281/zenodo.4414861}. \emph{Used in: B8.}
+
+\bibitem{r12} S. Deepak and P. M. Ameer, ``Brain tumor categorization from imbalanced MRI dataset using weighted loss and deep feature fusion,'' \emph{Neurocomputing}, vol.~520, pp. 94--102, Feb. 2023, doi: \href{https://doi.org/10.1016/j.neucom.2022.11.039}{10.1016/j.neucom.2022.11.039}. \emph{Used in: B9, exclusions.}
+
+\end{thebibliography}
+
+\textbf{Quality of the evidence.} Only \cite{r1}, \cite{r2} and \cite{r4} control leakage explicitly. \cite{r10} splits by slice. Several sources (\cite{r1}, \cite{r4}, \cite{r6}, \cite{r10}) are 2026 papers with few or no citations, and \cite{r1} is a preprint. Most image-preprocessing choices therefore rest on convention, while the split and fold rules rest on strong evidence.
 
 \textbf{Internal sources}
 \begin{itemize}
@@ -383,7 +397,6 @@ Evidence IDs used in this document, in epic \board{103} and in issues \board{112
   \item \texttt{docs/research/preprocessing-2d-mri-cnn-ml.md} and \texttt{docs/research/consensus-raw-preprocessing-2d-mri.md}: earlier literature review.
   \item \texttt{docs/ml-engine/decisions.md}: decision log of the implemented modules.
   \item Measurements of section~\ref{sec:data}, run on 2026-10-29 on the manifest \texttt{dedup\_20261028T234450903626Z}.
-  \item Consensus research thread for this pipeline: \url{https://consensus.app/search/evidence-based-preprocessing-pipeline-for-a-hybrid/Sff9ZCR3T36MdOT5xwWZ3A/}
 \end{itemize}
 
 \end{document}
