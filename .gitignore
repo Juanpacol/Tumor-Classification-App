@@ -78,13 +78,13 @@ app/ml_engine/artifacts/
 !app/ml_engine/weights/.gitkeep
 
 # Data
-data/
-datasets/
-*.dcm
-*.nii
-*.nii.gz
-scans/
-uploads/
+#data/
+#datasets/
+#*.dcm
+#*.nii
+#*.nii.gz
+#scans/
+#uploads/
 
 # Logs
 logs/
