@@ -14,7 +14,13 @@ import {
 } from "./viewerEngine";
 
 function fakeViewer(): Viewer {
-  return { setTool: jest.fn(), reset: jest.fn(), destroy: jest.fn() };
+  return {
+    setTool: jest.fn(),
+    zoomBy: jest.fn(),
+    onZoom: jest.fn(() => jest.fn()),
+    reset: jest.fn(),
+    destroy: jest.fn(),
+  };
 }
 
 function Harness({ url, create }: { url: string; create: CreateViewer }) {
@@ -97,8 +103,7 @@ describe("useViewer", () => {
       peak = Math.max(peak, live);
       await new Promise((resolve) => setTimeout(resolve, 10));
       const viewer: Viewer = {
-        setTool: jest.fn(),
-        reset: jest.fn(),
+        ...fakeViewer(),
         destroy: jest.fn(() => {
           live -= 1;
         }),
@@ -154,5 +159,32 @@ describe("useViewer", () => {
     controls?.reset();
     expect(viewer.setTool).toHaveBeenCalledWith("zoom");
     expect(viewer.reset).toHaveBeenCalled();
+  });
+
+  it("passes the zoom changes on and stops listening when it unmounts", async () => {
+    const stop = jest.fn();
+    let announce: (zoom: number) => void = () => {};
+    const viewer: Viewer = {
+      ...fakeViewer(),
+      onZoom: jest.fn((listener) => {
+        announce = listener;
+        return stop;
+      }),
+    };
+    let controls: ReturnType<typeof useViewer> | undefined;
+    const create: CreateViewer = async () => viewer;
+    function Probe() {
+      controls = useViewer("a", create);
+      return <div ref={controls.containerRef} />;
+    }
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(controls?.state.status).toBe("ready"));
+    expect(controls?.zoom).toBe(1);
+    act(() => announce(2.5));
+    expect(controls?.zoom).toBe(2.5);
+    controls?.zoomBy(1.25);
+    expect(viewer.zoomBy).toHaveBeenCalledWith(1.25);
+    unmount();
+    expect(stop).toHaveBeenCalledTimes(1);
   });
 });

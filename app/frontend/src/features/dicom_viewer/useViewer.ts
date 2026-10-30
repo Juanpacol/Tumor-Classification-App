@@ -31,7 +31,9 @@ export function useViewer(
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const stopZoom = useRef<(() => void) | null>(null);
   const [state, setState] = useState<ViewerState>({ status: "loading" });
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -47,6 +49,8 @@ export function useViewer(
           return;
         }
         viewerRef.current = viewer;
+        stopZoom.current = viewer.onZoom(setZoom);
+        setZoom(1);
         setState({ status: "ready" });
       } catch (error: unknown) {
         if (!current) return;
@@ -59,6 +63,8 @@ export function useViewer(
     });
     return () => {
       current = false;
+      stopZoom.current?.();
+      stopZoom.current = null;
       viewerRef.current?.destroy();
       viewerRef.current = null;
     };
@@ -68,7 +74,11 @@ export function useViewer(
     (tool: ViewerTool) => viewerRef.current?.setTool(tool),
     [],
   );
+  const zoomBy = useCallback(
+    (factor: number) => viewerRef.current?.zoomBy(factor),
+    [],
+  );
   const reset = useCallback(() => viewerRef.current?.reset(), []);
 
-  return { containerRef, state, setTool, reset };
+  return { containerRef, state, zoom, setTool, zoomBy, reset };
 }
