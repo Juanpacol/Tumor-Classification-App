@@ -30,9 +30,8 @@ describe("StudyViewer", () => {
     const viewer = fakeViewer();
     mockCreateViewer.mockResolvedValue(viewer);
     render(<StudyViewer imageUrl="http://api.test/image" />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Zoom in" }),
-    );
+    await userEvent.click(await screen.findByRole("button", { name: "Zoom" }));
+    await userEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
     expect(viewer.zoomBy).toHaveBeenNthCalledWith(1, ZOOM_STEP);
     expect(viewer.zoomBy).toHaveBeenNthCalledWith(2, 1 / ZOOM_STEP);
