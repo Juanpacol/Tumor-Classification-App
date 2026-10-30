@@ -66,12 +66,12 @@
 
 .layer[data-for="report"] {
   --image: var(--backdrop-report);
-  transform: scale(1.6);
+  transform: scale(1.1);
 }
 
 .layer[data-for="chat"] {
   --image: var(--backdrop-chat);
-  transform: scale(1.9);
+  transform: scale(1.4);
 }
 
 .backdrop[data-tab="summary"] .layer[data-for="summary"] {
@@ -84,6 +84,12 @@
 
 .backdrop[data-tab="chat"] .layer[data-for="chat"] {
   opacity: 0.34;
+}
+
+.backdrop {
+  --backdrop-summary: url("/portal-brain.png");
+  --backdrop-report: url("/portal-heart.png");
+  --backdrop-chat: url("/portal-web.png");
 }
 
 .tabs {
