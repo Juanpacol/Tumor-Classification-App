@@ -36,7 +36,7 @@
   font-family: var(--font-serif);
   font-size: 2.25rem;
   line-height: 1;
-  color: #8a2c22;
+  color: var(--brand);
   opacity: 0.4;
 }
 
@@ -52,7 +52,7 @@
   margin-top: 0.25rem;
   font-size: 0.8125rem;
   letter-spacing: 0.02em;
-  color: #8a2c22;
+  color: var(--brand);
 }
 
 .layerText {

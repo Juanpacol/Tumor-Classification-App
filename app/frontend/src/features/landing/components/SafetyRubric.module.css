@@ -113,6 +113,6 @@
 }
 
 .check {
-  color: #8a2c22;
+  color: var(--brand);
   font-weight: 700;
 }
