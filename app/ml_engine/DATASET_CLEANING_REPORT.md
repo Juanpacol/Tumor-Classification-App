@@ -135,7 +135,7 @@ Each image also receives a **`group_id`** that joins duplicates with neighbourin
 | Before cleaning | 758 |
 | After cleaning | 263 |
 
-The remaining 263 groups are **distinct neighbouring slices** (not copies) still spread across Train and Test. They are resolved in the next step: splitting the data using `group_id`.
+The remaining 263 groups are **distinct neighbouring slices** (not copies) still spread across Train and Test. They are resolved by the leakage-free split (AB-165): every kept Train image whose `group_id` also belongs to a kept Test image is removed, 495 images in total (`docs/ml-engine/decisions.md`, D15).
 
 ---
 
@@ -191,7 +191,7 @@ python -m src.preprocessing.deduplication --data-dir src/data
 
 Options (defaults are the calibrated values): `--max-distance 6`, `--duplicate-correlation 0.98`, `--related-correlation 0.95`.
 
-To use the clean data, filter `manifest.csv` by `keep == 1` and split with `StratifiedGroupKFold` using `group_id` as the group.
+To use the clean data, load it with `load_samples` and split it with `split_samples` (`src/training/dataset.py`). They keep `keep == 1` rows and remove Train images that share a `group_id` with Test. Then build the cross-validation folds with `StratifiedGroupKFold`, using `group_id` as the group.
 
 ---
 
