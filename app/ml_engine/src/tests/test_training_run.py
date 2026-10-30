@@ -5,6 +5,7 @@ import joblib
 import pytest
 from pytest import CaptureFixture, MonkeyPatch
 
+from src.contracts import TumorLabel
 from src.tests.training_support import NOW, PER_CLASS, make_config
 from src.training import __main__ as cli
 from src.training import run
@@ -33,6 +34,9 @@ def test_the_manifest_records_how_the_model_was_trained(result: TrainingResult) 
     assert manifest["preprocessing"]["cnn_size"] == 224
     assert manifest["quality_thresholds"] == {"min_snr": 4.0, "min_entropy": 2.0}
     assert len(manifest["radiomic_feature_names"]) == 45
+    assert manifest["dataset"]["split_removed_per_class"] == {
+        label.value: 0 for label in TumorLabel
+    }
     assert manifest["metrics"]["test"]["macro_f1"] == result.report["test"]["macro_f1"]
 
 
@@ -41,6 +45,9 @@ def test_the_report_has_metrics_selection_and_ablation(result: TrainingResult) -
 
     assert report["dataset"]["train_images"] == 4 * PER_CLASS
     assert report["dataset"]["skipped_train"] == 0
+    assert set(report["dataset"]["split_removed_per_class"]) == {
+        label.value for label in TumorLabel
+    }
     assert set(report["selection"]["scores"]) == set(candidate_classifiers())
     assert set(report["ablation_macro_f1"]) == {"cnn_only", "radiomics_only", "hybrid"}
     assert len(report["test"]["confusion_matrix"]) == 4
@@ -118,6 +125,7 @@ def test_the_cli_prints_where_the_results_went(
 
     output = capsys.readouterr().out
     assert "model-vcli-test" in output and "test macro-F1" in output
+    assert "removed from Train (group in Test): glioma 0" in output
 
 
 def test_the_cli_warns_when_the_target_is_missed(
@@ -127,6 +135,7 @@ def test_the_cli_warns_when_the_target_is_missed(
         "test": {"macro_f1": 0.5, "accuracy": 0.5},
         "target_met": False,
         "target_macro_f1": 0.9,
+        "dataset": {"split_removed_per_class": {"glioma": 0}},
     }
     monkeypatch.setattr(
         cli, "train", lambda config: TrainingResult(tmp_path, tmp_path, report)

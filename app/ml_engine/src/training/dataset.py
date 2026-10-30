@@ -61,9 +61,29 @@ def load_samples(data_dir: Path, manifest_path: Path) -> list[Sample]:
     return samples
 
 
-def split_samples(samples: list[Sample]) -> tuple[list[Sample], list[Sample]]:
-    """``(train, test)`` according to the official folders."""
-    return (
-        [s for s in samples if s.split == "Train"],
-        [s for s in samples if s.split == "Test"],
-    )
+@dataclass(frozen=True)
+class Split:
+    """Leakage-free training and test sets, and the Train images removed per class."""
+
+    train: list[Sample]
+    test: list[Sample]
+    removed_per_class: dict[TumorLabel, int]
+
+
+def split_samples(samples: list[Sample]) -> Split:
+    """Keep the official Test folder and drop every Train sample sharing a group with it.
+
+    ``samples`` are kept manifest rows, so only groups of kept Test images count.
+    """
+    test = [s for s in samples if s.split == "Test"]
+    test_groups = {s.group_id for s in test}
+    train: list[Sample] = []
+    removed = dict.fromkeys(TumorLabel, 0)
+    for sample in samples:
+        if sample.split != "Train":
+            continue
+        if sample.group_id in test_groups:
+            removed[sample.label] += 1
+        else:
+            train.append(sample)
+    return Split(train, test, removed)
