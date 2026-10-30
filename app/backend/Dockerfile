@@ -9,10 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ml_engine comes from the "ml_engine" build context (see docker-compose.yml or
 # `docker build --build-context ml_engine=app/ml_engine app/backend`).
-COPY --from=ml_engine requirements.lock pyproject.toml /opt/ml_engine/
-RUN pip install --no-cache-dir -r /opt/ml_engine/requirements.lock
-COPY --from=ml_engine src /opt/ml_engine/src
-RUN pip install --no-cache-dir --no-deps /opt/ml_engine
+# The source is bind-mounted, not copied, so the dataset under src/data never
+# lands in a layer; only the installed package stays in the image.
+COPY --from=ml_engine requirements.lock /tmp/ml_engine-requirements.lock
+RUN pip install --no-cache-dir -r /tmp/ml_engine-requirements.lock
+RUN --mount=type=bind,from=ml_engine,target=/tmp/ml_engine,rw \
+    pip install --no-cache-dir --no-deps /tmp/ml_engine
 
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e .
