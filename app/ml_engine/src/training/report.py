@@ -98,7 +98,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "## Data",
         "",
         *(
-            f"- {key}: {value}"
+            f"- {key}: {_inline(value)}"
             for key, value in report["dataset"].items()
             if key != "skipped_reasons"
         ),
@@ -107,3 +107,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def _inline(value: Any) -> str:
+    if isinstance(value, dict):
+        return ", ".join(f"{key} {item}" for key, item in value.items())
+    return str(value)

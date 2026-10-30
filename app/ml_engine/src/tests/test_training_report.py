@@ -68,6 +68,15 @@ def test_markdown_states_the_verdict_and_shows_every_section() -> None:
     assert "| glioma |" in markdown and "svm_rbf" in markdown and "hybrid" in markdown
 
 
+def test_markdown_lists_per_class_counts_inline() -> None:
+    report = make_report(0.95)
+    report["dataset"]["split_removed_per_class"] = {"glioma": 142, "notumor": 15}
+
+    markdown = render_markdown(report)
+
+    assert "- split_removed_per_class: glioma 142, notumor 15" in markdown
+
+
 def test_markdown_flags_a_missed_target() -> None:
     assert "NOT met" in render_markdown(make_report(0.5))
 

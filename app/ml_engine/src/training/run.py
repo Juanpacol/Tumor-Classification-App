@@ -18,7 +18,7 @@ from src.seed import set_seed
 from src.training.ablation import ablate_blocks
 from src.training.artifact import write_artifact
 from src.training.calibration import CALIBRATION_METHOD, calibrate
-from src.training.dataset import load_samples, split_samples
+from src.training.dataset import Split, load_samples, split_samples
 from src.training.evaluation import evaluate
 from src.training.features import FeatureCache, FeatureTable, make_featurizer
 from src.training.model import (
@@ -68,7 +68,8 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         raise FileExistsError(f"artifact already exists: {artifact_dir}")
     set_seed(config.seed)
 
-    train_table, test_table, skipped = _feature_tables(config)
+    split = split_samples(load_samples(config.data_dir, config.manifest))
+    train_table, test_table, skipped = _feature_tables(config, split)
     if not train_table.samples:
         raise ValueError("no usable training images")
     x_train, y_train, groups = _training_arrays(train_table)
@@ -103,7 +104,7 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
     )
 
     created_at = now.isoformat()
-    dataset = _dataset_summary(train_table, test_table, skipped)
+    dataset = _dataset_summary(train_table, test_table, skipped, split.removed_per_class)
     selection_dict = {
         "scores": {name: asdict(score) for name, score in selection.scores.items()},
         "best": selection.best,
@@ -142,11 +143,8 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
 
 
 def _feature_tables(
-    config: TrainingConfig,
+    config: TrainingConfig, split: Split
 ) -> tuple[FeatureTable, FeatureTable, dict[str, list[str]]]:
-    train_samples, test_samples = split_samples(
-        load_samples(config.data_dir, config.manifest)
-    )
     extractor = DeepFeatureExtractor.from_bundle(
         config.backbone_bundle, config.preprocessing
     )
@@ -159,8 +157,8 @@ def _feature_tables(
         featurize,
         config.radiomics,
     )
-    train_table, train_skipped = cache.table(train_samples)
-    test_table, test_skipped = cache.table(test_samples)
+    train_table, train_skipped = cache.table(split.train)
+    test_table, test_skipped = cache.table(split.test)
     skipped = {
         "Train": [f"{s.path.name}: {s.reason}" for s in train_skipped],
         "Test": [f"{s.path.name}: {s.reason}" for s in test_skipped],
@@ -177,12 +175,18 @@ def _training_arrays(table: FeatureTable) -> tuple[np.ndarray, np.ndarray, np.nd
 
 
 def _dataset_summary(
-    train: FeatureTable, test: FeatureTable, skipped: dict[str, list[str]]
+    train: FeatureTable,
+    test: FeatureTable,
+    skipped: dict[str, list[str]],
+    removed: dict[TumorLabel, int],
 ) -> dict[str, Any]:
     return {
         "train_images": len(train.samples),
         "test_images": len(test.samples),
         "train_class_counts": dict(Counter(s.label.value for s in train.samples)),
+        "split_removed_per_class": {
+            label.value: count for label, count in removed.items()
+        },
         "skipped_train": len(skipped["Train"]),
         "skipped_test": len(skipped["Test"]),
         "skipped_reasons": skipped,

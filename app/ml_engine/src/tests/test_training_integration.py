@@ -40,11 +40,11 @@ def test_synthetic_dataset_goes_through_features_and_selection(
     featurize, fingerprint = make_featurizer(
         extractor, PreprocessingConfig(), RadiomicsConfig()
     )
-    train, test = split_samples(load_samples(data_dir, manifest))
+    split = split_samples(load_samples(data_dir, manifest))
 
     cache = FeatureCache(tmp_path / "cache", fingerprint, featurize, RadiomicsConfig())
-    table, skipped = cache.table(train)
-    test_table, _ = cache.table(test)
+    table, skipped = cache.table(split.train)
+    test_table, _ = cache.table(split.test)
 
     assert skipped == []
     assert table.matrix.shape == (4 * PER_CLASS, 45 + 1280)
