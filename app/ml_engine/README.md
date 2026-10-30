@@ -57,7 +57,7 @@ The `weights/` folder is ignored by git. Details are in `docs/ml-engine/decision
 
 ## Training data and model selection
 
-The cleaned dataset is described by the `manifest.csv` that the deduplication step writes (`python -m src.preprocessing.deduplication --data-dir src/data`). `load_samples` reads the kept images from it, `FeatureCache` computes radiomic and CNN features once per image and `compare_classifiers` cross-validates logistic regression, an RBF SVM and a random forest with group-aware folds. Decisions are in `docs/ml-engine/decisions.md` (D11, D12).
+The cleaned dataset is described by the `manifest.csv` that the deduplication step writes (`python -m src.preprocessing.deduplication --data-dir src/data`). `load_samples` reads the kept images from it, `FeatureCache` computes radiomic and CNN features once per image and `compare_classifiers` cross-validates logistic regression, an RBF SVM and a random forest on grouped folds that `assign_folds` computes once per run. Decisions are in `docs/ml-engine/decisions.md` (D11, D12, D16).
 
 ### Train
 
@@ -67,9 +67,9 @@ With the backbone bundle exported (see *Deep features*) and the cleaning `manife
 python -m src.training --data-dir src/data --manifest <path>/manifest.csv --version 0.1.0
 ```
 
-It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then selects a classifier by group-aware cross-validation, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
+It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then assigns every Train image to one of 5 grouped folds (`StratifiedGroupKFold` on `group_id`), selects a classifier by cross-validated macro-F1 on those folds (balanced accuracy is reported too), runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
 
 - `model-v<version>/`: `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
-- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics, confusion matrix, selection, ablation, and whether the 0.90 macro-F1 target was met).
+- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics including balanced accuracy, confusion matrix, images per fold and class, selection, ablation, and whether the 0.90 macro-F1 target was met), and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
 
 The same `--seed` (default 42) reproduces the same metrics. Features are cached under `artifacts/feature-cache`, so a second run skips the extraction. An existing artifact or report is never overwritten.

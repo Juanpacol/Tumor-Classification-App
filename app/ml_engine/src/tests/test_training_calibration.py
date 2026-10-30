@@ -2,10 +2,10 @@ import numpy as np
 from pytest import MonkeyPatch
 from sklearn.linear_model import LogisticRegression
 
-from src.tests.synthetic import separable_features
+from src.tests.synthetic import grouped_splits, separable_features
 from src.training import calibration
 from src.training.calibration import calibrate
-from src.training.model import build_model, group_folds
+from src.training.model import build_model
 
 N_RADIOMIC, N_CNN = 45, 20
 
@@ -17,7 +17,9 @@ def fresh_model() -> object:
 def test_calibrated_probabilities_are_valid_and_follow_the_class_order() -> None:
     matrix, labels, groups = separable_features()
 
-    calibrated = calibrate(fresh_model(), matrix, labels, groups, n_splits=3)
+    calibrated = calibrate(
+        fresh_model(), matrix, labels, grouped_splits(labels, groups, 3)
+    )
 
     probabilities = calibrated.predict_proba(matrix)
     assert probabilities.shape == (len(labels), 4)
@@ -28,31 +30,42 @@ def test_calibrated_probabilities_are_valid_and_follow_the_class_order() -> None
 
 def test_calibration_is_reproducible() -> None:
     matrix, labels, groups = separable_features()
+    splits = grouped_splits(labels, groups, 3, seed=3)
 
-    first = calibrate(fresh_model(), matrix, labels, groups, seed=3, n_splits=3)
-    second = calibrate(fresh_model(), matrix, labels, groups, seed=3, n_splits=3)
+    first = calibrate(fresh_model(), matrix, labels, splits)
+    second = calibrate(fresh_model(), matrix, labels, splits)
 
     assert np.allclose(first.predict_proba(matrix), second.predict_proba(matrix))
 
 
-def test_calibration_never_splits_a_group_across_folds(
+def test_the_result_is_one_calibrated_pipeline_per_fold() -> None:
+    matrix, labels, groups = separable_features()
+
+    calibrated = calibrate(
+        fresh_model(), matrix, labels, grouped_splits(labels, groups, 3)
+    )
+
+    assert len(calibrated.calibrated_classifiers_) == 3
+    expected = np.mean(
+        [c.predict_proba(matrix) for c in calibrated.calibrated_classifiers_], axis=0
+    )
+    assert np.allclose(calibrated.predict_proba(matrix), expected)
+
+
+def test_calibration_uses_the_given_splits_as_they_are(
     monkeypatch: MonkeyPatch,
 ) -> None:
     matrix, labels, groups = separable_features()
-    seen: list[tuple[np.ndarray, np.ndarray]] = []
+    splits = grouped_splits(labels, groups, 3)
+    seen: list[object] = []
+    real = calibration.CalibratedClassifierCV
 
-    class RecordingFolds:
-        def split(self, x: np.ndarray, y: np.ndarray, g: np.ndarray) -> object:
-            splits = list(group_folds(3, 0).split(x, y, g))
-            seen.extend(splits)
-            return iter(splits)
+    def recording(**kwargs: object) -> object:
+        seen.append(kwargs["cv"])
+        return real(**kwargs)
 
-    monkeypatch.setattr(
-        calibration, "group_folds", lambda n_splits, seed: RecordingFolds()
-    )
+    monkeypatch.setattr(calibration, "CalibratedClassifierCV", recording)
 
-    calibrate(fresh_model(), matrix, labels, groups, n_splits=3)
+    calibrate(fresh_model(), matrix, labels, splits)
 
-    assert len(seen) == 3
-    for train, test in seen:
-        assert not set(groups[train]) & set(groups[test])
+    assert seen == [splits]

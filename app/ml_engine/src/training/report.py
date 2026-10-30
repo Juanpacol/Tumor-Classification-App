@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import csv
 import json
+from collections.abc import Sequence
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
+from src.training.folds import FoldRow
+
 TARGET_MACRO_F1 = 0.90
+FOLDS_FILE = "folds.csv"
 
 
 def build_report(
@@ -14,6 +20,7 @@ def build_report(
     version: str,
     seed: int,
     dataset: dict[str, Any],
+    validation: dict[str, Any],
     selection: dict[str, Any],
     ablation: dict[str, float],
     test: dict[str, Any],
@@ -27,6 +34,7 @@ def build_report(
         "target_macro_f1": TARGET_MACRO_F1,
         "target_met": test["macro_f1"] >= TARGET_MACRO_F1,
         "dataset": dataset,
+        "validation": validation,
         "selection": selection,
         "ablation_macro_f1": ablation,
         "calibration_method": calibration_method,
@@ -34,11 +42,18 @@ def build_report(
     }
 
 
-def write_report(directory: Path, report: dict[str, Any]) -> None:
-    """Write ``report.json`` and ``report.md`` to a new folder (never overwrites)."""
+def write_report(
+    directory: Path, report: dict[str, Any], folds: Sequence[FoldRow]
+) -> None:
+    """Write ``report.json``, ``report.md`` and the fold record ``folds.csv`` to a new
+    folder (never overwrites)."""
     directory.mkdir(parents=True)
     (directory / "report.json").write_text(json.dumps(report, indent=2))
     (directory / "report.md").write_text(render_markdown(report))
+    with (directory / FOLDS_FILE).open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, [f.name for f in fields(FoldRow)])
+        writer.writeheader()
+        writer.writerows({**asdict(row), "used": int(row.used)} for row in folds)
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -50,7 +65,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Created {report['created_at']}, seed {report['seed']}.",
         "",
         (
-            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}. "
+            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
+            f"balanced accuracy {test['balanced_accuracy']:.3f}. "
             f"Target {report['target_macro_f1']:.2f}: {verdict}."
         ),
         "",
@@ -72,12 +88,14 @@ def render_markdown(report: dict[str, Any]) -> str:
             for name, row in zip(test["per_class"], test["confusion_matrix"])
         ),
         "",
-        "## Classifier selection (cross-validated macro-F1 on Train)",
+        *_validation_lines(report["validation"]),
+        "## Classifier selection (cross-validated on Train, chosen by macro-F1)",
         "",
-        "| Classifier | Mean | Std |",
-        "|---|---|---|",
+        "| Classifier | Macro-F1 mean | Macro-F1 std | Bal. acc. mean | Bal. acc. std |",
+        "|---|---|---|---|---|",
         *(
-            f"| {name} | {s['mean_macro_f1']:.3f} | {s['std_macro_f1']:.3f} |"
+            f"| {name} | {s['mean_macro_f1']:.3f} | {s['std_macro_f1']:.3f} "
+            f"| {s['mean_balanced_accuracy']:.3f} | {s['std_balanced_accuracy']:.3f} |"
             for name, s in report["selection"]["scores"].items()
         ),
         "",
@@ -107,6 +125,30 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def _validation_lines(validation: dict[str, Any]) -> list[str]:
+    counts = validation["used_per_fold_and_class"]
+    labels = list(next(iter(counts.values()), {}))
+    return [
+        "## Folds (used Train images per fold and class)",
+        "",
+        (
+            f"{validation['method']}, {validation['n_splits']} folds, group "
+            f"`{validation['group']}`, seed {validation['seed']}. "
+            f"The fold of every Train image left after the leakage-free split is in `{FOLDS_FILE}`."
+        ),
+        "",
+        "| Fold | " + " | ".join(labels) + " | Total |",
+        "|---|" + "---|" * (len(labels) + 1),
+        *(
+            f"| {fold} | "
+            + " | ".join(str(per_class[label]) for label in labels)
+            + f" | {sum(per_class.values())} |"
+            for fold, per_class in counts.items()
+        ),
+        "",
+    ]
 
 
 def _inline(value: Any) -> str:

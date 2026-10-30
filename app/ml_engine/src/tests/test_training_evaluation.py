@@ -66,3 +66,13 @@ def test_label_order_is_respected() -> None:
     )
 
     assert list(metrics.per_class) == ["pituitary", "glioma"]
+
+
+def test_balanced_accuracy_averages_the_recall_of_the_classes_present() -> None:
+    y = np.array(["glioma", "glioma", "glioma", "no_tumor"])
+    predictions = ["glioma", "glioma", "glioma", "glioma"]
+
+    metrics = evaluate(FixedPredictions(predictions), np.zeros((4, 1)), y, LABELS)
+
+    assert metrics.accuracy == pytest.approx(0.75)
+    assert metrics.balanced_accuracy == pytest.approx(0.5)
