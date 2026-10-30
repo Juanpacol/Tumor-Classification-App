@@ -1,4 +1,7 @@
-"""Calibrate quality thresholds on a dataset: ``python -m src.preprocessing.calibrate``."""
+"""Calibrate the quality thresholds on the leakage-free Train split.
+
+``python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>``
+"""
 
 from __future__ import annotations
 
@@ -10,9 +13,9 @@ from pathlib import Path
 import numpy as np
 
 from src.errors import UnsupportedImageError
-from src.preprocessing.deduplication.discovery import discover_images
 from src.preprocessing.loading import load_mri_image
-from src.preprocessing.quality import QualityThresholds, estimate_snr, shannon_entropy
+from src.preprocessing.quality import QualityThresholds, measure_quality
+from src.training.dataset import load_samples, split_samples
 
 
 def calibrate(
@@ -27,11 +30,11 @@ def calibrate(
     entropies: list[float] = []
     for path in paths:
         try:
-            gray = load_mri_image(path)
+            metrics = measure_quality(load_mri_image(path), skull_stripped=False)
         except UnsupportedImageError:
             continue
-        snrs.append(estimate_snr(gray))
-        entropies.append(shannon_entropy(gray))
+        snrs.append(metrics.snr)
+        entropies.append(metrics.entropy)
     if not snrs:
         raise ValueError("no readable images to calibrate on")
     thresholds = QualityThresholds(
@@ -43,14 +46,17 @@ def calibrate(
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument(
-        "--data-dir", type=Path, required=True, help="folder with Train/ and Test/"
+        "--manifest", type=Path, required=True, help="cleaning manifest.csv"
     )
     parser.add_argument("--percentile", type=float, default=1.0)
     args = parser.parse_args(argv)
 
-    paths = [path for path, _, _ in discover_images(args.data_dir)]
-    thresholds, used = calibrate(paths, args.percentile)
+    train = split_samples(load_samples(args.data_dir, args.manifest)).train
+    if not train:
+        parser.error("no Train images left after removing groups shared with Test")
+    thresholds, used = calibrate((s.path for s in train), args.percentile)
     print(
         json.dumps(
             {
