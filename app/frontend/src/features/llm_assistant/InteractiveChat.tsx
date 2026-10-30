@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Alert, Button, Card } from "@/features/portal/components";
+import { Alert, Button } from "@/features/portal/components";
 import type { ApiClient, StudyDetail } from "@/services/api";
 import { isSendable, MAX_MESSAGE_LENGTH, type ChatItem } from "./chatReducer";
 import { useChat } from "./useChat";
@@ -51,8 +51,7 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
   }
 
   return (
-    <Card aria-label="Chat">
-      <h2 className={styles.heading}>Chat</h2>
+    <section aria-label="Chat">
       {state.phase === "loading" && (
         <p className={styles.message} role="status">
           Loading the conversation…
@@ -118,7 +117,7 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
       <p className={styles.note}>
         Answers come from an AI assistant and are not a diagnosis.
       </p>
-    </Card>
+    </section>
   );
 }
 
