@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudyViewer } from "./StudyViewer";
+import { ZOOM_STEP } from "./zoom";
 import {
   ViewerUnavailableError,
   type CreateViewer,
@@ -14,13 +15,64 @@ jest.mock("./viewerEngine", () => ({
   createViewer: () => mockCreateViewer(),
 }));
 
+function fakeViewer(): Viewer {
+  return {
+    setTool: jest.fn(),
+    zoomBy: jest.fn(),
+    onZoom: jest.fn(() => jest.fn()),
+    reset: jest.fn(),
+    destroy: jest.fn(),
+  };
+}
+
 describe("StudyViewer", () => {
-  it("offers the tools and changes the active one", async () => {
+  it("zooms in and out from the buttons", async () => {
+    const viewer = fakeViewer();
+    mockCreateViewer.mockResolvedValue(viewer);
+    render(<StudyViewer imageUrl="http://api.test/image" />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Zoom in" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(viewer.zoomBy).toHaveBeenNthCalledWith(1, ZOOM_STEP);
+    expect(viewer.zoomBy).toHaveBeenNthCalledWith(2, 1 / ZOOM_STEP);
+  });
+
+  it("shows the zoom level and follows the viewer", async () => {
+    let announce: (zoom: number) => void = () => {};
     const viewer: Viewer = {
-      setTool: jest.fn(),
-      reset: jest.fn(),
-      destroy: jest.fn(),
+      ...fakeViewer(),
+      onZoom: jest.fn((listener) => {
+        announce = listener;
+        return jest.fn();
+      }),
     };
+    mockCreateViewer.mockResolvedValue(viewer);
+    render(<StudyViewer imageUrl="http://api.test/image" />);
+    expect(await screen.findByLabelText("Zoom level")).toHaveTextContent(
+      "100%",
+    );
+    act(() => announce(1.56));
+    expect(screen.getByLabelText("Zoom level")).toHaveTextContent("156%");
+  });
+
+  it("tells the cursor which tool is active and says how to use it", async () => {
+    mockCreateViewer.mockResolvedValue(fakeViewer());
+    const { container } = render(
+      <StudyViewer imageUrl="http://api.test/image" />,
+    );
+    await screen.findByRole("button", { name: "Pan" });
+    const canvas = container.querySelector("[data-tool]");
+    expect(canvas).toHaveAttribute("data-tool", "windowLevel");
+    expect(screen.getByText(/Drag to adjust the contrast/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Pan" }));
+    expect(canvas).toHaveAttribute("data-tool", "pan");
+    expect(screen.getByText(/Drag to move the image/)).toBeInTheDocument();
+    expect(screen.getByText(/Scroll to zoom/)).toBeInTheDocument();
+  });
+
+  it("offers the tools and changes the active one", async () => {
+    const viewer = fakeViewer();
     mockCreateViewer.mockResolvedValue(viewer);
     render(<StudyViewer imageUrl="http://api.test/image" />);
     const zoom = await screen.findByRole("button", { name: "Zoom" });

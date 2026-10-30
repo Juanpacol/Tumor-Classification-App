@@ -1,5 +1,6 @@
 import type { Types } from "@cornerstonejs/core";
 import { ImageFetchError } from "./webImage";
+import { nextZoom, ZOOM_STEP } from "./zoom";
 import {
   preloadWebImage,
   registerWebImageLoader,
@@ -20,6 +21,10 @@ export class ViewerUnavailableError extends Error {
 
 export interface Viewer {
   setTool(tool: ViewerTool): void;
+  /** Multiplies the zoom, keeping it inside the limits. */
+  zoomBy(factor: number): void;
+  /** Calls `listener` with the zoom (1 is the whole image) each time it changes. */
+  onZoom(listener: (zoom: number) => void): () => void;
   reset(): void;
   destroy(): void;
 }
@@ -36,6 +41,9 @@ const TOOL_NAMES: Record<ViewerTool, string> = {
 };
 
 export const DEFAULT_TOOL: ViewerTool = "windowLevel";
+
+/** The web image loader serves 8-bit grayscale, so the whole range is 0 to 255. */
+const FULL_RANGE = { lower: 0, upper: 255 };
 
 let counter = 0;
 let ready: Promise<void> | undefined;
@@ -113,10 +121,12 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
   const imageId = webImageId(imageUrl);
   let engine: InstanceType<typeof core.RenderingEngine> | undefined;
 
+  const cleanups: (() => void)[] = [];
   let destroyed = false;
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    cleanups.forEach((cleanup) => cleanup());
     // The engine goes first: disabling its viewports tells the tools package,
     // which still needs the tool group to exist.
     withoutTeardownNoise(() => {
@@ -147,6 +157,38 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
     activate(DEFAULT_TOOL);
     viewport.render();
 
+    // Cornerstone3D reads the zoom differently by renderer: on the GPU it is a
+    // ratio to the fitted view, on the CPU the absolute scale. Both are brought
+    // to "1 is the whole image in view" using the value right after fitting.
+    const cpu = core.getShouldUseCPURendering();
+    const fit = viewport.getZoom() || 1;
+    const currentZoom = () => viewport.getZoom() / fit;
+    const zoomListeners = new Set<(zoom: number) => void>();
+    const announceZoom = () =>
+      zoomListeners.forEach((listener) => listener(currentZoom()));
+    element.addEventListener(core.Enums.Events.CAMERA_MODIFIED, announceZoom);
+    cleanups.push(() =>
+      element.removeEventListener(
+        core.Enums.Events.CAMERA_MODIFIED,
+        announceZoom,
+      ),
+    );
+
+    function zoomBy(factor: number) {
+      const zoom = nextZoom(currentZoom(), factor);
+      viewport.setZoom(cpu ? zoom * fit : zoom);
+      viewport.render();
+      announceZoom();
+    }
+
+    // The zoom tool of Cornerstone3D only follows a drag, so the wheel is ours.
+    function onWheel(event: WheelEvent) {
+      event.preventDefault();
+      zoomBy(event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+    }
+    element.addEventListener("wheel", onWheel, { passive: false });
+    cleanups.push(() => element.removeEventListener("wheel", onWheel));
+
     function activate(tool: ViewerTool) {
       Object.entries(TOOL_NAMES).forEach(([key, name]) => {
         if (key === tool) {
@@ -161,10 +203,18 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
 
     return {
       setTool: activate,
+      zoomBy,
+      onZoom(listener) {
+        zoomListeners.add(listener);
+        return () => zoomListeners.delete(listener);
+      },
       reset() {
-        viewport.resetProperties();
+        // resetProperties() throws on the CPU renderer, which has no image
+        // actor, so the contrast goes back to the whole range directly.
+        viewport.setProperties({ voiRange: FULL_RANGE });
         viewport.resetCamera();
         viewport.render();
+        announceZoom();
       },
       destroy,
     };
