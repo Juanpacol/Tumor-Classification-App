@@ -167,5 +167,6 @@ Ether is a hackathon prototype. These are the external assets it depends on and 
 | Python and JavaScript dependencies | Everything | Open-source packages pinned in `app/ml_engine/requirements.lock` and the backend and frontend manifests. Their licenses were not audited |
 | Drawn skull and surgical instrument illustrations (`app/frontend/public/portal-skull.png`, `portal-instrument.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
 | Drawn skeletal hand, torso and bird illustrations (`app/frontend/public/portal-brain.png`, `portal-heart.png`, `portal-web.png`) | Fixed background behind each analysis tab | Owned by the team; cleared for use in this repository |
+| Drawn skeleton back and IV drip stand illustrations (`app/frontend/public/story-skeleton-back.png`, `story-iv-drip.png`) | Backdrop on the how-we-built-it hero | Owned by the team; cleared for use in this repository |
 
 Every model artifact records where its weights came from (`backbone_provenance` in its `manifest.json`). Details are in `docs/ml-engine/decisions.md` (D9, D14).
