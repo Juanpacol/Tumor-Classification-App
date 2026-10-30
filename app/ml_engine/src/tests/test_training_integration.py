@@ -12,6 +12,7 @@ from src.seed import set_seed
 from src.tests.synthetic import write_labeled_dataset
 from src.training.dataset import load_samples, split_samples
 from src.training.features import FeatureCache, make_featurizer
+from src.training.folds import assign_folds, fold_splits
 from src.training.model import compare_classifiers
 
 PER_CLASS = 20
@@ -52,7 +53,8 @@ def test_synthetic_dataset_goes_through_features_and_selection(
     assert np.isfinite(table.matrix).all()
 
     y = np.array([s.label.value for s in table.samples])
-    groups = np.array([s.group_id for s in table.samples])
-    result = compare_classifiers(table.matrix, y, groups, n_radiomic=45, n_splits=3)
+    fold_of = assign_folds(split.train, 3, 0)
+    splits = fold_splits(np.array([fold_of[s.path] for s in table.samples]), 3)
+    result = compare_classifiers(table.matrix, y, 45, splits)
 
     assert result.scores[result.best].mean_macro_f1 > 0.5

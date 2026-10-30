@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (
+    balanced_accuracy_score,
+    classification_report,
+    confusion_matrix,
+)
 
 
 @dataclass(frozen=True)
@@ -20,10 +24,12 @@ class ClassMetrics:
 
 @dataclass(frozen=True)
 class EvaluationMetrics:
-    """Accuracy, macro-F1, per-class scores and the confusion matrix (rows are the truth)."""
+    """Accuracy, macro-F1, balanced accuracy, per-class scores and the confusion matrix
+    (rows are the truth)."""
 
     accuracy: float
     macro_f1: float
+    balanced_accuracy: float
     per_class: dict[str, ClassMetrics]
     confusion_matrix: list[list[int]]
 
@@ -39,6 +45,7 @@ def evaluate(
     return EvaluationMetrics(
         accuracy=float(report["accuracy"]),
         macro_f1=float(report["macro avg"]["f1-score"]),
+        balanced_accuracy=float(balanced_accuracy_score(y, predictions)),
         per_class={
             label: ClassMetrics(
                 float(report[label]["precision"]),

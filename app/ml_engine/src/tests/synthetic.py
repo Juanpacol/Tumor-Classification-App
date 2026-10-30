@@ -9,6 +9,9 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import gaussian_filter
 
+from src.training.dataset import FOLDER_TO_LABEL, Sample
+from src.training.folds import assign_folds, fold_splits
+
 
 def synthetic_slice(seed: int, size: int = 256) -> Image.Image:
     """Smooth random texture inside a disc on a black background."""
@@ -94,3 +97,16 @@ def separable_features(
         blocks.append(noise)
     groups = np.arange(len(labels)) // 2
     return np.hstack(blocks), labels, groups
+
+
+def grouped_splits(
+    labels: np.ndarray, groups: np.ndarray, n_splits: int = 5, seed: int = 0
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Fold rows with the same code as a training run, for tests that start from a
+    matrix (``labels`` are manifest folder names)."""
+    samples = [
+        Sample(Path(str(row)), "Train", FOLDER_TO_LABEL[str(label)], int(group))
+        for row, (label, group) in enumerate(zip(labels, groups))
+    ]
+    fold_of = assign_folds(samples, n_splits, seed)
+    return fold_splits(np.array([fold_of[s.path] for s in samples]), n_splits)

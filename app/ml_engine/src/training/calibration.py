@@ -6,27 +6,27 @@ import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.pipeline import Pipeline
 
-from src.training.model import DEFAULT_SEED, N_SPLITS, group_folds
+from src.training.folds import Splits
 
 CALIBRATION_METHOD = "sigmoid"
+CALIBRATION_ENSEMBLE = True
 
 
 def calibrate(
-    model: Pipeline,
-    matrix: np.ndarray,
-    y: np.ndarray,
-    groups: np.ndarray,
-    seed: int = DEFAULT_SEED,
-    n_splits: int = N_SPLITS,
+    model: Pipeline, matrix: np.ndarray, y: np.ndarray, splits: Splits
 ) -> CalibratedClassifierCV:
-    """Fit the pipeline and its probability calibration on the same group-aware folds.
+    """Fit the pipeline and its probability calibration on the shared folds.
 
+    Each fold fits one pipeline on its fit rows and one sigmoid on its validation
+    rows (``CALIBRATION_ENSEMBLE``). The result averages the probabilities of those
+    calibrated pipelines, so it is never refitted on the whole Train split.
     Using the selection folds keeps a group of near-duplicate images out of both
-    sides of any split, so the calibration cannot reintroduce the leakage. The
-    result is an ensemble with one fitted pipeline per fold.
+    sides of any split.
     """
-    splits = list(group_folds(n_splits, seed).split(matrix, y, groups))
     calibrated = CalibratedClassifierCV(
-        estimator=model, method=CALIBRATION_METHOD, cv=splits
+        estimator=model,
+        method=CALIBRATION_METHOD,
+        cv=splits,
+        ensemble=CALIBRATION_ENSEMBLE,
     )
     return calibrated.fit(matrix, y)
