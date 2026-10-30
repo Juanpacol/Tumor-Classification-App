@@ -10,7 +10,6 @@
 .stage {
   /* Wider than the portal column, centered on it, so the image has room. */
   position: relative;
-  isolation: isolate;
   left: 50%;
   width: min(1320px, calc(100vw - 4rem));
   transform: translateX(-50%);
