@@ -156,25 +156,29 @@ export function StudyViewer({
               ))}
             </div>
             <div className={styles.group} role="group" aria-label="View">
-              <button
-                type="button"
-                aria-label="Zoom out"
-                className={`${styles.tool} ${styles.step}`}
-                onClick={() => zoomBy(1 / ZOOM_STEP)}
-              >
-                −
-              </button>
+              {active === "zoom" && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Zoom out"
+                    className={`${styles.tool} ${styles.step}`}
+                    onClick={() => zoomBy(1 / ZOOM_STEP)}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Zoom in"
+                    className={`${styles.tool} ${styles.step}`}
+                    onClick={() => zoomBy(ZOOM_STEP)}
+                  >
+                    +
+                  </button>
+                </>
+              )}
               <output aria-label="Zoom level" className={styles.readout}>
                 {formatZoom(zoom)}
               </output>
-              <button
-                type="button"
-                aria-label="Zoom in"
-                className={`${styles.tool} ${styles.step}`}
-                onClick={() => zoomBy(ZOOM_STEP)}
-              >
-                +
-              </button>
               <button type="button" className={styles.tool} onClick={reset}>
                 Reset view
               </button>
