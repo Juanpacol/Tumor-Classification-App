@@ -19,6 +19,10 @@ export type ViewerState =
  * Creates the viewer for `imageUrl` inside the element behind `containerRef`
  * and destroys it when the image changes or the component unmounts, so that
  * navigating between studies does not leak WebGL contexts.
+ *
+ * Creations run one after another. React mounts effects twice in development,
+ * and a study can change while the previous image is still loading; two
+ * viewers on the same element would disable each other.
  */
 export function useViewer(
   imageUrl: string,
@@ -26,6 +30,7 @@ export function useViewer(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
   const [state, setState] = useState<ViewerState>({ status: "loading" });
 
   useEffect(() => {
@@ -33,23 +38,25 @@ export function useViewer(
     if (!element) return;
     let current = true;
     setState({ status: "loading" });
-    createViewer(element, imageUrl)
-      .then((viewer) => {
+    queue.current = queue.current.then(async () => {
+      if (!current) return;
+      try {
+        const viewer = await createViewer(element, imageUrl);
         if (!current) {
           viewer.destroy();
           return;
         }
         viewerRef.current = viewer;
         setState({ status: "ready" });
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (!current) return;
         setState({
           status: "unavailable",
           reason:
             error instanceof ViewerUnavailableError ? error.reason : "failed",
         });
-      });
+      }
+    });
     return () => {
       current = false;
       viewerRef.current?.destroy();
