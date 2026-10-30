@@ -36,6 +36,7 @@ import {
 } from "../worklist";
 import { Alert } from "./Alert";
 import { Button } from "./Button";
+import { PortalBackdrop } from "./PortalBackdrop";
 import { StatusTag } from "./StatusTag";
 import styles from "./StudyDashboard.module.css";
 
@@ -106,7 +107,8 @@ export function StudyDashboard({ client }: { client?: ApiClient }) {
   );
 
   return (
-    <div>
+    <div className={styles.page}>
+      <PortalBackdrop />
       <header className={styles.hero}>
         <span className={styles.wordmark}>STUDIES</span>
         <h1 className={styles.headline}>What needs a reader, first.</h1>
