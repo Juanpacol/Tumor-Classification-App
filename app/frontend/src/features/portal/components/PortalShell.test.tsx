@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { DISCLAIMER, PortalShell } from "./PortalShell";
+import { DISCLAIMER } from "./PortalHeader";
+import { PortalShell } from "./PortalShell";
 
 describe("PortalShell", () => {
   it("always shows the decision-support disclaimer with the page", () => {
