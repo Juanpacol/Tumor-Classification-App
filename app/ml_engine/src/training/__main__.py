@@ -37,6 +37,11 @@ def main(argv: list[str] | None = None) -> None:
         )
     )
     test = result.report["test"]
+    removed = result.report["dataset"]["split_removed_per_class"]
+    print(
+        "removed from Train (group in Test): "
+        + ", ".join(f"{label} {count}" for label, count in removed.items())
+    )
     print(f"artifact: {result.artifact_dir}")
     print(f"report:   {result.report_dir}")
     print(f"test macro-F1 {test['macro_f1']:.3f}, accuracy {test['accuracy']:.3f}")
