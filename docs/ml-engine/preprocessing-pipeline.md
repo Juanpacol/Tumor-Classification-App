@@ -185,6 +185,7 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B9. Validation protocol
 
 - **Rule:** `StratifiedGroupKFold` (5 folds, `group_id`, fixed seed) on the purged Training split. Every fitted step (scaler, PCA, classifier, calibration) is fitted on the fit rows of each fold inside one scikit-learn `Pipeline`. Classes are balanced with `class_weight="balanced"`. Selection uses mean CV macro-F1. Testing is scored once, by the calibrated model.
+- **Folds:** assigned once per run from the manifest, before the quality gate, and shared by selection, ablation and calibration. An image the gate rejects keeps its fold without being a row. The assignment is written to `folds.csv` in the report folder, which #167 uses to keep each augmented copy in its original's fold (G4) and out of validation rows (G3). The calibrated model averages one calibrated pipeline per fold (D16).
 - **Metrics:** accuracy, macro-F1, balanced accuracy, per-class precision and recall, confusion matrix. Expected hardest pair: glioma vs meningioma.
 - **Ablations (CV macro-F1, never on Testing):** CNN-only vs radiomics-only vs hybrid, and +/-augmentation (#167).
 - **Tools:** scikit-learn. **Cost:** low.
@@ -221,7 +222,7 @@ Each guarantee is a unit test or a report entry.
 | G4 | An augmented copy is always in the same fold as its original | B7 | #167 |
 | G5 | B3-B6 and B8 give the same tensor at training and at inference for the same image | B3-B8 | #166, #113 |
 | G6 | The output of B6 is always 224x224 and keeps the aspect ratio of the crop | B6 | #166 |
-| G7 | Testing is scored exactly once per run | B9 | #112 |
+| G7 | Testing is scored exactly once per run (unit test) | B9 | #112 |
 
 ---
 
@@ -264,7 +265,7 @@ Each guarantee is a unit test or a report entry.
 | B6 | #166 | `preprocessing/prepare.py` | To do |
 | B7 | #167 | `training/` (new) | To do |
 | B8 | #166, #111 | `preprocessing/prepare.py`, `deep_learning/` | Mostly done |
-| B9 | #112 | `training/` | Grouped CV done, balanced accuracy to do |
+| B9 | #112 | `training/folds.py`, `training/` | Done on synthetic data: folds assigned once and shared, `folds.csv`, balanced accuracy (decision D16). Real-data run to do |
 | B10 | #168 | `training/report.py` | To do |
 
 Implementation order, from the Boards dependencies: #165 and #166, then #112 (run on the real dataset), then #167, then #168.
