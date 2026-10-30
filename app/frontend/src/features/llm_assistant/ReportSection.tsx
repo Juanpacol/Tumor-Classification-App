@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, Card } from "@/features/portal/components";
+import { Alert, Button } from "@/features/portal/components";
 import type { ApiClient, StudyDetail } from "@/services/api";
 import { ReportView } from "./ReportView";
 import { useReport } from "./useReport";
@@ -32,8 +32,7 @@ function Report({ client, study }: { client: ApiClient; study: StudyDetail }) {
   }
 
   return (
-    <Card aria-label="AI clinical report">
-      <h2 className={styles.heading}>AI clinical report</h2>
+    <section aria-label="AI clinical report">
       {study.status !== "completed" && (
         <p className={styles.message}>Available when the analysis finishes.</p>
       )}
@@ -75,6 +74,6 @@ function Report({ client, study }: { client: ApiClient; study: StudyDetail }) {
           )}
         </>
       )}
-    </Card>
+    </section>
   );
 }
