@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ClinicalSummary } from "@/features/clinical_summary/ClinicalSummary";
-import { InteractiveChat } from "@/features/llm_assistant/InteractiveChat";
-import { ReportSection } from "@/features/llm_assistant/ReportSection";
 import { StudyViewer } from "@/features/dicom_viewer/StudyViewer";
 import {
   createApiClient,
   type ApiClient,
   type StudyDetail,
 } from "@/services/api";
+import { formatDate } from "../labels";
 import { Alert } from "./Alert";
-import { Card } from "./Card";
+import { AnalysisPanel } from "./AnalysisPanel";
+import { WorkspaceBackdrop } from "./WorkspaceBackdrop";
 import styles from "./StudyWorkspace.module.css";
 
 type State =
@@ -53,7 +52,8 @@ export function StudyWorkspace({
   }, [api, id]);
 
   return (
-    <div>
+    <div className={styles.stage}>
+      <WorkspaceBackdrop />
       <Link href="/studies" className={styles.back}>
         ← All studies
       </Link>
@@ -69,15 +69,12 @@ export function StudyWorkspace({
       )}
       {state.status === "ready" && (
         <div className={styles.grid}>
-          <StudyViewer imageUrl={api.imageUrl(state.study.id)} />
-          <div className={styles.side}>
-            <Card aria-label="Clinical summary">
-              <h2 className={styles.heading}>Clinical summary</h2>
-              <ClinicalSummary study={state.study} />
-            </Card>
-            <ReportSection client={api} study={state.study} />
-            <InteractiveChat client={api} study={state.study} />
-          </div>
+          <StudyViewer
+            imageUrl={api.imageUrl(state.study.id)}
+            caption={formatDate(state.study.created_at)}
+            flagged={state.study.prediction?.needs_expert_triage === true}
+          />
+          <AnalysisPanel client={api} study={state.study} />
         </div>
       )}
     </div>
