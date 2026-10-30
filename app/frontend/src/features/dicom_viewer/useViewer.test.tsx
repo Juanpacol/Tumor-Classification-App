@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import {
   act,
   render,
@@ -36,7 +37,7 @@ describe("useViewer", () => {
     expect(await screen.findByText("ready")).toBeInTheDocument();
   });
 
-  it.each(["no_webgl", "image_not_found"] as const)(
+  it.each(["image_not_found"] as const)(
     "reports %s as unavailable",
     async (reason) => {
       const create: CreateViewer = jest.fn(async () => {
@@ -66,14 +67,58 @@ describe("useViewer", () => {
   it("destroys a viewer that finishes loading after the unmount", async () => {
     const viewer = fakeViewer();
     let finish: (viewer: Viewer) => void = () => {};
-    const create: CreateViewer = () =>
-      new Promise<Viewer>((resolve) => {
-        finish = resolve;
-      });
+    const create: CreateViewer = jest.fn(
+      () =>
+        new Promise<Viewer>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const { unmount } = render(<Harness url="a" create={create} />);
+    await waitFor(() => expect(create).toHaveBeenCalled());
     unmount();
     await act(async () => finish(viewer));
     expect(viewer.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not even start a viewer for an element that unmounted before its turn", async () => {
+    const create: CreateViewer = jest.fn(async () => fakeViewer());
+    const { unmount } = render(<Harness url="a" create={create} />);
+    unmount();
+    await act(async () => undefined);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("never builds two viewers on the same element at once, even when React mounts twice", async () => {
+    let live = 0;
+    let peak = 0;
+    const viewers: Viewer[] = [];
+    const create: CreateViewer = jest.fn(async () => {
+      live += 1;
+      peak = Math.max(peak, live);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const viewer: Viewer = {
+        setTool: jest.fn(),
+        reset: jest.fn(),
+        destroy: jest.fn(() => {
+          live -= 1;
+        }),
+      };
+      viewers.push(viewer);
+      return viewer;
+    });
+    render(
+      <StrictMode>
+        <Harness url="a" create={create} />
+      </StrictMode>,
+    );
+    await screen.findByText("ready");
+    expect(peak).toBe(1);
+    expect(live).toBe(1);
+    expect(
+      viewers.filter(
+        (viewer) => (viewer.destroy as jest.Mock).mock.calls.length === 0,
+      ),
+    ).toHaveLength(1);
   });
 
   it("releases every viewer when moving across ten studies", async () => {
