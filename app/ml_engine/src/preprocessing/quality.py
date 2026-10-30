@@ -19,8 +19,9 @@ _EPSILON = 1e-6
 class QualityThresholds:
     """Minimum acceptable quality.
 
-    The defaults are provisional: they have not been calibrated on the
-    training set yet (see docs/ml-engine/decisions.md, D7).
+    The defaults are provisional. Calibration on the purged training split
+    was run and recorded but not applied, because the current metrics reject
+    usable scans (see docs/ml-engine/decisions.md, D15).
     """
 
     min_snr: float = 4.0
