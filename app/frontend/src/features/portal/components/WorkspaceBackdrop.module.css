@@ -1,52 +1,24 @@
-/* The drawings are ink-on-transparent (no white background baked in), so the
-   page's own paper color shows through and they read as part of the page
+/* The drawing is ink-on-transparent (no white background baked in), so the
+   page's own paper color shows through and it reads as part of the page
    rather than a pasted photo. */
 
 .bottomLeft {
   position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 60%;
-  height: 100vh;
+  inset: 0;
   z-index: -1;
   background-image: var(--backdrop-bottom-left);
   background-size: contain;
   background-repeat: no-repeat;
   background-position: left bottom;
-  opacity: 0.3;
+  opacity: 0.22;
   mask-image: radial-gradient(
-    ellipse 120% 120% at 0% 100%,
-    #000 55%,
+    ellipse 140% 140% at 0% 100%,
+    #000 35%,
     transparent 100%
   );
   -webkit-mask-image: radial-gradient(
-    ellipse 120% 120% at 0% 100%,
-    #000 55%,
-    transparent 100%
-  );
-  pointer-events: none;
-}
-
-.topRight {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 58%;
-  height: 100vh;
-  z-index: -1;
-  background-image: var(--backdrop-top-right);
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: right top;
-  opacity: 0.3;
-  mask-image: radial-gradient(
-    ellipse 120% 120% at 100% 0%,
-    #000 55%,
-    transparent 100%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 120% 120% at 100% 0%,
-    #000 55%,
+    ellipse 140% 140% at 0% 100%,
+    #000 35%,
     transparent 100%
   );
   pointer-events: none;
@@ -54,8 +26,4 @@
 
 .bottomLeft {
   --backdrop-bottom-left: url("/portal-roots.png");
-}
-
-.topRight {
-  --backdrop-top-right: url("/portal-coral.png");
 }

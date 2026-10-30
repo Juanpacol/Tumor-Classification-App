@@ -1,14 +1,9 @@
 import styles from "./WorkspaceBackdrop.module.css";
 
 /**
- * Drawings behind the study workspace, fixed to the screen rather than the
- * page, so they stay put while the content scrolls over them.
+ * Drawing behind the study workspace, fixed to the screen rather than the
+ * page, so it stays put while the content scrolls over it.
  */
 export function WorkspaceBackdrop() {
-  return (
-    <>
-      <div className={styles.topRight} aria-hidden="true" />
-      <div className={styles.bottomLeft} aria-hidden="true" />
-    </>
-  );
+  return <div className={styles.bottomLeft} aria-hidden="true" />;
 }
