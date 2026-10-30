@@ -1,8 +1,8 @@
 import { Alert } from "@/features/portal/components";
 import type { StudyDetail } from "@/services/api";
-import { PredictionBadge } from "./PredictionBadge";
 import { ProbabilityBars } from "./ProbabilityBars";
 import { QualityMetrics } from "./QualityMetrics";
+import { SafetyChecks } from "./SafetyChecks";
 import { UncertaintyAlert } from "./UncertaintyAlert";
 import styles from "./ClinicalSummary.module.css";
 
@@ -12,16 +12,23 @@ export function ClinicalSummary({ study }: { study: StudyDetail }) {
 
   if (study.status === "rejected") {
     return (
-      <Alert tone="warning" title="Image rejected">
-        {study.rejection_reason ?? "The image did not pass the quality check."}
-      </Alert>
+      <div className={styles.summary}>
+        <Alert tone="warning" title="Image rejected">
+          {study.rejection_reason ??
+            "The image did not pass the quality check."}
+        </Alert>
+        <SafetyChecks study={study} />
+      </div>
     );
   }
   if (study.status === "failed") {
     return (
-      <Alert tone="warning" title="The analysis failed">
-        The study could not be analyzed. Try uploading the image again.
-      </Alert>
+      <div className={styles.summary}>
+        <Alert tone="warning" title="The analysis failed">
+          The study could not be analyzed. Try uploading the image again.
+        </Alert>
+        <SafetyChecks study={study} />
+      </div>
     );
   }
   if (!prediction) {
@@ -39,9 +46,9 @@ export function ClinicalSummary({ study }: { study: StudyDetail }) {
       {prediction.needs_expert_triage && (
         <UncertaintyAlert confidence={prediction.confidence} />
       )}
-      <PredictionBadge prediction={prediction} />
       <ProbabilityBars probabilities={prediction.probabilities} />
       <QualityMetrics prediction={prediction} />
+      <SafetyChecks study={study} />
     </div>
   );
 }
