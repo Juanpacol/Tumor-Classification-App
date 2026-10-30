@@ -40,8 +40,16 @@ Run `docker compose up --build --no-deps backend postgres` (without `celery_work
 - [x] 6.5 In every scenario, `docker compose logs backend` shows exactly one `model unavailable` line after several `/health` calls, `/docs` loads, and `docker stats` RAM at idle is noted as the baseline for AB-120
 - [x] 6.6 The full backend suite passes in the container: `docker compose run --rm backend pytest tests/ -rs`, with the ml bundle integration test skipped and its reason shown
 
+## 7. Scenario C with a trained bundle
+
+The dataset is on `develop`. The bundle was trained locally (`python -m src.training ... --version 0.1.0`, test macro-F1 0.804), and `artifacts/` is git-ignored.
+
+- [x] 7.1 Keep the dataset (`app/ml_engine/src/data`, 178 MB) out of the backend image by installing ml_engine through a `RUN --mount=type=bind` instead of `COPY` (design D6); verify the image still imports `src.pipelines` and contains no `/tmp/ml_engine` or dataset image
+- [x] 7.2 C, valid bundle (`MODEL_BUNDLE_DIR=./app/ml_engine/artifacts/model-v0.1.0`): `/health` returns `model_loaded:true` and a Test JPG gives a prediction with model version `0.1.0`. A text file gives 422 `UNSUPPORTED_IMAGE`, and a flat PNG gives 422 `QUALITY_CHECK_FAILED` with snr, entropy and skull_stripped
+- [x] 7.3 The integration test runs against the real bundle inside the container (`ML_SAMPLE_IMAGE` set) and the full suite passes with nothing skipped
+
 ## Workflow follow-up
 
-- Scenario C (valid bundle, real JPG → prediction, 422 `UNSUPPORTED_IMAGE` and `QUALITY_CHECK_FAILED`, `/health` responsive during inference) once the dataset and a trained bundle are available. The 503 on upload is verified in AB-118.
+- The 503 and 422 answers of a real HTTP upload are verified in AB-118.
 - Choose the Cloud Run build context and bundle location in AB-120.
 - Archive the change after the PR to `develop` is merged.
