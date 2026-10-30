@@ -20,6 +20,11 @@ const TEAM = [
     x: "#",
     linkedin: "#",
   },
+  {
+    name: "Esteban Barreras",
+    x: "#",
+    linkedin: "#",
+  },
 ];
 
 export function CallToAction() {
