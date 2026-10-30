@@ -2,15 +2,32 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 6.5rem 1fr 3rem;
+  grid-template-columns: 8.5rem 1fr 3rem;
   gap: 0.75rem;
   align-items: center;
-  font-size: 0.9375rem;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swatch {
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  background: var(--bar);
+  clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 30% 100%, 0 70%);
 }
 
 .track {
@@ -22,11 +39,30 @@
 
 .fill {
   height: 100%;
-  background: var(--ink);
+  background: var(--bar);
+  transform-origin: left;
+  animation: grow 0.8s ease both;
+  animation-delay: calc(var(--i, 0) * 90ms + 150ms);
 }
 
 .value {
-  font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    animation: none;
+  }
 }

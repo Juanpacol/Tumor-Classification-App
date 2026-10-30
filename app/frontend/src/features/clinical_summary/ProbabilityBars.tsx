@@ -1,4 +1,5 @@
 import { TUMOR_LABELS } from "@/features/portal/labels";
+import type { CSSProperties } from "react";
 import type { Prediction, TumorLabel } from "@/services/api";
 import styles from "./ProbabilityBars.module.css";
 
@@ -13,11 +14,23 @@ export function ProbabilityBars({
   );
   return (
     <ul className={styles.list}>
-      {rows.map(([label, probability]) => {
+      {rows.map(([label, probability], index) => {
         const percent = Math.round(probability * 100);
         return (
-          <li key={label} className={styles.row}>
-            <span>{TUMOR_LABELS[label]}</span>
+          <li
+            key={label}
+            className={styles.row}
+            style={
+              {
+                "--bar": `var(--class-${label})`,
+                "--i": index,
+              } as CSSProperties
+            }
+          >
+            <span className={styles.name}>
+              <span className={styles.swatch} aria-hidden="true" />
+              {TUMOR_LABELS[label]}
+            </span>
             <div
               role="meter"
               aria-label={`${TUMOR_LABELS[label]} probability`}

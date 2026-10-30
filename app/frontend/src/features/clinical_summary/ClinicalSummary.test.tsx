@@ -9,14 +9,18 @@ function study(id: string) {
 }
 
 describe("ClinicalSummary", () => {
-  it("names the class and its confidence when the model is confident", () => {
+  it("raises no alert when the model is confident", () => {
     render(<ClinicalSummary study={study("study-confident")} />);
-    expect(
-      screen.getByText("Meningioma", { selector: "strong" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("93% confidence")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs expert review")).not.toBeInTheDocument();
+  });
+
+  it("lists the safety checks of the study", () => {
+    render(<ClinicalSummary study={study("study-confident")} />);
+    expect(
+      screen.getByRole("region", { name: "Safety checks" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Image quality check passed")).toBeInTheDocument();
   });
 
   it("lists the four probabilities, highest first", () => {
@@ -45,10 +49,8 @@ describe("ClinicalSummary", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("52%");
     expect(
       screen.getAllByText("Needs expert review", { selector: "strong" }),
-    ).toHaveLength(2);
-    expect(
-      screen.queryByText("Glioma", { selector: "strong" }),
-    ).not.toBeInTheDocument();
+    ).toHaveLength(1);
+    expect(screen.getByText("Low confidence flagged")).toBeInTheDocument();
     expect(screen.getAllByRole("meter")).toHaveLength(4);
     expect(
       within(screen.getAllByRole("meter")[0]!.parentElement!).getByText(
