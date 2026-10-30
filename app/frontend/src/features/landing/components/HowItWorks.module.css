@@ -57,7 +57,7 @@
   font-family: var(--font-serif);
   font-size: 5rem;
   line-height: 1;
-  color: #8a2c22;
+  color: var(--brand);
   opacity: 0.25;
   margin-bottom: -1.5rem;
   text-shadow:

@@ -20,13 +20,16 @@
   text-decoration: none;
   transition:
     color 0.3s ease,
-    letter-spacing 0.3s ease;
+    letter-spacing 0.3s ease,
+    text-shadow 0.3s ease;
 }
 
 .brand:hover,
 .brand:focus-visible {
-  color: var(--accent);
-  letter-spacing: 0.04em;
+  color: var(--brand);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 16px rgba(52, 54, 55, 0.35);
 }
 
 .link {
@@ -68,7 +71,7 @@
 
 .brand:focus-visible,
 .link:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand);
   outline-offset: 4px;
 }
 
@@ -94,10 +97,11 @@
 .disclaimer::before {
   content: "";
   flex: none;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--brand);
+  box-shadow: 0 0 6px rgba(52, 54, 55, 0.5);
 }
 
 .disclaimer:hover {
