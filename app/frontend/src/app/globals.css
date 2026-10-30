@@ -21,6 +21,7 @@
 }
 
 html {
+  scrollbar-gutter: stable;
   scroll-behavior: smooth;
   background: #e5e4e1;
   overflow-x: hidden;
@@ -106,5 +107,18 @@ img {
   }
   96% {
     opacity: 0.92;
+  }
+}
+
+/* Smooth glide for elements that carry a view-transition-name. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
+  ::view-transition-group(*) {
+    animation-duration: 0.5s;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }
