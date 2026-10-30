@@ -1,5 +1,5 @@
 import type { Types } from "@cornerstonejs/core";
-import { fetchWebImage } from "./webImage";
+import { fetchWebImage, type WebImage } from "./webImage";
 
 export const WEB_SCHEME = "web";
 
@@ -8,6 +8,17 @@ export function webImageId(url: string): string {
 }
 
 type Core = typeof import("@cornerstonejs/core");
+
+const decoded = new Map<string, WebImage>();
+
+/**
+ * Downloads and decodes the image ahead of Cornerstone3D. Its errors keep
+ * their own type, which a loader called through Cornerstone3D cannot promise,
+ * and the loader below reuses the result instead of downloading it twice.
+ */
+export async function preloadWebImage(url: string): Promise<void> {
+  decoded.set(url, await fetchWebImage(url));
+}
 
 /**
  * Cornerstone3D reads DICOM out of the box but has no loader for JPG or PNG,
@@ -24,7 +35,9 @@ export function registerWebImageLoader(core: Core): void {
 
 async function loadWebImage(imageId: string): Promise<Types.IImage> {
   const url = imageId.slice(WEB_SCHEME.length + 1);
-  const { width, height, pixels, canvas } = await fetchWebImage(url);
+  const image = decoded.get(url) ?? (await fetchWebImage(url));
+  decoded.delete(url);
+  const { width, height, pixels, canvas } = image;
   return {
     imageId,
     minPixelValue: 0,
@@ -62,6 +75,9 @@ function webMetadata(type: string, imageId: string): unknown {
       rowPixelSpacing: 1,
       columnPixelSpacing: 1,
     };
+  }
+  if (type === "generalSeriesModule") {
+    return { modality: "OT" };
   }
   if (type === "imagePixelModule") {
     return {

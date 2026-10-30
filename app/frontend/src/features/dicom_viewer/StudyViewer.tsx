@@ -15,8 +15,6 @@ const TOOLS: { tool: ViewerTool; label: string }[] = [
 ];
 
 const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
-  no_webgl:
-    "This browser cannot show the image viewer because WebGL is not available. The rest of the study is still available.",
   image_not_found: "The image for this study is not available.",
   failed: "The viewer could not load the image.",
 };
