@@ -7,6 +7,11 @@
   --steel-text: #3d4a73;
   --teal: #2d6a6a;
   --teal-text: #255858;
+  /* One color per class. They name a class, never a severity: red stays for review. */
+  --class-glioma: #4a3f7a;
+  --class-meningioma: #2f7f9f;
+  --class-pituitary: #b5792b;
+  --class-no_tumor: #3f5f3a;
   --rule: rgba(20, 18, 16, 0.15);
   --plate: #141210;
   --plate-text: #e5e4e1;
