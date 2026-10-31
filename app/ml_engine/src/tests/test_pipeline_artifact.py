@@ -116,3 +116,19 @@ def test_normalization_that_the_backbone_was_not_exported_with_is_refused(
 
     with pytest.raises(ModelUnavailableError, match="normalization"):
         BundleInferencePipeline.from_bundle(copy)
+
+
+@pytest.mark.parametrize("version", [None, 1])
+def test_thresholds_for_other_quality_metrics_are_refused(
+    copy: Path, version: int | None
+) -> None:
+    manifest = json.loads((copy / MANIFEST_FILE).read_text())
+    thresholds = manifest["preprocessing"]["thresholds"]
+    if version is None:
+        del thresholds["metrics_version"]
+    else:
+        thresholds["metrics_version"] = version
+    (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
+
+    with pytest.raises(ModelUnavailableError, match="quality metrics version"):
+        BundleInferencePipeline.from_bundle(copy)

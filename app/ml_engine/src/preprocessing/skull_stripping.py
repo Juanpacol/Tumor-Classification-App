@@ -55,6 +55,11 @@ def _brain_mask(gray: np.ndarray) -> np.ndarray | None:
     return ndimage.binary_fill_holes(brain)
 
 
+def bright_regions(gray: np.ndarray) -> np.ndarray:
+    """Every pixel above half the Otsu threshold, all components kept. ``gray`` must not be flat."""
+    return gray > 0.5 * threshold_otsu(gray)
+
+
 def foreground_mask(gray: np.ndarray) -> np.ndarray:
     """Pixels clearly above the background: half the Otsu threshold, largest component, holes filled.
 
@@ -63,7 +68,7 @@ def foreground_mask(gray: np.ndarray) -> np.ndarray:
     """
     if gray.max() <= gray.min():
         return np.full(gray.shape, gray.max() > 0, dtype=bool)
-    foreground = gray > 0.5 * threshold_otsu(gray)
+    foreground = bright_regions(gray)
     labels, count = ndimage.label(foreground)
     if count == 0:
         return foreground

@@ -6,6 +6,7 @@ from src.classical.config import RadiomicsConfig
 from src.contracts import QualityMetrics, TumorLabel
 from src.errors import QualityCheckError, UnsupportedImageError
 from src.preprocessing.prepare import PreprocessingConfig
+from src.preprocessing.quality import QualityThresholds
 from src.tests.synthetic import save, synthetic_slice
 from src.training.dataset import Sample
 from src.training.features import FeatureCache, config_fingerprint
@@ -130,3 +131,8 @@ def test_fingerprint_changes_with_any_input() -> None:
         PreprocessingConfig(), RadiomicsConfig(lbp_points=16), "sha"
     )
     assert base != config_fingerprint(PreprocessingConfig(), RADIOMICS, "other")
+    assert base != config_fingerprint(
+        PreprocessingConfig(thresholds=QualityThresholds(metrics_version=1)),
+        RADIOMICS,
+        "sha",
+    )

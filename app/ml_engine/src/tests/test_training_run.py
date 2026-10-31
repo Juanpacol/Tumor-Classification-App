@@ -32,7 +32,11 @@ def test_the_manifest_records_how_the_model_was_trained(result: TrainingResult) 
     assert manifest["classifier"] in candidate_classifiers()
     assert manifest["calibration"]["method"] == "sigmoid"
     assert manifest["preprocessing"]["cnn_size"] == 224
-    assert manifest["quality_thresholds"] == {"min_snr": 4.0, "min_entropy": 2.0}
+    assert manifest["quality_thresholds"] == {
+        "min_snr": 2.74,
+        "min_entropy": 3.2,
+        "metrics_version": 2,
+    }
     assert len(manifest["radiomic_feature_names"]) == 45
     assert manifest["dataset"]["split_removed_per_class"] == {
         label.value: 0 for label in TumorLabel
