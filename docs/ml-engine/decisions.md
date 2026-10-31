@@ -60,7 +60,7 @@ Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK
 
 - **Quality gate is always on.** `prepare_image` measures SNR and Shannon entropy on the original image (before any stripping, so stripping cannot hide a bad scan) and raises `QualityCheckError` with the measured values below the thresholds.
 - **SNR and entropy definitions:** superseded by D17. The first SNR divided the mean intensity above the Otsu threshold by a wavelet noise estimate, and entropy used the whole image.
-- **Skull stripping is off by default.** Otsu threshold, opening, erosion to cut the scalp links, largest component, dilation and hole filling, CPU only. If the mask covers under 15% or over 95% of the image, or the image is flat, the input is returned unchanged and `skull_stripped=false`. It never raises. Off by default because our literature review rates the evidence as weak and contradictory (`docs/research/preprocessing-2d-mri-cnn-ml.md`, 3/10) and recommends treating it as an ablation variable. Status: **Verified** that the review says so. The algorithm has only been tested on a synthetic phantom.
+- **Skull stripping is off by default.** *Superseded by D18: skull stripping was removed in AB-166.* Otsu threshold, opening, erosion to cut the scalp links, largest component, dilation and hole filling, CPU only. If the mask covers under 15% or over 95% of the image, or the image is flat, the input is returned unchanged and `skull_stripped=false`. It never raises. Off by default because our literature review rates the evidence as weak and contradictory (`docs/research/preprocessing-2d-mri-cnn-ml.md`, 3/10) and recommends treating it as an ablation variable. Status: **Verified** that the review says so. The algorithm has only been tested on a synthetic phantom.
 - **Model inputs:** `radiomics_image` is (H, W) float32 in [0, 1]. `cnn_input` is a NumPy (3, S, S) float32 array, resized (S = 224 by default) and normalized with ImageNet mean and std. Both are configurable in `PreprocessingConfig`, because the real backbone is chosen in AB-111. Status: **Assumption**. Convert with `torch.from_numpy` in the consumer, so preprocessing does not depend on PyTorch.
 - **Thresholds.** The first values (`min_snr = 4.0`, `min_entropy = 2.0`) were guesses. The SNR and entropy above were replaced in AB-175, and the thresholds are now calibrated and applied (D17).
 
@@ -80,7 +80,7 @@ Own implementation on scikit-image, PyWavelets and SciPy, following the conventi
 | Flat or tiny region | zeros, never NaN or inf; flat is detected by value range because the std of a constant float array is not exactly 0 | Found by a unit test |
 | LBP | uniform patterns, 8 points, radius 1, on the 8-bit image; pixels within `radius` of the bounding-box edge are not counted | Found by a unit test: edge pixels were compared with padding |
 | Wavelet | Haar, level 2, run on the bounding box with the outside filled by the ROI mean, statistics only where the mask (downsampled per sub-band) is inside | **Assumption**, modeled on how PyRadiomics applies filters before measuring inside the ROI |
-| Region of interest | the brain mask when skull stripping was applied, otherwise the foreground (half the Otsu threshold, largest component, holes filled) | **Assumption** |
+| Region of interest | the brain mask (half the Otsu threshold, largest component, holes filled), or the full image when it covers under 5% (D18) | **Assumption** |
 
 - **Not validated against IBSI.** Training and inference use the same code, so accuracy does not depend on it. It matters only to compare numbers with the literature.
 - **Settings live in `RadiomicsConfig`** and change the vector length and names. Store them with any model trained on these features (AB-114 manifest).
@@ -202,7 +202,7 @@ The repository is public for the hackathon evaluation, and the artifact publishe
 
 ## D17. Quality-gate metrics that reject only unusable scans (AB-175)
 
-`src/preprocessing/{quality,skull_stripping}.py`, `src/training/thresholds.py`, `src/pipelines/artifact.py`. Pipeline block B4. OpenSpec change `quality-gate-metrics`. Supersedes the metric part of D7 and the "not applied" part of D15.
+`src/preprocessing/{quality,brain_mask}.py` (named `skull_stripping` until AB-166), `src/training/thresholds.py`, `src/pipelines/artifact.py`. Pipeline block B4. OpenSpec change `quality-gate-metrics`. Supersedes the metric part of D7 and the "not applied" part of D15.
 
 - **SNR.** Median intensity inside the brain region (`foreground_mask`) divided by `1.4826 * MAD` of the dark background, floored at `1 / 255`. The background is every pixel outside the bright regions (above half the Otsu threshold, all components) dilated by `max(3, round(0.02 * min(h, w)))` pixels, so neither brain texture nor tissue outside the brain (neck, face) counts as noise. When the background is under 1% of the image, noise is the whole-image wavelet estimate with the same floor. The floor bounds the SNR at 255. Status: **Assumption**: the MAD of a magnitude background is not the Rician sigma; the value ranks images, it is not a physical SNR.
 - **Entropy.** Shannon entropy in bits of the 256-bin histogram inside the brain region, so black padding does not change it.
@@ -222,6 +222,28 @@ The repository is public for the hackathon evaluation, and the artifact publishe
 - **Margin.** Uniform noise scores 1.67 and σ 0.2 noise about 1.8-2.0, so they are rejected. σ 0.1 noise scores about 3.15 and passes: moderate noise is left to the classifier.
 - **`metrics_version = 2`** is a field of `QualityThresholds`, so it is part of the feature cache fingerprint and of the artifact manifest. `load_artifact` refuses a manifest whose thresholds lack it or carry another value. Artifacts trained before AB-175 must be retrained; none was published. Bump the constant whenever a definition changes.
 - **Displayed values.** The SNR shown in the clinical summary now ranges from 0 to 255 (most clean images with a zero background sit at `median * 255`). Display only; no backend or frontend change.
+
+## D18. Brain mask without skull stripping, with a full-image fallback (AB-166)
+
+`src/preprocessing/{brain_mask,prepare}.py`, `src/pipelines/artifact.py`. Pipeline block B5. OpenSpec change `brain-mask`. Supersedes the skull-stripping bullet of D7.
+
+- **Mask.** The B5 mask is the existing `foreground_mask`: pixels above half the Otsu threshold, largest connected component, holes filled. It is the region B4 was calibrated on (D17), so the quality metrics, the 2.74 / 3.20 thresholds and `metrics_version = 2` do not change. The full Otsu threshold was not chosen: it would change the B4 signal and entropy and force a recalibration, with no measured gain. Status: **Assumption** that half Otsu keeps the darker brain edge; the masks were not reviewed visually.
+- **Fallback.** When the mask covers less than `PreprocessingConfig.min_mask_fraction` of the image, the full image is the region of interest passed to radiomics (and to B6). It applies after the quality gate, which still measures on the mask, so a degenerate mask cannot raise the quality of a bad image. No upper bound: a mask over the whole frame is a head already cropped. It never raises, and `prepare_image` logs a warning with the mask coverage when it happens.
+- **Default 0.05.** Mask coverage measured with the real `foreground_mask` on 2026-10-30 (manifest `dedup_20261028T234450903626Z`, Python 3.11 in Docker with `requirements.lock`):
+
+  | Split | Class | n | Min | 1st percentile | Median | Below 0.05 |
+  |---|---|---|---|---|---|---|
+  | Training | glioma | 850 | 22.7% | 27.0% | 48.8% | 0 |
+  | Training | meningioma | 446 | 15.4% | 21.6% | 50.4% | 0 |
+  | Training | no_tumor | 260 | 7.0% | 24.2% | 58.8% | 0 |
+  | Training | pituitary | 274 | 18.2% | 41.2% | 68.1% | 0 |
+  | Testing | all | 1,109 | 19.2% | 27.1% | 56.9% | 0 |
+
+  The default was fixed from the Training values before Testing was measured; Testing is reported only to show the rule changes no image. 0.05 sits below every image, so the fallback only catches degenerate inputs (a black frame, a single bright mark). The 15% bound of the old skull stripping was not kept: one no_tumor (7.0%) and one meningioma (15.4%) Training image sit near it. Status: **Verified** on this dataset; the value itself is our choice.
+- **Setting, not constant.** `min_mask_fraction` is a `PreprocessingConfig` field, so it is part of the feature cache fingerprint and of the artifact manifest.
+- **Skull stripping removed.** `strip_skull`, its constants and `PreprocessingConfig.skull_stripping` are gone; the radiomics image is always the loaded image. Evidence: [6], [7] of the pipeline doc. The module was renamed from `skull_stripping` to `brain_mask`.
+- **`skull_stripped` kept, always `false`.** `QualityMetrics.skull_stripped` stays so the backend API does not change. The clinical summary no longer shows a skull-stripping row. Removing the field is an API change left for its own issue.
+- **Artifact compatibility.** `load_artifact` refuses a manifest whose preprocessing, quality-threshold or radiomics keys differ from `PreprocessingConfig`, `QualityThresholds` or `RadiomicsConfig`, naming the missing and unexpected keys (`ModelUnavailableError`, 503). Without it a manifest lacking a setting (such as `min_mask_fraction` or `min_entropy`) would be served with the engine default. Artifacts trained before AB-166 must be retrained; none was published.
 
 ## GMLP principles checklist
 
@@ -243,7 +265,7 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 ## Open verifications
 
 - [x] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** Done in AB-175 (D17).
-- [ ] **Skull stripping on real images.** Run it on real slices and look at the masks before any ablation. Only the synthetic phantom is tested so far.
+- [x] **Skull stripping on real images.** Not needed: skull stripping was removed in AB-166 (D18).
 - [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
   ```bash
   python -c "
