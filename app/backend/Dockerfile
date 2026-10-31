@@ -7,19 +7,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# ml_engine comes from the "ml_engine" build context (see docker-compose.yml or
-# `docker build --build-context ml_engine=app/ml_engine app/backend`).
-# The source is bind-mounted, not copied, so the dataset under src/data never
-# lands in a layer; only the installed package stays in the image.
-COPY --from=ml_engine requirements.lock /tmp/ml_engine-requirements.lock
+# Built with the repo root as context (see docker-compose.yml and
+# docs/deployment.md), so ml_engine is a plain COPY from a sibling directory.
+# The root .dockerignore excludes app/ml_engine/src/data, so the dataset
+# never lands in a layer; only the installed package stays in the image.
+COPY app/ml_engine/requirements.lock /tmp/ml_engine-requirements.lock
 RUN pip install --no-cache-dir -r /tmp/ml_engine-requirements.lock
-RUN --mount=type=bind,from=ml_engine,target=/tmp/ml_engine,rw \
-    pip install --no-cache-dir --no-deps /tmp/ml_engine
+COPY app/ml_engine /tmp/ml_engine
+RUN pip install --no-cache-dir --no-deps /tmp/ml_engine && rm -rf /tmp/ml_engine
 
-COPY pyproject.toml ./
+COPY app/backend/pyproject.toml ./
 RUN pip install --no-cache-dir -e .
 
-COPY . .
+COPY app/backend .
 
 EXPOSE 8080
 

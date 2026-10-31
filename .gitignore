@@ -65,9 +65,6 @@ coverage/
 # Vercel
 .vercel
 
-# Docker
-.dockerignore
-
 # ML Models & Weights (too large for git)
 app/ml_engine/weights/*.pt
 app/ml_engine/weights/*.pth
