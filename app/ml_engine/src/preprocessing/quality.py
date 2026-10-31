@@ -69,9 +69,15 @@ def _noise_sigma(gray: np.ndarray) -> float:
     return _MAD_TO_SIGMA * float(np.median(np.abs(values - np.median(values))))
 
 
-def measure_quality(gray: np.ndarray, skull_stripped: bool) -> QualityMetrics:
-    """Measure SNR and entropy of a 2D [0, 1] image inside its brain region."""
-    mask = foreground_mask(gray)
+def measure_quality(
+    gray: np.ndarray, skull_stripped: bool, mask: np.ndarray | None = None
+) -> QualityMetrics:
+    """Measure SNR and entropy of a 2D [0, 1] image inside its brain region.
+
+    ``mask`` is the image's ``foreground_mask`` when the caller already has it.
+    """
+    if mask is None:
+        mask = foreground_mask(gray)
     return QualityMetrics(
         snr=estimate_snr(gray, mask),
         entropy=shannon_entropy(gray, mask),

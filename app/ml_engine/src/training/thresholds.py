@@ -84,22 +84,28 @@ def gap_thresholds(
 ) -> Calibration:
     """Thresholds in the gap of each metric: geometric midpoint for SNR, arithmetic for entropy.
 
+    With every SNR reference at 0 the SNR midpoint is half the lowest value.
     Raises ``ValueError`` when a metric has no gap.
     """
-    gaps = {}
-    for metric, images in references.items():
-        low = min(getattr(m, metric) for m in measured)
-        high = max(getattr(measure_quality(i, False), metric) for i in images)
-        gaps[metric] = Gap(low, high)
-    snr = _inside(gaps["snr"], math.sqrt(gaps["snr"].low * gaps["snr"].high), "snr")
-    entropy = _inside(
-        gaps["entropy"], (gaps["entropy"].low + gaps["entropy"].high) / 2, "entropy"
-    )
+    snr = _gap(measured, references["snr"], "snr")
+    entropy = _gap(measured, references["entropy"], "entropy")
+    snr_mid = math.sqrt(snr.low * snr.high) if snr.high > 0 else snr.low / 2
     return Calibration(
-        QualityThresholds(min_snr=snr, min_entropy=entropy),
+        QualityThresholds(
+            min_snr=_inside(snr, snr_mid, "snr"),
+            min_entropy=_inside(entropy, (entropy.low + entropy.high) / 2, "entropy"),
+        ),
         len(measured),
-        gaps["snr"],
-        gaps["entropy"],
+        snr,
+        entropy,
+    )
+
+
+def _gap(measured: list[QualityMetrics], images: list[np.ndarray], metric: str) -> Gap:
+    """Lowest calibration value and highest reference value of ``metric``."""
+    return Gap(
+        low=min(getattr(m, metric) for m in measured),
+        high=max(getattr(measure_quality(i, False), metric) for i in images),
     )
 
 

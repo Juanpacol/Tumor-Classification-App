@@ -58,7 +58,8 @@ def test_references_fail_the_calibrated_thresholds(
 ) -> None:
     paths = train_paths(dataset[0])
     result = calibrate(paths)
-    references = reference_images(load_mri_image(paths[0]))
+    anchor = thresholds.anchor_path(thresholds.measure(paths))
+    references = reference_images(load_mri_image(anchor))
 
     for image in references["snr"]:
         assert measure_quality(image, False).snr < result.thresholds.min_snr
@@ -78,6 +79,16 @@ def test_thresholds_sit_at_the_midpoints_of_the_gaps(
     assert result.thresholds.min_entropy == pytest.approx(
         (result.entropy.low + result.entropy.high) / 2, abs=0.005
     )
+
+
+def test_snr_references_all_at_zero_still_place_a_threshold(
+    dataset: tuple[Path, Path],
+) -> None:
+    references = reference_images(load_mri_image(train_paths(dataset[0])[0]))
+    references["snr"] = [np.zeros((64, 64), dtype=np.float32)]
+    clean = QualityMetrics(snr=3.7, entropy=5.0, skull_stripped=False)
+
+    assert gap_thresholds([clean], references).thresholds.min_snr == pytest.approx(1.85)
 
 
 def test_a_metric_without_a_gap_is_an_error(dataset: tuple[Path, Path]) -> None:
