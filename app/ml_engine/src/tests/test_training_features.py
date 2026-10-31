@@ -132,6 +132,9 @@ def test_fingerprint_changes_with_any_input() -> None:
     )
     assert base != config_fingerprint(PreprocessingConfig(), RADIOMICS, "other")
     assert base != config_fingerprint(
+        PreprocessingConfig(min_mask_fraction=0.1), RADIOMICS, "sha"
+    )
+    assert base != config_fingerprint(
         PreprocessingConfig(thresholds=QualityThresholds(metrics_version=1)),
         RADIOMICS,
         "sha",
