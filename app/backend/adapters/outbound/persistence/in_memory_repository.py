@@ -15,6 +15,13 @@ class InMemoryStudyRepository:
     async def save(self, study: Study) -> None:
         self._studies[study.id] = study
 
+    async def list_recent(self, page: int, page_size: int) -> tuple[list[Study], int]:
+        studies = sorted(
+            self._studies.values(), key=lambda s: s.created_at, reverse=True
+        )
+        start = (page - 1) * page_size
+        return studies[start : start + page_size], len(studies)
+
     async def ping(self) -> bool:
         return True
 
