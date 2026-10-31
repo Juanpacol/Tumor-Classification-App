@@ -1,7 +1,7 @@
 import uuid
 from typing import cast
 
-from sqlalchemy import Table, select, text
+from sqlalchemy import Table, func, select, text
 from sqlalchemy.dialects.postgresql import Insert, insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -60,6 +60,18 @@ class SqlAlchemyStudyRepository:
 
     async def save(self, study: Study) -> None:
         await self._execute(_upsert(mappers.study_to_row(study)))
+
+    async def list_recent(self, page: int, page_size: int) -> tuple[list[Study], int]:
+        async with self._session_factory() as session:
+            total = await session.scalar(select(func.count()).select_from(StudyRow))
+            statement = (
+                select(StudyRow)
+                .order_by(StudyRow.created_at.desc())
+                .limit(page_size)
+                .offset((page - 1) * page_size)
+            )
+            rows = (await session.scalars(statement)).all()
+            return [mappers.study_to_domain(row) for row in rows], total or 0
 
     async def ping(self) -> bool:
         try:
