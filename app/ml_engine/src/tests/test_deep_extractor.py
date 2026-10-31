@@ -8,9 +8,11 @@ from src.deep_learning.backbones import build_backbone
 from src.deep_learning.bundle import write_bundle
 from src.deep_learning.extractor import DeepFeatureExtractor
 from src.errors import ModelUnavailableError
+from src.preprocessing.loading import decode_mri_image, load_mri_image
 from src.preprocessing.prepare import PreprocessingConfig, prepare_image
 from src.seed import set_seed
-from src.tests.synthetic import synthetic_slice
+from src.tests.bundles import IMAGENET_INPUT
+from src.tests.synthetic import save, synthetic_slice
 
 REAL_BUNDLE = Path(__file__).resolve().parents[2] / "weights"
 
@@ -24,6 +26,7 @@ def bundle(tmp_path_factory: pytest.TempPathFactory) -> Path:
         "efficientnet_b0",
         build_backbone("efficientnet_b0").state_dict(),
         "RANDOM",
+        **IMAGENET_INPUT,
     )
     return directory
 
@@ -35,7 +38,7 @@ def extractor(bundle: Path) -> DeepFeatureExtractor:
 
 def images(count: int) -> np.ndarray:
     rng = np.random.default_rng(0)
-    return rng.normal(size=(count, 3, 224, 224)).astype(np.float32)
+    return rng.random((count, 224, 224), dtype=np.float32)
 
 
 def test_single_image_gives_a_1280_dimensional_float32_embedding(
@@ -78,7 +81,11 @@ def test_empty_batch_gives_an_empty_embedding_matrix(
 def test_extraction_leaves_no_gradients_behind(bundle: Path) -> None:
     model = build_backbone("efficientnet_b0")
     manifest = write_bundle(
-        bundle / "own", "efficientnet_b0", model.state_dict(), "RANDOM"
+        bundle / "own",
+        "efficientnet_b0",
+        model.state_dict(),
+        "RANDOM",
+        **IMAGENET_INPUT,
     )
 
     extractor = DeepFeatureExtractor(model, manifest)
@@ -91,7 +98,7 @@ def test_extraction_leaves_no_gradients_behind(bundle: Path) -> None:
 
 @pytest.mark.parametrize(
     "bad",
-    [np.zeros((224, 224), np.float32), np.zeros((3, 100, 100), np.float32)],
+    [np.zeros((3, 224, 224), np.float32), np.zeros((100, 100), np.float32)],
     ids=["wrong ndim", "wrong size"],
 )
 def test_invalid_shapes_are_rejected(
@@ -99,13 +106,25 @@ def test_invalid_shapes_are_rejected(
 ) -> None:
     with pytest.raises(ValueError, match="shape"):
         extractor.extract(bad)
+    with pytest.raises(ValueError, match="shape"):
+        extractor.to_tensor(bad)
+
+
+def test_non_finite_image_cannot_become_a_tensor(
+    extractor: DeepFeatureExtractor,
+) -> None:
+    image = images(1)[0]
+    image[0, 0] = np.nan
+
+    with pytest.raises(ValueError, match="finite"):
+        extractor.to_tensor(image)
 
 
 def test_non_finite_input_and_bad_batch_size_are_rejected(
     extractor: DeepFeatureExtractor,
 ) -> None:
     broken = images(1)
-    broken[0, 0, 0, 0] = np.nan
+    broken[0, 0, 0] = np.nan
 
     with pytest.raises(ValueError, match="finite"):
         extractor.extract_batch(broken)
@@ -118,15 +137,48 @@ def test_preprocessing_size_mismatch_is_unavailable(bundle: Path) -> None:
         DeepFeatureExtractor.from_bundle(bundle, PreprocessingConfig(cnn_size=256))
 
 
-def test_preprocessing_normalization_mismatch_is_unavailable(bundle: Path) -> None:
-    config = PreprocessingConfig(cnn_mean=(0.5, 0.5, 0.5))
+def own_extractor(tmp_path: Path, mean: float, std: float) -> DeepFeatureExtractor:
+    set_seed(0)
+    model = build_backbone("efficientnet_b0")
+    manifest = write_bundle(
+        tmp_path,
+        "efficientnet_b0",
+        model.state_dict(),
+        "RANDOM",
+        input_size=224,
+        mean=(mean, mean, mean),
+        std=(std, std, std),
+    )
+    return DeepFeatureExtractor(model, manifest)
 
-    with pytest.raises(ModelUnavailableError, match="normalization"):
-        DeepFeatureExtractor.from_bundle(bundle, config)
+
+def test_tensor_is_the_image_on_three_channels_normalized_by_the_bundle(
+    tmp_path: Path,
+) -> None:
+    extractor = own_extractor(tmp_path, mean=0.5, std=0.25)
+    image = np.zeros((224, 224), dtype=np.float32)
+    image[0, 0] = 1.0
+
+    tensor = extractor.to_tensor(image)
+
+    assert tensor.shape == (3, 224, 224) and tensor.dtype == np.float32
+    assert np.allclose(tensor[:, 0, 0], 2.0)
+    assert np.allclose(tensor[:, 1, 1], -2.0)
+
+
+def test_each_bundle_normalizes_with_its_own_statistics(tmp_path: Path) -> None:
+    image = images(1)[0]
+    imagenet = own_extractor(tmp_path / "a", mean=0.485, std=0.229)
+    other = own_extractor(tmp_path / "b", mean=0.5, std=0.5)
+
+    assert np.allclose(imagenet.to_tensor(image)[0], (image - 0.485) / 0.229)
+    assert np.allclose(other.to_tensor(image)[0], (image - 0.5) / 0.5)
 
 
 def test_weights_that_do_not_fit_the_backbone_are_unavailable(tmp_path: Path) -> None:
-    write_bundle(tmp_path, "efficientnet_b0", {"foo": torch.zeros(1)}, "RANDOM")
+    write_bundle(
+        tmp_path, "efficientnet_b0", {"foo": torch.zeros(1)}, "RANDOM", **IMAGENET_INPUT
+    )
 
     with pytest.raises(ModelUnavailableError, match="do not fit"):
         DeepFeatureExtractor.from_bundle(tmp_path)
@@ -137,9 +189,23 @@ def test_prepared_image_goes_straight_into_the_extractor(
 ) -> None:
     gray = np.asarray(synthetic_slice(3, 256), dtype=np.float32) / 255.0
 
-    embedding = extractor.extract(prepare_image(gray).cnn_input)
+    embedding = extractor.extract(prepare_image(gray).cnn_image)
 
     assert embedding.shape == (1280,) and np.isfinite(embedding).all()
+
+
+def test_training_and_inference_paths_give_the_same_tensor(
+    extractor: DeepFeatureExtractor, tmp_path: Path
+) -> None:
+    path = save(synthetic_slice(6, 256), tmp_path / "slice.png")
+
+    training = extractor.to_tensor(prepare_image(load_mri_image(path)).cnn_image)
+    inference = extractor.to_tensor(
+        prepare_image(decode_mri_image(path.read_bytes())).cnn_image
+    )
+
+    assert training.std() > 0.1
+    assert np.array_equal(training, inference)
 
 
 @pytest.mark.skipif(

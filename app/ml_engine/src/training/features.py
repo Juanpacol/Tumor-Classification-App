@@ -12,7 +12,7 @@ import numpy as np
 
 from src.classical.config import RadiomicsConfig
 from src.classical.extractor import extract_radiomics, feature_names
-from src.deep_learning.bundle import sha256_of
+from src.deep_learning.bundle import BackboneManifest, sha256_of
 from src.deep_learning.extractor import DeepFeatureExtractor
 from src.errors import MLEngineError
 from src.preprocessing.loading import load_mri_image
@@ -51,14 +51,22 @@ class SkippedImage:
 def config_fingerprint(
     preprocessing: PreprocessingConfig,
     radiomics: RadiomicsConfig,
-    backbone_sha256: str,
+    backbone: BackboneManifest,
 ) -> str:
-    """Hash of everything that changes the features, so a stale cache is never reused."""
+    """Hash of everything that changes the features, so a stale cache is never reused.
+
+    The backbone counts through its weights and the input it normalizes them with.
+    """
     payload = json.dumps(
         {
             "preprocessing": asdict(preprocessing),
             "radiomics": asdict(radiomics),
-            "backbone": backbone_sha256,
+            "backbone": {
+                "sha256": backbone.sha256,
+                "input_size": backbone.input_size,
+                "mean": list(backbone.mean),
+                "std": list(backbone.std),
+            },
         },
         sort_keys=True,
     )
@@ -79,11 +87,9 @@ def make_featurizer(
     def featurize(path: Path) -> tuple[np.ndarray, np.ndarray]:
         prepared = prepare_image(load_mri_image(path), preprocessing)
         radiomic = extract_radiomics(prepared.radiomics_image, prepared.mask, radiomics)
-        return radiomic.values.astype(np.float32), extractor.extract(prepared.cnn_input)
+        return radiomic.values.astype(np.float32), extractor.extract(prepared.cnn_image)
 
-    return featurize, config_fingerprint(
-        preprocessing, radiomics, extractor.manifest.sha256
-    )
+    return featurize, config_fingerprint(preprocessing, radiomics, extractor.manifest)
 
 
 class FeatureCache:
