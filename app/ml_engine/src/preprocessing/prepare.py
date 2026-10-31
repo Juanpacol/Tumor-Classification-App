@@ -49,11 +49,13 @@ def prepare_image(
     """
     config = config or PreprocessingConfig()
     stripped = strip_skull(gray) if config.skull_stripping else None
-    quality = measure_quality(gray, skull_stripped=bool(stripped and stripped.applied))
+    applied = bool(stripped and stripped.applied)
+    foreground = foreground_mask(gray)
+    quality = measure_quality(gray, skull_stripped=applied, mask=foreground)
     check_quality(quality, config.thresholds)
 
     image = stripped.image if stripped else gray
-    mask = stripped.mask if stripped and stripped.applied else foreground_mask(gray)
+    mask = stripped.mask if applied else foreground
     return PreprocessedImage(image, mask, _to_cnn_input(image, config), quality)
 
 
