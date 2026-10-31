@@ -18,7 +18,7 @@ function prediction(
     probabilities,
     confidence,
     needs_expert_triage: needsExpertTriage,
-    quality: { snr: 22.4, entropy: 6.1, skull_stripped: true },
+    quality: { snr: 22.4, entropy: 6.1, skull_stripped: false },
     top_features: [
       { name: "glcm_contrast", value: 0.42, z_score: 1.8 },
       { name: "lbp_uniformity", value: 0.31, z_score: -1.2 },
