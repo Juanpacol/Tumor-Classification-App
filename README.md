@@ -166,6 +166,7 @@ Ether is a hackathon prototype. These are the external assets it depends on and 
 | Meta Model API (Muse Spark) | Clinical report and chat | Used through the API with a key from an environment variable. Subject to Meta's terms. **While free credits are in use, Meta may use the content sent for product improvement**, so only public dataset images and invented notes are sent (see `app/backend/README.md`) |
 | Python and JavaScript dependencies | Everything | Open-source packages pinned in `app/ml_engine/requirements.lock` and the backend and frontend manifests. Their licenses were not audited |
 | Drawn skull illustration (`app/frontend/public/portal-skull.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
+| Drawn hands with vintage scissors illustration (`app/frontend/public/portal-scissors-hands.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
 | Drawn skeletal hand, torso and bird illustrations (`app/frontend/public/portal-brain.png`, `portal-heart.png`, `portal-web.png`) | Fixed background behind each analysis tab | Owned by the team; cleared for use in this repository |
 | Drawn skeleton back and IV drip stand illustrations (`app/frontend/public/story-skeleton-back.png`, `story-iv-drip.png`) | Backdrop on the how-we-built-it hero | Owned by the team; cleared for use in this repository |
 
