@@ -1,12 +1,15 @@
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
 from src.classical.config import RadiomicsConfig
 from src.contracts import QualityMetrics, TumorLabel
+from src.deep_learning.bundle import BackboneManifest
 from src.errors import QualityCheckError, UnsupportedImageError
 from src.preprocessing.prepare import PreprocessingConfig
 from src.preprocessing.quality import QualityThresholds
+from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import save, synthetic_slice
 from src.training.dataset import Sample
 from src.training.features import FeatureCache, config_fingerprint
@@ -120,25 +123,50 @@ def test_empty_input_gives_an_empty_table(tmp_path: Path) -> None:
     assert table.matrix.shape[0] == 0 and skipped == []
 
 
-def test_fingerprint_changes_with_any_input() -> None:
-    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, "sha")
+BACKBONE = BackboneManifest(
+    backbone="efficientnet_b0",
+    embedding_dim=1280,
+    sha256="sha",
+    torchvision_version="test",
+    weights_version="TEST",
+    **IMAGENET_INPUT,
+)
 
-    assert base == config_fingerprint(PreprocessingConfig(), RADIOMICS, "sha")
+
+def test_fingerprint_changes_with_any_input() -> None:
+    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+
+    assert base == config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
     assert base != config_fingerprint(
-        PreprocessingConfig(cnn_size=256), RADIOMICS, "sha"
+        PreprocessingConfig(cnn_size=256), RADIOMICS, BACKBONE
     )
     assert base != config_fingerprint(
-        PreprocessingConfig(), RadiomicsConfig(lbp_points=16), "sha"
-    )
-    assert base != config_fingerprint(PreprocessingConfig(), RADIOMICS, "other")
-    assert base != config_fingerprint(
-        PreprocessingConfig(min_mask_fraction=0.1), RADIOMICS, "sha"
+        PreprocessingConfig(), RadiomicsConfig(lbp_points=16), BACKBONE
     )
     assert base != config_fingerprint(
-        PreprocessingConfig(crop_margin=0.1), RADIOMICS, "sha"
+        PreprocessingConfig(), RADIOMICS, replace(BACKBONE, sha256="other")
+    )
+    assert base != config_fingerprint(
+        PreprocessingConfig(min_mask_fraction=0.1), RADIOMICS, BACKBONE
+    )
+    assert base != config_fingerprint(
+        PreprocessingConfig(crop_margin=0.1), RADIOMICS, BACKBONE
     )
     assert base != config_fingerprint(
         PreprocessingConfig(thresholds=QualityThresholds(metrics_version=1)),
         RADIOMICS,
-        "sha",
+        BACKBONE,
     )
+
+
+def test_fingerprint_changes_with_the_backbone_input_statistics() -> None:
+    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+
+    for change in (
+        {"mean": (0.5, 0.5, 0.5)},
+        {"std": (0.5, 0.5, 0.5)},
+        {"input_size": 256},
+    ):
+        assert base != config_fingerprint(
+            PreprocessingConfig(), RADIOMICS, replace(BACKBONE, **change)
+        )

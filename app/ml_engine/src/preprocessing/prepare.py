@@ -1,4 +1,4 @@
-"""Quality gate and the two model inputs: radiomics image and CNN tensor."""
+"""Quality gate and the two model inputs: radiomics image and CNN image."""
 
 from __future__ import annotations
 
@@ -26,8 +26,6 @@ class PreprocessingConfig:
     min_mask_fraction: float = 0.05
     crop_margin: float = 0.05
     cnn_size: int = 224
-    cnn_mean: tuple[float, float, float] = (0.485, 0.456, 0.406)
-    cnn_std: tuple[float, float, float] = (0.229, 0.224, 0.225)
     thresholds: QualityThresholds = field(default_factory=QualityThresholds)
 
     def __post_init__(self) -> None:
@@ -39,13 +37,14 @@ class PreprocessingConfig:
 class PreprocessedImage:
     """``radiomics_image`` is the loaded (H, W) float32 image in [0, 1]; ``mask`` is its
     (H, W) boolean region of interest (the brain mask, or the full image when the mask
-    is too small); ``cnn_input`` is (3, S, S) float32, built from a square crop centered
-    on that region (black beyond the image borders) and resized to S.
+    is too small); ``cnn_image`` is the (S, S) float32 CNN image in [0, 1], a square crop
+    centered on that region (black beyond the image borders) resized to S. The CNN
+    extractor turns it into the normalized tensor of its backbone.
     """
 
     radiomics_image: np.ndarray
     mask: np.ndarray
-    cnn_input: np.ndarray
+    cnn_image: np.ndarray
     quality: QualityMetrics
 
 
@@ -72,11 +71,4 @@ def prepare_image(
         )
     square = crop_square(gray, square_box(mask, config.crop_margin))
     cnn_image = resize_square(square, config.cnn_size)
-    return PreprocessedImage(gray, mask, _to_cnn_input(cnn_image, config), quality)
-
-
-def _to_cnn_input(image: np.ndarray, config: PreprocessingConfig) -> np.ndarray:
-    channels = np.repeat(image[None], 3, axis=0)
-    mean = np.asarray(config.cnn_mean, dtype=np.float32)[:, None, None]
-    std = np.asarray(config.cnn_std, dtype=np.float32)[:, None, None]
-    return ((channels - mean) / std).astype(np.float32)
+    return PreprocessedImage(gray, mask, cnn_image, quality)

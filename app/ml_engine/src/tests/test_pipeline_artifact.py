@@ -150,14 +150,12 @@ def test_a_negative_crop_margin_is_refused(copy: Path) -> None:
         load_artifact(copy)
 
 
-def test_normalization_that_the_backbone_was_not_exported_with_is_refused(
-    copy: Path,
-) -> None:
+def test_a_normalization_setting_in_preprocessing_is_refused(copy: Path) -> None:
     manifest = json.loads((copy / MANIFEST_FILE).read_text())
     manifest["preprocessing"]["cnn_mean"] = [0.5, 0.5, 0.5]
     (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
 
-    with pytest.raises(ModelUnavailableError, match="normalization"):
+    with pytest.raises(ModelUnavailableError, match=r"unexpected: \['cnn_mean'\]"):
         BundleInferencePipeline.from_bundle(copy)
 
 

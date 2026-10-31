@@ -11,6 +11,7 @@ from src.preprocessing.deduplication.fingerprint import (
     compute_fingerprint,
 )
 from src.seed import set_seed
+from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import save, synthetic_slice, write_labeled_dataset
 from src.tests.training_support import NOW, PER_CLASS, make_config
 from src.training.run import TrainingResult, train
@@ -74,7 +75,7 @@ def workspace(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     data_dir, manifest = write_labeled_dataset(root, PER_CLASS)
     backbone = root / "backbone"
     state = build_backbone("efficientnet_b0").state_dict()
-    write_bundle(backbone, "efficientnet_b0", state, "RANDOM")
+    write_bundle(backbone, "efficientnet_b0", state, "RANDOM", **IMAGENET_INPUT)
     return {"data": data_dir, "manifest": manifest, "backbone": backbone, "root": root}
 
 

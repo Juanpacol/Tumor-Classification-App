@@ -37,11 +37,15 @@ def main(argv: list[str] | None = None) -> None:
 
     weights = _IMAGENET_WEIGHTS[args.backbone]
     model = getattr(models, args.backbone)(weights=weights)
+    transforms = weights.transforms()
     manifest = write_bundle(
         args.out,
         args.backbone,
         model.state_dict(),
         weights.name,
+        input_size=transforms.crop_size[0],
+        mean=tuple(transforms.mean),
+        std=tuple(transforms.std),
         source_url=weights.url,
         license_note=_LICENSE_NOTE,
     )

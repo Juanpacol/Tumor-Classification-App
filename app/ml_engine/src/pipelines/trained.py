@@ -55,7 +55,7 @@ class BundleInferencePipeline:
         radiomic = extract_radiomics(
             prepared.radiomics_image, prepared.mask, artifact.radiomics
         ).values.astype(np.float32)
-        embedding = self._extractor.extract(prepared.cnn_input)
+        embedding = self._extractor.extract(prepared.cnn_image)
 
         row = np.hstack([radiomic, embedding])[None]
         scores = artifact.classifier.predict_proba(row)[0]
