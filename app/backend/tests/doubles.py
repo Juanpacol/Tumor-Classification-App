@@ -1,3 +1,4 @@
+import dataclasses
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -5,6 +6,28 @@ from typing import Any
 
 from src.contracts import PredictionResult
 from src.pipelines import FakeInferencePipeline
+
+from domain.models import Prediction
+
+
+class ScriptedClassifier:
+    """ClassifierPort test double that answers with a queue of prepared responses.
+
+    A response is a ``Prediction`` (returned for the requested study) or an
+    exception to raise.
+    """
+
+    def __init__(self, *responses: Any) -> None:
+        self._responses = list(responses)
+
+    async def classify(self, study_id: str, image: bytes) -> Prediction:
+        response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return dataclasses.replace(response, study_id=study_id)
+
+    def is_ready(self) -> bool:
+        return True
 
 
 class ScriptedLLM:

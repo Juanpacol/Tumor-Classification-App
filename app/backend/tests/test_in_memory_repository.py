@@ -1,9 +1,19 @@
+from datetime import timedelta
+
 import pytest
 
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from domain.errors import DomainError
 from domain.models import ReportStatus, StudyStatus
-from tests.factories import make_message, make_prediction, make_report, make_study
+from tests.factories import (
+    BASE_TIME,
+    make_message,
+    make_prediction,
+    make_report,
+    make_study,
+)
+
+LATER = BASE_TIME + timedelta(hours=1)
 
 
 async def test_study_round_trip_and_unknown_study():
@@ -87,3 +97,15 @@ async def test_children_of_unknown_study_are_rejected():
 
 async def test_ping_is_always_true():
     assert await InMemoryStudyRepository().ping() is True
+
+
+async def test_list_recent_is_newest_first_and_paginated():
+    repo = InMemoryStudyRepository()
+    older, newer = make_study(created_at=BASE_TIME), make_study(created_at=LATER)
+    await repo.save(older)
+    await repo.save(newer)
+
+    items, total = await repo.list_recent(page=1, page_size=1)
+
+    assert items == [newer]
+    assert total == 2

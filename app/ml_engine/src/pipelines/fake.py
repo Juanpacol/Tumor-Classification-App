@@ -44,7 +44,7 @@ class FakeInferencePipeline:
             quality=QualityMetrics(
                 snr=float(rng.uniform(10.0, 30.0)),
                 entropy=float(rng.uniform(4.0, 7.5)),
-                skull_stripped=True,
+                skull_stripped=False,
             ),
             top_features=tuple(
                 FeatureContribution(

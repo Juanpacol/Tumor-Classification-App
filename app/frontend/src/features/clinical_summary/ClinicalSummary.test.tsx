@@ -35,11 +35,11 @@ describe("ClinicalSummary", () => {
     expect(values).toEqual([...values].sort((a, b) => b - a));
   });
 
-  it("shows the quality metrics, skull stripping and model version", () => {
+  it("shows the quality metrics and model version", () => {
     render(<ClinicalSummary study={study("study-confident")} />);
     expect(screen.getByText("22.4")).toBeInTheDocument();
     expect(screen.getByText("6.10")).toBeInTheDocument();
-    expect(screen.getByText("Applied")).toBeInTheDocument();
+    expect(screen.queryByText("Skull stripping")).not.toBeInTheDocument();
     expect(screen.getByText("mock-0.1.0")).toBeInTheDocument();
   });
 
