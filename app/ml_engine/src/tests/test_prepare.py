@@ -6,7 +6,7 @@ import pytest
 from src.errors import QualityCheckError
 from src.preprocessing.loading import load_mri_image
 from src.preprocessing.prepare import PreprocessingConfig, prepare_image
-from src.preprocessing.quality import QualityThresholds
+from src.preprocessing.quality import QualityThresholds, measure_quality
 from src.tests.synthetic import head_phantom, synthetic_slice
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -110,6 +110,22 @@ def test_quality_is_measured_before_stripping() -> None:
 
     with pytest.raises(QualityCheckError):
         prepare_image(blank, PreprocessingConfig(skull_stripping=True))
+
+
+def test_reported_quality_is_measured_on_the_original_image() -> None:
+    gray = head_phantom()
+    config = PreprocessingConfig(
+        skull_stripping=True, thresholds=QualityThresholds(0, 0)
+    )
+
+    result = prepare_image(gray, config)
+
+    assert result.quality.skull_stripped is True
+    original = measure_quality(gray, skull_stripped=True)
+    assert (result.quality.snr, result.quality.entropy) == (
+        original.snr,
+        original.entropy,
+    )
 
 
 @pytest.mark.skipif(not DATA_DIR.is_dir(), reason="dataset not available in src/data")

@@ -5,11 +5,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from src.contracts import QualityMetrics
 from src.preprocessing.loading import load_mri_image
 from src.preprocessing.quality import check_quality, measure_quality
 from src.tests.synthetic import save, synthetic_slice
 from src.training import thresholds
-from src.training.thresholds import calibrate, main
+from src.training.thresholds import calibrate, gap_thresholds, main, reference_images
 
 HEADER = ["path", "split", "label", "group_id", "group_size", "keep", "reason"]
 
@@ -45,11 +46,46 @@ def test_calibrated_thresholds_accept_the_calibration_images(
 ) -> None:
     paths = train_paths(dataset[0])
 
-    found, used = calibrate(paths, percentile=0.0)
+    result = calibrate(paths)
 
-    assert used == len(paths)
+    assert result.images_used == len(paths)
     for path in paths:
-        check_quality(measure_quality(load_mri_image(path), False), found)
+        check_quality(measure_quality(load_mri_image(path), False), result.thresholds)
+
+
+def test_references_fail_the_calibrated_thresholds(
+    dataset: tuple[Path, Path],
+) -> None:
+    paths = train_paths(dataset[0])
+    result = calibrate(paths)
+    references = reference_images(load_mri_image(paths[0]))
+
+    for image in references["snr"]:
+        assert measure_quality(image, False).snr < result.thresholds.min_snr
+    for image in references["entropy"]:
+        assert measure_quality(image, False).entropy < result.thresholds.min_entropy
+
+
+def test_thresholds_sit_at_the_midpoints_of_the_gaps(
+    dataset: tuple[Path, Path],
+) -> None:
+    result = calibrate(train_paths(dataset[0]))
+
+    assert result.snr.high < result.thresholds.min_snr <= result.snr.low
+    assert result.thresholds.min_snr == pytest.approx(
+        np.sqrt(result.snr.low * result.snr.high), abs=0.005
+    )
+    assert result.thresholds.min_entropy == pytest.approx(
+        (result.entropy.low + result.entropy.high) / 2, abs=0.005
+    )
+
+
+def test_a_metric_without_a_gap_is_an_error(dataset: tuple[Path, Path]) -> None:
+    references = reference_images(load_mri_image(train_paths(dataset[0])[0]))
+    noisy = QualityMetrics(snr=1.0, entropy=7.0, skull_stripped=False)
+
+    with pytest.raises(ValueError, match="no gap for snr"):
+        gap_thresholds([noisy], references)
 
 
 def test_unreadable_images_are_skipped(dataset: tuple[Path, Path]) -> None:
@@ -57,9 +93,7 @@ def test_unreadable_images_are_skipped(dataset: tuple[Path, Path]) -> None:
     bad.write_bytes(b"not an image")
     paths = train_paths(dataset[0])
 
-    _, used = calibrate(paths)
-
-    assert used == len(paths) - 1
+    assert calibrate(paths).images_used == len(paths) - 1
 
 
 def test_no_readable_images_is_an_error(tmp_path: Path) -> None:
@@ -84,10 +118,13 @@ def test_cli_uses_only_the_purged_train_split(
     main(["--data-dir", str(data_dir), "--manifest", str(manifest)])
 
     output = json.loads(capsys.readouterr().out)
-    assert set(output) == {"min_snr", "min_entropy", "percentile", "images_used"}
+    assert set(output) == {"min_snr", "min_entropy", "images_used", "gap"}
     assert output["images_used"] == 3
     assert np.isfinite(output["min_snr"])
-    assert sorted(p.name for p in opened) == ["0.png", "2.png", "3.png"]
+    for metric in ("snr", "entropy"):
+        assert set(output["gap"][metric]) == {"low", "high"}
+        assert output["gap"][metric]["high"] < output["gap"][metric]["low"]
+    assert {p.name for p in opened} == {"0.png", "2.png", "3.png"}
     assert all(p.parent.parent.name == "Train" for p in opened)
 
 

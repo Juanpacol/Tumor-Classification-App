@@ -16,7 +16,7 @@ from src.contracts import TumorLabel
 from src.deep_learning.bundle import sha256_of
 from src.errors import ModelUnavailableError
 from src.preprocessing.prepare import PreprocessingConfig
-from src.preprocessing.quality import QualityThresholds
+from src.preprocessing.quality import METRICS_VERSION, QualityThresholds
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE, STATS_FILE
 from src.training.stats import FeatureStats
 
@@ -97,5 +97,11 @@ def _tuples(values: dict[str, Any]) -> dict[str, Any]:
 
 def _preprocessing(values: dict[str, Any]) -> PreprocessingConfig:
     fields = _tuples(values)
+    version = fields["thresholds"].get("metrics_version")
+    if version != METRICS_VERSION:
+        raise ModelUnavailableError(
+            f"artifact quality metrics version {version} does not match "
+            f"this engine ({METRICS_VERSION}); retrain the model"
+        )
     fields["thresholds"] = QualityThresholds(**fields["thresholds"])
     return PreprocessingConfig(**fields)

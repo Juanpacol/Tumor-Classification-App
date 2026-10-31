@@ -24,18 +24,22 @@ uv pip compile pyproject.toml --extra dev --python-version 3.11 --universal \
 
 ### Quality thresholds
 
+Both metrics are measured on the original image, inside the brain region (the foreground mask: pixels above half the Otsu threshold, largest component, holes filled).
+
 | Metric | Minimum | Method |
 |---|---|---|
-| SNR | 4.0 | mean intensity above the Otsu threshold divided by a wavelet noise estimate |
-| Shannon entropy | 2.0 bits | 256-bin intensity histogram |
+| SNR | 2.74 | median intensity inside the brain region divided by a MAD-based noise sigma of the dark background (pixels away from every bright region), floored at 1/255; whole-image wavelet sigma when the background is under 1% of the image |
+| Shannon entropy | 3.20 bits | 256-bin intensity histogram of the brain region |
 
-**These values are provisional.** A calibration on the training data was run and recorded but not applied, because the current metrics reject usable scans and concentrate the rejections in notumor (`docs/ml-engine/decisions.md`, D15). The calibration command reads only the leakage-free Training split and never opens a Testing image:
+`QualityThresholds.metrics_version` (currently 2) names these definitions. It is part of the feature cache key and of the artifact manifest, and serving refuses an artifact calibrated for another version.
+
+These values were calibrated on 2026-10-30 and reviewed; they reject no Training or Testing image of the versioned dataset (`docs/ml-engine/decisions.md`, D17). The calibration command reads only the leakage-free Training split and never opens a Testing image:
 
 ```bash
 python -m src.training.thresholds --data-dir src/data --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv
 ```
 
-It prints the 1st percentile of each metric, the percentile and the number of images used. Before changing `QualityThresholds` (`src/preprocessing/quality.py`), check the per-class rejections against a visual review and record them in `docs/ml-engine/decisions.md`.
+Each minimum sits in the gap between synthetic unusable references (SNR: blank, uniform noise, heavy Gaussian noise; entropy: blank, a 4-level posterized image) and the lowest value over the Training images: the geometric midpoint for SNR, the arithmetic midpoint for entropy. Every Training image passes by construction, and the command fails when a metric has no gap. It prints `min_snr`, `min_entropy`, `images_used` and `gap` (`low` and `high` per metric). Before changing `QualityThresholds` (`src/preprocessing/quality.py`), review the Testing images the values reject and record the result in `docs/ml-engine/decisions.md`.
 
 ### Skull stripping
 
