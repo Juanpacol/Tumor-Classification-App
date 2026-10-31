@@ -61,7 +61,7 @@ This means 92.5% of tumor images (2,805 of 3,034) are 512x512, against 1.25% of 
 | 1 | B1 | Deduplication: SHA-256 of pixels + pHash, confirmed by thumbnail correlation. Writes the manifest with `group_id`. | No | #150 (Done) |
 | 2 | B2 | Leakage-free split: keep the official Testing folder, remove from Training every `group_id` present in Testing. | No | #165 |
 | 3 | B9 | Fold assignment: `StratifiedGroupKFold` (5 folds, group = `group_id`, fixed seed) on the purged Training split. | No | #112 |
-| 4 | B4 | Quality thresholds: 1st percentile of SNR and entropy over the purged Training split. | **Yes**, Training only | #165, #109 |
+| 4 | B4 | Quality thresholds: in the gap between synthetic unusable references and the lowest SNR and entropy over the purged Training split. | **Yes**, Training only | #165, #109, #175 |
 | 5 | B3, B4, B5, B6, B8 | Per image: load, quality gate, brain mask, geometry, tensor. Same code as inference. | No | #108, #109, #166, #111 |
 | 6 | - | Features: radiomics (#110) on the mask at original resolution, frozen CNN embedding (#111) on the tensor. Cached on disk. | No | #110, #111 |
 | 7 | B7 | Augmentation: k copies (default 1) of each Training image, used only as fit rows of a fold. | No, but used only in fit rows | #167 |
@@ -149,10 +149,10 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B4. Quality gate
 
 - **Input:** 2D image. **Output:** SNR and Shannon entropy, or `QualityCheckError` with the measured values.
-- **Rule:** measured on the original image. Thresholds are the 1st percentile over the purged Training split only. Testing images are never read during calibration.
+- **Rule:** measured on the original image, inside the brain region. SNR is the median brain intensity divided by a MAD-based noise sigma of the dark background (away from every bright region), floored at one 8-bit step; entropy uses the brain region only. Each threshold sits in the gap between synthetic unusable references (blank, noise, posterized) and the lowest value over the purged Training split, so every Training image passes. Testing images are never read during calibration. The definitions carry `metrics_version`, which serving checks.
 - **Tools:** scikit-image. **Cost:** low.
-- **Calibration:** `python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>`. The 2026-10-30 values, their per-class rejections and why they are not applied are in `decisions.md` (D15).
-- **Evidence:** no external evidence for the thresholds; they are calibrated on our data. **Boards:** #109 (gate, Done), #165 (calibration).
+- **Calibration:** `python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>`. The 2026-10-30 values (min SNR 2.74, min entropy 3.20), which reject no Training or Testing image, and their review are in `decisions.md` (D17).
+- **Evidence:** no external evidence for the thresholds; they are calibrated on our data. **Boards:** #109 (gate, Done), #165 (calibration), #175 (metrics).
 
 ### B5. Brain mask
 
@@ -245,7 +245,7 @@ Each guarantee is a unit test or a report entry.
 ## 8. Known limitations and open decisions
 
 - **No patient IDs.** `group_id` is a proxy. Distant slices of one patient can still fall in different groups, so metrics can be optimistic [3].
-- **B4 is not fitted per fold.** Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter at the 1st percentile. The effect is small and Testing is not involved. Accepted to keep the pipeline simple.
+- **B4 is not fitted per fold.** Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter whose thresholds sit below every Training image. With today's values it rejects none, and Testing is not involved. Accepted to keep the pipeline simple.
 - **Resolution shortcut remains.** B6 removes the aspect-ratio cue, but not the differences in source resolution and compression. B10 measures what is left; only an external dataset can rule it out.
 - **Feature cache invalidation.** The cache key is built from the configuration. #166 and #167 must add configuration fields (such as the crop margin and the transform parameters) so that new code never reuses stale features.
 - **`skull_stripped` in the contract.** `QualityMetrics.skull_stripped` (#107) stays in the contract. Whether it is fixed to `false` or removed (a backend API change) is still to be decided in #166.
@@ -260,7 +260,7 @@ Each guarantee is a unit test or a report entry.
 | B1 | #150 | `preprocessing/deduplication/` | Done |
 | B2 | #165 | `training/dataset.py` | Done |
 | B3 | #108 | `preprocessing/loading.py` | Done |
-| B4 | #109, #165 | `preprocessing/quality.py`, `training/thresholds.py` | Gate and Training-only calibration done; calibrated values not applied (decision D15) |
+| B4 | #109, #165, #175 | `preprocessing/quality.py`, `training/thresholds.py` | Done: metrics redefined, Training-only calibration applied (decision D17) |
 | B5 | #166 | foreground mask, today in `preprocessing/skull_stripping.py` | To do |
 | B6 | #166 | `preprocessing/prepare.py` | To do |
 | B7 | #167 | `training/` (new) | To do |

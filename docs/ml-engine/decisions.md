@@ -59,11 +59,10 @@ Not implemented yet. Ideas taken from reading the source of MONAI Deploy App SDK
 `src/preprocessing/{quality,skull_stripping,prepare}.py`. Threshold calibration moved to `src/training/thresholds.py` in AB-165 (D15).
 
 - **Quality gate is always on.** `prepare_image` measures SNR and Shannon entropy on the original image (before any stripping, so stripping cannot hide a bad scan) and raises `QualityCheckError` with the measured values below the thresholds.
-- **SNR definition (ours):** mean intensity above the Otsu threshold divided by a wavelet noise estimate (`skimage.restoration.estimate_sigma`). It needs no noise-only background, which cropped MRI slices do not have. A flat image returns 0. Status: **Assumption**, not compared against other SNR estimators.
-- **Entropy:** Shannon entropy in bits of a 256-bin histogram of the [0, 1] image.
+- **SNR and entropy definitions:** superseded by D17. The first SNR divided the mean intensity above the Otsu threshold by a wavelet noise estimate, and entropy used the whole image.
 - **Skull stripping is off by default.** Otsu threshold, opening, erosion to cut the scalp links, largest component, dilation and hole filling, CPU only. If the mask covers under 15% or over 95% of the image, or the image is flat, the input is returned unchanged and `skull_stripped=false`. It never raises. Off by default because our literature review rates the evidence as weak and contradictory (`docs/research/preprocessing-2d-mri-cnn-ml.md`, 3/10) and recommends treating it as an ablation variable. Status: **Verified** that the review says so. The algorithm has only been tested on a synthetic phantom.
 - **Model inputs:** `radiomics_image` is (H, W) float32 in [0, 1]. `cnn_input` is a NumPy (3, S, S) float32 array, resized (S = 224 by default) and normalized with ImageNet mean and std. Both are configurable in `PreprocessingConfig`, because the real backbone is chosen in AB-111. Status: **Assumption**. Convert with `torch.from_numpy` in the consumer, so preprocessing does not depend on PyTorch.
-- **Thresholds are provisional.** `min_snr = 4.0` and `min_entropy = 2.0` are our guesses (uniform noise measures about 2.6 SNR, and a synthetic slice far above). Wrong values can reject good images or let bad ones through. Calibration on the purged training set was run in AB-165 and recorded, but not applied, because the current metrics reject usable scans (D15). Status: **Open**.
+- **Thresholds.** The first values (`min_snr = 4.0`, `min_entropy = 2.0`) were guesses. The SNR and entropy above were replaced in AB-175, and the thresholds are now calibrated and applied (D17).
 
 ## D8. Radiomic feature extractors (AB-110)
 
@@ -186,7 +185,7 @@ The repository is public for the hackathon evaluation, and the artifact publishe
   | pituitary | 5 / 274 (1.8%) | 3 / 357 (0.8%) |
 
   Overall, 2.1% of Training is rejected; two thresholds at the 1st percentile reject up to 2% between them.
-- **Not applied, the defaults stay at 4.0 / 2.0.** A visual review of the 61 rejected images found mostly clean diagnostic scans. The wavelet noise estimate reads fine FLAIR/T2 anatomy as noise (SNR 14-40). Some glioma copies reach an SNR above 250,000, so the SNR scale is not comparable across sources. Low-entropy rejections are dark slices with little brain. Applying the values would remove 8% of notumor non-randomly from training and reject valid scans at inference. Status: **Open**, the metrics need redefining before any recalibration (AB-175).
+- **Not applied, the defaults stay at 4.0 / 2.0.** A visual review of the 61 rejected images found mostly clean diagnostic scans. The wavelet noise estimate reads fine FLAIR/T2 anatomy as noise (SNR 14-40). Some glioma copies reach an SNR above 250,000, so the SNR scale is not comparable across sources. Low-entropy rejections are dark slices with little brain. Applying the values would remove 8% of notumor non-randomly from training and reject valid scans at inference. Superseded by D17 (AB-175), which redefines the metrics and applies the new calibration.
 
 ## D16. One grouped fold assignment shared by every cross-validated step (AB-112)
 
@@ -200,6 +199,29 @@ The repository is public for the hackathon evaluation, and the artifact publishe
 - **The saved classifier is a per-fold ensemble (`ensemble=True`, now explicit).** Each of the 5 pipelines is fitted on its fit rows and calibrated with a sigmoid on its validation rows, and `predict_proba` averages them. Nothing is refitted on the whole Train split. The alternative, `ensemble=False`, refits one pipeline on all of Train with a single sigmoid fitted on out-of-fold predictions. It is smaller to serve, but the sigmoid would be fitted on other models than the one served. The extra cost of 5 classifiers is negligible next to the CNN. The artifact manifest records `calibration.ensemble`. Status: **Decision**, to confirm with the team.
 - **Selection bias.** The same folds pick one of 3 candidates and report its score, so the CV score of the selected model is slightly optimistic. With 3 candidates and no hyperparameter search this is accepted. Testing, which takes no part in the choice, is the number to quote.
 - **Status:** run only on synthetic data. The real-data run of AB-112 is still pending.
+
+## D17. Quality-gate metrics that reject only unusable scans (AB-175)
+
+`src/preprocessing/{quality,skull_stripping}.py`, `src/training/thresholds.py`, `src/pipelines/artifact.py`. Pipeline block B4. OpenSpec change `quality-gate-metrics`. Supersedes the metric part of D7 and the "not applied" part of D15.
+
+- **SNR.** Median intensity inside the brain region (`foreground_mask`) divided by `1.4826 * MAD` of the dark background, floored at `1 / 255`. The background is every pixel outside the bright regions (above half the Otsu threshold, all components) dilated by `max(3, round(0.02 * min(h, w)))` pixels, so neither brain texture nor tissue outside the brain (neck, face) counts as noise. When the background is under 1% of the image, noise is the whole-image wavelet estimate with the same floor. The floor bounds the SNR at 255. Status: **Assumption**: the MAD of a magnitude background is not the Rician sigma; the value ranks images, it is not a physical SNR.
+- **Entropy.** Shannon entropy in bits of the 256-bin histogram inside the brain region, so black padding does not change it.
+- **Evidence for the definitions** (planning measurements on the 1,830 purged Training images, 2026-10-30):
+
+  | Definition | Lowest Training SNR | Rejected at the 0.1st percentile | Fallback images |
+  |---|---|---|---|
+  | Wavelet SNR, whole-image entropy (D7) | - | 4, all notumor | - |
+  | Background outside the dilated brain mask | 1.50 | 4 (meningioma 1, notumor 1, pituitary 2), all clean | 9 |
+  | **Background outside every dilated bright region (chosen)** | **3.75** | 2 notumor, both clean | 1 |
+
+  A visual check of the lowest scores under the second definition found clean sagittal and coronal scans whose neck and face tissue was counted as noise.
+- **Thresholds come from a gap, not a percentile.** The dataset is curated, so any percentile rejects good scans. Each minimum sits between the highest value over synthetic unusable references and the lowest Training value: geometric midpoint for SNR, arithmetic for entropy, rounded to 2 decimals inside the gap. References: SNR, a blank image, uniform noise and the anchor plus Gaussian noise σ 0.2; entropy, a blank image and the anchor posterized to 4 levels. The anchor is the Training image with the median SNR. The CLI fails when a metric has no gap.
+- **Calibrated values, 2026-10-30:** `min_snr = 2.74` (gap 2.01-3.75) and `min_entropy = 3.20` (gap 1.08-5.32), 1,830 images, none unreadable. The planning estimate was 2.58 and 3.66; the anchor-based references give a higher SNR reference (2.01 vs 1.77) and a lower entropy reference (1.08 vs the 2-bit bound). Environment: Python 3.11 in Docker with `requirements.lock`.
+- **Rejections:** Training 0 of 1,830 (by construction), Testing 0 of 1,109 (glioma 354, meningioma 273, notumor 125, pituitary 357). Fallback: 1 Training image (meningioma) and 1 Testing image (glioma).
+- **Review and defaults.** With no image rejected, the review had nothing to inspect and passed the "no class above 1%" rule. Approved by ppng-maker on 2026-10-30. The `QualityThresholds` defaults are now 2.74 / 3.20.
+- **Margin.** Uniform noise scores 1.67 and σ 0.2 noise about 1.8-2.0, so they are rejected. σ 0.1 noise scores about 3.15 and passes: moderate noise is left to the classifier.
+- **`metrics_version = 2`** is a field of `QualityThresholds`, so it is part of the feature cache fingerprint and of the artifact manifest. `load_artifact` refuses a manifest whose thresholds lack it or carry another value. Artifacts trained before AB-175 must be retrained; none was published. Bump the constant whenever a definition changes.
+- **Displayed values.** The SNR shown in the clinical summary now ranges from 0 to 255 (most clean images with a zero background sit at `median * 255`). Display only; no backend or frontend change.
 
 ## GMLP principles checklist
 
@@ -220,11 +242,7 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 
 ## Open verifications
 
-- [ ] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** The current SNR and entropy reject usable scans and concentrate in notumor. Follow-up ticket: AB-175. Once the metrics change, recalibrate from `app/ml_engine`:
-  ```bash
-  python -m src.training.thresholds --data-dir src/data --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv
-  ```
-  Then check the per-class rejections against a visual review before putting the values in `QualityThresholds`.
+- [x] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** Done in AB-175 (D17).
 - [ ] **Skull stripping on real images.** Run it on real slices and look at the masks before any ablation. Only the synthetic phantom is tested so far.
 - [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
   ```bash
