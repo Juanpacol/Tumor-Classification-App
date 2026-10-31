@@ -1,0 +1,11 @@
+app/ml_engine/src/data
+app/ml_engine/src/tests
+app/ml_engine/artifacts
+app/ml_engine/.venv
+app/ml_engine/**/__pycache__
+app/backend/.venv
+app/backend/storage
+app/backend/**/__pycache__
+app/frontend/node_modules
+app/frontend/.next
+.git

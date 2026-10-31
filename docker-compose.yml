@@ -53,10 +53,8 @@ services:
   # FastAPI Backend
   backend:
     build:
-      context: ./app/backend
-      dockerfile: Dockerfile
-      additional_contexts:
-        ml_engine: ./app/ml_engine
+      context: .
+      dockerfile: app/backend/Dockerfile
     container_name: ether-backend
     environment:
       DATABASE_URL: postgresql://ether_user:ether_password@postgres:5432/ether_db
@@ -84,8 +82,8 @@ services:
   # Celery Worker
   celery_worker:
     build:
-      context: ./app/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/backend/Dockerfile
     container_name: ether-celery-worker
     environment:
       DATABASE_URL: postgresql://ether_user:ether_password@postgres:5432/ether_db
