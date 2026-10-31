@@ -113,7 +113,7 @@ Step & Block & What happens & Learns from data & Boards \\
 1  & B1 & Deduplication: SHA-256 of pixels and pHash, confirmed by thumbnail correlation. Writes the manifest with \texttt{group\_id}. & No & \board{150} (Done) \\
 2  & B2 & Leakage-free split: keep the official Testing folder, remove from Training every \texttt{group\_id} present in Testing. & No & \board{165} \\
 3  & B9 & Fold assignment: \texttt{StratifiedGroupKFold} (5 folds, group $=$ \texttt{group\_id}, fixed seed) on the purged Training split. & No & \board{112} \\
-4  & B4 & Quality thresholds: 1st percentile of SNR and entropy over the purged Training split. & \textbf{Yes}, Training only & \board{165}, \board{109} \\
+4  & B4 & Quality thresholds: in the gap between synthetic unusable references and the lowest SNR and entropy over the purged Training split. & \textbf{Yes}, Training only & \board{165}, \board{109}, \board{175} \\
 5  & B3--B6, B8 & Per image: load, quality gate, brain mask, geometry, tensor. Same code as inference. & No & \board{108}, \board{109}, \board{166}, \board{111} \\
 6  & -- & Features: radiomics (\board{110}) on the mask at original resolution, frozen CNN embedding (\board{111}) on the tensor. Cached on disk. & No & \board{110}, \board{111} \\
 7  & B7 & Augmentation: $k$ copies (default 1) of each Training image, used only as fit rows of a fold. & No, fit rows only & \board{167} \\
@@ -204,10 +204,11 @@ Each block has one purpose, a defined input and output, and testable rules.
   \item \textbf{Evidence:} convention \cite{r5}.
 \end{itemize}
 
-\subsection*{B4. Quality gate \hfill \board{109} (gate, Done), \board{165} (calibration)}
+\subsection*{B4. Quality gate \hfill \board{109} (gate, Done), \board{165} (calibration), \board{175} (metrics)}
 \begin{itemize}
   \item \textbf{Input:} 2D image. \textbf{Output:} SNR and Shannon entropy, or \texttt{QualityCheckError} with the measured values.
-  \item \textbf{Rule:} measured on the original image. Thresholds are the 1st percentile over the purged Training split only. Testing images are never read during calibration.
+  \item \textbf{Rule:} measured on the original image, inside the brain region. SNR is the median brain intensity divided by a MAD-based noise sigma of the dark background (away from every bright region), floored at one 8-bit step; entropy uses the brain region only. Each threshold sits in the gap between synthetic unusable references (blank, noise, posterized) and the lowest value over the purged Training split, so every Training image passes. Testing images are never read during calibration. The definitions carry \texttt{metrics\_version}, which serving checks.
+  \item \textbf{Calibration:} \texttt{python -m src.training.thresholds --data-dir src/data --manifest <manifest.csv>}. The 2026-10-30 values (min SNR 2.74, min entropy 3.20), which reject no Training or Testing image, and their review are in \texttt{decisions.md} (D17).
   \item \textbf{Tools:} scikit-image. \textbf{Cost:} low.
   \item \textbf{Evidence:} no external evidence for the thresholds; they are calibrated on our data.
 \end{itemize}
@@ -323,7 +324,7 @@ Augmentation of validation or test data & Not allowed: it leaks \cite{r4} \\
 
 \begin{itemize}
   \item \textbf{No patient IDs.} \texttt{group\_id} is a proxy. Distant slices of one patient can still fall in different groups, so metrics can be optimistic \cite{r3}.
-  \item \textbf{B4 is not fitted per fold.} Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter at the 1st percentile. The effect is small and Testing is not involved. Accepted to keep the pipeline simple.
+  \item \textbf{B4 is not fitted per fold.} Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter whose thresholds sit below every Training image. With today's values it rejects none, and Testing is not involved. Accepted to keep the pipeline simple.
   \item \textbf{Resolution shortcut remains.} B6 removes the aspect-ratio cue, but not the differences in source resolution and compression. B10 measures what is left; only an external dataset can rule it out.
   \item \textbf{Feature cache invalidation.} The cache key is built from the configuration. \board{166} and \board{167} must add configuration fields (such as the crop margin and the transform parameters) so that new code never reuses stale features.
   \item \textbf{\texttt{skull\_stripped} in the contract.} \texttt{QualityMetrics.skull\_stripped} (\board{107}) stays in the contract. Whether it is fixed to \texttt{false} or removed (a backend API change) is still to be decided in \board{166}.
@@ -341,7 +342,7 @@ Block & Boards & \texttt{app/ml\_engine/src} module & State \\
 B1  & \board{150} & \texttt{preprocessing/deduplication/} & Done \\
 B2  & \board{165} & \texttt{training/dataset.py} & Done \\
 B3  & \board{108} & \texttt{preprocessing/loading.py} & Done \\
-B4  & \board{109}, \board{165} & \texttt{preprocessing/quality.py}, \texttt{training/thresholds.py} & Gate and Training-only calibration done; calibrated values not applied (decision D15) \\
+B4  & \board{109}, \board{165}, \board{175} & \texttt{preprocessing/quality.py}, \texttt{training/thresholds.py} & Done: metrics redefined, Training-only calibration applied (decision D17) \\
 B5  & \board{166} & foreground mask, today in \texttt{preprocessing/skull\_stripping.py} & To do \\
 B6  & \board{166} & \texttt{preprocessing/prepare.py} & To do \\
 B7  & \board{167} & \texttt{training/} (new) & To do \\
