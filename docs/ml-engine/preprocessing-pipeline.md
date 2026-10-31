@@ -157,7 +157,7 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B5. Brain mask
 
 - **Input:** 2D image. **Output:** boolean mask.
-- **Rule:** Otsu threshold, largest connected component, hole filling. **No skull stripping.** An empty or implausible mask falls back to the full image without failing.
+- **Rule:** pixels above half the Otsu threshold, largest connected component, hole filling. **No skull stripping.** The quality gate (B4) measures on this mask. When it covers less than `min_mask_fraction` (default 0.05) of the image, the full image is used as the region downstream, without failing. Decision D18.
 - **Tools:** scikit-image, SciPy. **Cost:** low.
 - **Evidence:** skull stripping lowered accuracy with a patient-level split [6] and had a negligible effect in [7]. **Boards:** #166 (replaces the skull-stripping step of #109).
 
@@ -248,7 +248,7 @@ Each guarantee is a unit test or a report entry.
 - **B4 is not fitted per fold.** Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter whose thresholds sit below every Training image. With today's values it rejects none, and Testing is not involved. Accepted to keep the pipeline simple.
 - **Resolution shortcut remains.** B6 removes the aspect-ratio cue, but not the differences in source resolution and compression. B10 measures what is left; only an external dataset can rule it out.
 - **Feature cache invalidation.** The cache key is built from the configuration. #166 and #167 must add configuration fields (such as the crop margin and the transform parameters) so that new code never reuses stale features.
-- **`skull_stripped` in the contract.** `QualityMetrics.skull_stripped` (#107) stays in the contract. Whether it is fixed to `false` or removed (a backend API change) is still to be decided in #166.
+- **`skull_stripped` in the contract.** `QualityMetrics.skull_stripped` (#107) stays in the contract and is always `false` (D18). Removing it is a backend and frontend API change left for its own issue.
 - **Thresholds chosen by us:** the 0.70 shortcut warning (B10), k = 1 augmented copy (B7) and the crop margin (B6) have no external source.
 
 ---
@@ -261,7 +261,7 @@ Each guarantee is a unit test or a report entry.
 | B2 | #165 | `training/dataset.py` | Done |
 | B3 | #108 | `preprocessing/loading.py` | Done |
 | B4 | #109, #165, #175 | `preprocessing/quality.py`, `training/thresholds.py` | Done: metrics redefined, Training-only calibration applied (decision D17) |
-| B5 | #166 | foreground mask, today in `preprocessing/skull_stripping.py` | To do |
+| B5 | #166 | `preprocessing/brain_mask.py` | Done: half-Otsu mask shared with B4, full-image fallback under 5% coverage, skull stripping removed (decision D18) |
 | B6 | #166 | `preprocessing/prepare.py` | To do |
 | B7 | #167 | `training/` (new) | To do |
 | B8 | #166, #111 | `preprocessing/prepare.py`, `deep_learning/` | Mostly done |

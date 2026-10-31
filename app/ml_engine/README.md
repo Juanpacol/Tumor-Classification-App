@@ -20,7 +20,7 @@ uv pip compile pyproject.toml --extra dev --python-version 3.11 --universal \
 
 ## Preprocessing
 
-`load_mri_image` (JPG/PNG to a 2D float32 array in [0, 1]) followed by `prepare_image`, which runs the quality gate and builds both model inputs (a masked grayscale image for radiomics and a normalized 3-channel array for the CNN).
+`load_mri_image` (JPG/PNG to a 2D float32 array in [0, 1]) followed by `prepare_image`, which runs the quality gate and builds both model inputs (the grayscale image with its brain mask for radiomics, and a normalized 3-channel array for the CNN).
 
 ### Quality thresholds
 
@@ -41,9 +41,9 @@ python -m src.training.thresholds --data-dir src/data --manifest src/data/proces
 
 Each minimum sits in the gap between synthetic unusable references (SNR: blank, uniform noise, heavy Gaussian noise; entropy: blank, a 4-level posterized image) and the lowest value over the Training images: the geometric midpoint for SNR, the arithmetic midpoint for entropy. Every Training image passes by construction, and the command fails when a metric has no gap. It prints `min_snr`, `min_entropy`, `images_used` and `gap` (`low` and `high` per metric). Before changing `QualityThresholds` (`src/preprocessing/quality.py`), review the Testing images the values reject and record the result in `docs/ml-engine/decisions.md`.
 
-### Skull stripping
+### Brain mask
 
-Disabled by default (`PreprocessingConfig(skull_stripping=False)`). Enable it only after an ablation with a patient-level split shows it helps. When enabled and the mask is implausible (under 15% or over 95% of the image) the image is used unchanged and `skull_stripped=false` is reported.
+The radiomics region of interest is the brain mask above (`src/preprocessing/brain_mask.py`, pipeline block B5). When it covers less than `PreprocessingConfig.min_mask_fraction` (default 0.05) of the image, the full image is used instead; the quality gate still measures on the mask. There is no skull stripping, so `skull_stripped` is always `false` (`docs/ml-engine/decisions.md`, D18).
 
 ## Radiomic features
 
