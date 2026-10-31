@@ -10,7 +10,7 @@ from skimage.restoration import estimate_sigma
 
 from src.contracts import QualityMetrics
 from src.errors import QualityCheckError
-from src.preprocessing.skull_stripping import bright_regions, foreground_mask
+from src.preprocessing.brain_mask import bright_regions, foreground_mask
 
 METRICS_VERSION = 2
 
@@ -70,18 +70,19 @@ def _noise_sigma(gray: np.ndarray) -> float:
 
 
 def measure_quality(
-    gray: np.ndarray, skull_stripped: bool, mask: np.ndarray | None = None
+    gray: np.ndarray, *, mask: np.ndarray | None = None
 ) -> QualityMetrics:
-    """Measure SNR and entropy of a 2D [0, 1] image inside its brain region.
+    """Measure SNR and entropy of a 2D [0, 1] image inside its brain mask.
 
     ``mask`` is the image's ``foreground_mask`` when the caller already has it.
+    Skull stripping is not part of the pipeline, so ``skull_stripped`` is False.
     """
     if mask is None:
         mask = foreground_mask(gray)
     return QualityMetrics(
         snr=estimate_snr(gray, mask),
         entropy=shannon_entropy(gray, mask),
-        skull_stripped=skull_stripped,
+        skull_stripped=False,
     )
 
 

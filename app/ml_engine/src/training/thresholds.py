@@ -55,7 +55,7 @@ def measure(paths: Iterable[Path]) -> list[tuple[Path, QualityMetrics]]:
             gray = load_mri_image(path)
         except UnsupportedImageError:
             continue
-        measured.append((path, measure_quality(gray, skull_stripped=False)))
+        measured.append((path, measure_quality(gray)))
     return measured
 
 
@@ -105,7 +105,7 @@ def _gap(measured: list[QualityMetrics], images: list[np.ndarray], metric: str) 
     """Lowest calibration value and highest reference value of ``metric``."""
     return Gap(
         low=min(getattr(m, metric) for m in measured),
-        high=max(getattr(measure_quality(i, False), metric) for i in images),
+        high=max(getattr(measure_quality(i), metric) for i in images),
     )
 
 

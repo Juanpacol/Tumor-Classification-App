@@ -3,6 +3,7 @@ import pytest
 
 from src.contracts import QualityMetrics
 from src.errors import QualityCheckError
+from src.preprocessing.brain_mask import foreground_mask
 from src.preprocessing.quality import (
     QualityThresholds,
     check_quality,
@@ -10,7 +11,6 @@ from src.preprocessing.quality import (
     measure_quality,
     shannon_entropy,
 )
-from src.preprocessing.skull_stripping import foreground_mask
 from src.tests.synthetic import synthetic_slice
 
 
@@ -25,14 +25,14 @@ def noisy_background_slice() -> np.ndarray:
 
 
 def snr(gray: np.ndarray) -> float:
-    return measure_quality(gray, False).snr
+    return measure_quality(gray).snr
 
 
 def test_entropy_of_flat_image_is_zero() -> None:
     flat = np.full((64, 64), 0.5, dtype=np.float32)
 
     assert shannon_entropy(flat, np.ones(flat.shape, dtype=bool)) == 0.0
-    assert measure_quality(flat, False).entropy == 0.0
+    assert measure_quality(flat).entropy == 0.0
 
 
 def test_entropy_of_empty_mask_is_zero() -> None:
@@ -44,7 +44,7 @@ def test_entropy_of_empty_mask_is_zero() -> None:
 def test_entropy_of_uniform_noise_is_close_to_eight_bits() -> None:
     noise = np.random.default_rng(0).random((256, 256)).astype(np.float32)
 
-    assert measure_quality(noise, False).entropy == pytest.approx(8.0, abs=0.05)
+    assert measure_quality(noise).entropy == pytest.approx(8.0, abs=0.05)
 
 
 def test_black_padding_does_not_change_entropy() -> None:
@@ -52,8 +52,8 @@ def test_black_padding_does_not_change_entropy() -> None:
     padded = np.pad(gray, ((64, 64), (64, 64)))
 
     assert padded.size >= 2 * gray.size
-    assert measure_quality(padded, False).entropy == pytest.approx(
-        measure_quality(gray, False).entropy, abs=0.05
+    assert measure_quality(padded).entropy == pytest.approx(
+        measure_quality(gray).entropy, abs=0.05
     )
 
 
@@ -109,20 +109,20 @@ def test_uniform_noise_has_snr_below_two() -> None:
     assert snr(noise) < 2.0
 
 
-def test_measure_quality_reports_the_skull_stripping_flag() -> None:
-    metrics = measure_quality(slice_array(), skull_stripped=True)
+def test_measure_quality_never_reports_skull_stripping() -> None:
+    metrics = measure_quality(slice_array())
 
-    assert metrics.skull_stripped is True
+    assert metrics.skull_stripped is False
     assert metrics.snr > 0 and metrics.entropy > 0
 
 
 def test_synthetic_slice_passes_the_gate() -> None:
-    check_quality(measure_quality(slice_array(), False), QualityThresholds())
+    check_quality(measure_quality(slice_array()), QualityThresholds())
 
 
 def test_blank_image_is_rejected_with_measured_values() -> None:
     blank = np.zeros((128, 128), dtype=np.float32)
-    metrics = measure_quality(blank, False)
+    metrics = measure_quality(blank)
 
     with pytest.raises(QualityCheckError) as error:
         check_quality(metrics, QualityThresholds())
@@ -135,7 +135,7 @@ def test_pure_noise_is_rejected_by_snr() -> None:
     noise = np.random.default_rng(1).random((128, 128)).astype(np.float32)
 
     with pytest.raises(QualityCheckError, match="snr"):
-        check_quality(measure_quality(noise, False), QualityThresholds())
+        check_quality(measure_quality(noise), QualityThresholds())
 
 
 def test_thresholds_are_configurable() -> None:

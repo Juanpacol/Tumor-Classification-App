@@ -1,13 +1,15 @@
+import logging
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from src.errors import QualityCheckError
-from src.preprocessing.loading import load_mri_image
+from src.preprocessing.brain_mask import foreground_mask
+from src.preprocessing.loading import decode_mri_image, load_mri_image
 from src.preprocessing.prepare import PreprocessingConfig, prepare_image
 from src.preprocessing.quality import QualityThresholds, measure_quality
-from src.tests.synthetic import head_phantom, synthetic_slice
+from src.tests.synthetic import head_phantom, save, synthetic_slice
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -25,22 +27,45 @@ def test_outputs_have_the_expected_shape_and_type() -> None:
     assert result.cnn_input.dtype == np.float32
 
 
-def test_mask_is_the_foreground_when_skull_stripping_is_off() -> None:
-    result = prepare_image(slice_array())
+def test_mask_is_the_brain_mask_of_the_image() -> None:
+    gray = slice_array()
+
+    result = prepare_image(gray)
 
     assert result.mask.shape == (256, 256) and result.mask.dtype == bool
+    assert np.array_equal(result.mask, foreground_mask(gray))
     assert result.mask[128, 128] and not result.mask[0, 0]
 
 
-def test_mask_is_the_brain_mask_when_skull_stripping_is_applied() -> None:
+def test_small_mask_falls_back_but_quality_uses_the_mask(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gray = head_phantom()
+    raw = foreground_mask(gray)
     config = PreprocessingConfig(
-        skull_stripping=True, thresholds=QualityThresholds(0, 0)
+        min_mask_fraction=raw.mean() + 0.01, thresholds=QualityThresholds(0, 0)
     )
 
-    result = prepare_image(head_phantom(), config)
+    with caplog.at_level(logging.WARNING, logger="src.preprocessing.prepare"):
+        result = prepare_image(gray, config)
 
-    assert result.mask[128, 128]
-    assert not result.mask[128, int(128 + 0.4 * 256)]
+    assert result.mask.all()
+    assert "using the full image" in caplog.text
+    expected = measure_quality(gray, mask=raw)
+    assert (result.quality.snr, result.quality.entropy) == (
+        expected.snr,
+        expected.entropy,
+    )
+
+
+def test_training_and_inference_paths_give_the_same_region(tmp_path: Path) -> None:
+    path = save(synthetic_slice(3, size=200), tmp_path / "slice.png")
+
+    training = prepare_image(load_mri_image(path))
+    inference = prepare_image(decode_mri_image(path.read_bytes()))
+
+    assert np.array_equal(training.mask, inference.mask)
+    assert np.array_equal(training.radiomics_image, inference.radiomics_image)
 
 
 def test_cnn_input_is_normalized_per_channel() -> None:
@@ -62,7 +87,7 @@ def test_cnn_size_is_configurable_and_small_images_are_upscaled() -> None:
     assert result.cnn_input.shape == (3, 128, 128)
 
 
-def test_skull_stripping_is_off_by_default() -> None:
+def test_radiomics_image_is_the_loaded_image_and_not_stripped() -> None:
     gray = head_phantom()
 
     result = prepare_image(
@@ -73,31 +98,6 @@ def test_skull_stripping_is_off_by_default() -> None:
     assert np.array_equal(result.radiomics_image, gray)
 
 
-def test_skull_stripping_when_enabled_masks_the_radiomics_image() -> None:
-    gray = head_phantom()
-    config = PreprocessingConfig(
-        skull_stripping=True, thresholds=QualityThresholds(0, 0)
-    )
-
-    result = prepare_image(gray, config)
-
-    assert result.quality.skull_stripped is True
-    assert result.radiomics_image[128, int(128 + 0.4 * 256)] == 0.0
-
-
-def test_stripping_fallback_is_reported_not_raised() -> None:
-    flat_noise = 0.5 + 0.01 * np.random.default_rng(0).random((128, 128)).astype(
-        np.float32
-    )
-    config = PreprocessingConfig(
-        skull_stripping=True, thresholds=QualityThresholds(0, 0)
-    )
-
-    result = prepare_image(flat_noise, config)
-
-    assert result.quality.skull_stripped is False
-
-
 def test_low_quality_image_raises_with_metrics() -> None:
     with pytest.raises(QualityCheckError) as error:
         prepare_image(np.zeros((128, 128), dtype=np.float32))
@@ -105,23 +105,14 @@ def test_low_quality_image_raises_with_metrics() -> None:
     assert error.value.metrics.entropy == 0.0
 
 
-def test_quality_is_measured_before_stripping() -> None:
-    blank = np.zeros((128, 128), dtype=np.float32)
-
-    with pytest.raises(QualityCheckError):
-        prepare_image(blank, PreprocessingConfig(skull_stripping=True))
-
-
-def test_reported_quality_is_measured_on_the_original_image() -> None:
+def test_reported_quality_is_measured_on_the_loaded_image() -> None:
     gray = head_phantom()
-    config = PreprocessingConfig(
-        skull_stripping=True, thresholds=QualityThresholds(0, 0)
+
+    result = prepare_image(
+        gray, PreprocessingConfig(thresholds=QualityThresholds(0, 0))
     )
 
-    result = prepare_image(gray, config)
-
-    assert result.quality.skull_stripped is True
-    original = measure_quality(gray, skull_stripped=True)
+    original = measure_quality(gray)
     assert (result.quality.snr, result.quality.entropy) == (
         original.snr,
         original.entropy,

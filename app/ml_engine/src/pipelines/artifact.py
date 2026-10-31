@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import joblib
 from sklearn.base import BaseEstimator
@@ -19,6 +19,8 @@ from src.preprocessing.prepare import PreprocessingConfig
 from src.preprocessing.quality import METRICS_VERSION, QualityThresholds
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE, STATS_FILE
 from src.training.stats import FeatureStats
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,9 @@ def load_artifact(directory: Path) -> LoadedArtifact:
     _verify_hashes(directory, manifest)
     try:
         preprocessing = _preprocessing(manifest["preprocessing"])
-        radiomics = RadiomicsConfig(**_tuples(manifest["radiomics"]))
+        radiomics = _strict(
+            RadiomicsConfig, _tuples(manifest["radiomics"]), "radiomics"
+        )
         stats = FeatureStats(
             **_tuples(json.loads((directory / STATS_FILE).read_text()))
         )
@@ -96,12 +100,27 @@ def _tuples(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def _preprocessing(values: dict[str, Any]) -> PreprocessingConfig:
-    fields = _tuples(values)
-    version = fields["thresholds"].get("metrics_version")
+    settings = _tuples(values)
+    version = settings["thresholds"].get("metrics_version")
     if version != METRICS_VERSION:
         raise ModelUnavailableError(
             f"artifact quality metrics version {version} does not match "
             f"this engine ({METRICS_VERSION}); retrain the model"
         )
-    fields["thresholds"] = QualityThresholds(**fields["thresholds"])
-    return PreprocessingConfig(**fields)
+    settings["thresholds"] = _strict(
+        QualityThresholds, settings["thresholds"], "quality threshold"
+    )
+    return _strict(PreprocessingConfig, settings, "preprocessing")
+
+
+def _strict(cls: type[T], values: dict[str, Any], section: str) -> T:
+    """Build ``cls`` only when ``values`` has exactly its fields, so no default is used."""
+    expected = {f.name for f in fields(cls)}
+    if set(values) != expected:
+        missing = sorted(expected - set(values))
+        unexpected = sorted(set(values) - expected)
+        raise ModelUnavailableError(
+            f"artifact {section} settings do not match this engine "
+            f"(missing: {missing}, unexpected: {unexpected}); retrain the model"
+        )
+    return cls(**values)

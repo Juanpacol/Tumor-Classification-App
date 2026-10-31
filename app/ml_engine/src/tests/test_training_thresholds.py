@@ -50,7 +50,7 @@ def test_calibrated_thresholds_accept_the_calibration_images(
 
     assert result.images_used == len(paths)
     for path in paths:
-        check_quality(measure_quality(load_mri_image(path), False), result.thresholds)
+        check_quality(measure_quality(load_mri_image(path)), result.thresholds)
 
 
 def test_references_fail_the_calibrated_thresholds(
@@ -62,9 +62,9 @@ def test_references_fail_the_calibrated_thresholds(
     references = reference_images(load_mri_image(anchor))
 
     for image in references["snr"]:
-        assert measure_quality(image, False).snr < result.thresholds.min_snr
+        assert measure_quality(image).snr < result.thresholds.min_snr
     for image in references["entropy"]:
-        assert measure_quality(image, False).entropy < result.thresholds.min_entropy
+        assert measure_quality(image).entropy < result.thresholds.min_entropy
 
 
 def test_thresholds_sit_at_the_midpoints_of_the_gaps(

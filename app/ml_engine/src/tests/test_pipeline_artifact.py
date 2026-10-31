@@ -101,10 +101,32 @@ def test_a_manifest_missing_a_section_is_unavailable(copy: Path) -> None:
 
 def test_serving_follows_the_manifest_and_not_the_defaults(copy: Path) -> None:
     manifest = json.loads((copy / MANIFEST_FILE).read_text())
-    manifest["preprocessing"]["skull_stripping"] = True
+    manifest["preprocessing"]["min_mask_fraction"] = 0.2
     (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
 
-    assert load_artifact(copy).preprocessing.skull_stripping is True
+    assert load_artifact(copy).preprocessing.min_mask_fraction == 0.2
+
+
+def test_a_skull_stripping_setting_is_refused(copy: Path) -> None:
+    manifest = json.loads((copy / MANIFEST_FILE).read_text())
+    manifest["preprocessing"]["skull_stripping"] = False
+    (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
+
+    with pytest.raises(
+        ModelUnavailableError, match=r"unexpected: \['skull_stripping'\]"
+    ):
+        load_artifact(copy)
+
+
+def test_a_missing_mask_fraction_is_refused(copy: Path) -> None:
+    manifest = json.loads((copy / MANIFEST_FILE).read_text())
+    del manifest["preprocessing"]["min_mask_fraction"]
+    (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
+
+    with pytest.raises(
+        ModelUnavailableError, match=r"missing: \['min_mask_fraction'\]"
+    ):
+        load_artifact(copy)
 
 
 def test_normalization_that_the_backbone_was_not_exported_with_is_refused(
@@ -132,3 +154,21 @@ def test_thresholds_for_other_quality_metrics_are_refused(
 
     with pytest.raises(ModelUnavailableError, match="quality metrics version"):
         BundleInferencePipeline.from_bundle(copy)
+
+
+def test_a_missing_quality_threshold_is_refused(copy: Path) -> None:
+    manifest = json.loads((copy / MANIFEST_FILE).read_text())
+    del manifest["preprocessing"]["thresholds"]["min_entropy"]
+    (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
+
+    with pytest.raises(ModelUnavailableError, match=r"missing: \['min_entropy'\]"):
+        load_artifact(copy)
+
+
+def test_a_missing_radiomics_setting_is_refused(copy: Path) -> None:
+    manifest = json.loads((copy / MANIFEST_FILE).read_text())
+    del manifest["radiomics"]["lbp_points"]
+    (copy / MANIFEST_FILE).write_text(json.dumps(manifest))
+
+    with pytest.raises(ModelUnavailableError, match=r"missing: \['lbp_points'\]"):
+        load_artifact(copy)
