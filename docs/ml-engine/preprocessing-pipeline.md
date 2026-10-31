@@ -178,7 +178,7 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B8. CNN tensor
 
 - **Input:** 224x224 image. **Output:** `(3, 224, 224)` `float32`.
-- **Rule:** gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone, read from its configuration and checked against the backbone bundle. Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 [11].
+- **Rule:** gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone. They are read from the backbone bundle, which the export fills from the metadata published with the weights; no code holds a default. Runs in the CNN extractor (`DeepFeatureExtractor.to_tensor`). Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 [11]. Decision D20.
 - **Tools:** NumPy. **Cost:** very low.
 - **Evidence:** [5], [10], [11]. **Boards:** #166, #111.
 
@@ -264,7 +264,7 @@ Each guarantee is a unit test or a report entry.
 | B5 | #166 | `preprocessing/brain_mask.py` | Done: half-Otsu mask shared with B4, full-image fallback under 5% coverage, skull stripping removed (decision D18) |
 | B6 | #166 | `preprocessing/geometry.py`, `preprocessing/prepare.py` | Done: square centered on the B5 region, 5% margin, black beyond the border, resize to 224 (decision D19) |
 | B7 | #167 | `training/` (new) | To do |
-| B8 | #166, #111 | `preprocessing/prepare.py`, `deep_learning/` | Mostly done |
+| B8 | #166, #111 | `deep_learning/extractor.py`, `deep_learning/bundle.py` | Done: tensor built in the extractor with the bundle's mean and std, filled from the weights' metadata (decision D20) |
 | B9 | #112 | `training/folds.py`, `training/` | Done on synthetic data: folds assigned once and shared, `folds.csv`, balanced accuracy (decision D16). Real-data run to do |
 | B10 | #168 | `training/report.py` | To do |
 

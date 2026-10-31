@@ -240,7 +240,7 @@ Each block has one purpose, a defined input and output, and testable rules.
 \subsection*{B8. CNN tensor \hfill \board{166}, \board{111}}
 \begin{itemize}
   \item \textbf{Input:} $224\times224$ image. \textbf{Output:} $(3, 224, 224)$ \texttt{float32}.
-  \item \textbf{Rule:} gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone, read from its configuration and checked against the backbone bundle. Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 \cite{r11}.
+  \item \textbf{Rule:} gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone. They are read from the backbone bundle, which the export fills from the metadata published with the weights; no code holds a default. Runs in the CNN extractor (\texttt{DeepFeatureExtractor.to\_tensor}). Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 \cite{r11}. Decision D20.
   \item \textbf{Tools:} NumPy. \textbf{Cost:} very low.
   \item \textbf{Evidence:} \cite{r5}, \cite{r10}, \cite{r11}.
 \end{itemize}
@@ -346,7 +346,7 @@ B4  & \board{109}, \board{165}, \board{175} & \texttt{preprocessing/quality.py},
 B5  & \board{166} & \texttt{preprocessing/brain\_mask.py} & Done: half-Otsu mask shared with B4, full-image fallback under 5\% coverage, skull stripping removed (decision D18) \\
 B6  & \board{166} & \texttt{preprocessing/geometry.py}, \texttt{preprocessing/prepare.py} & Done: square centered on the B5 region, 5\% margin, black beyond the border, resize to 224 (decision D19) \\
 B7  & \board{167} & \texttt{training/} (new) & To do \\
-B8  & \board{166}, \board{111} & \texttt{preprocessing/prepare.py}, \texttt{deep\_learning/} & Mostly done \\
+B8  & \board{166}, \board{111} & \texttt{deep\_learning/extractor.py}, \texttt{deep\_learning/bundle.py} & Done: tensor built in the extractor with the bundle's mean and std, filled from the weights' metadata (decision D20) \\
 B9  & \board{112} & \texttt{training/} & Grouped CV done, balanced accuracy to do \\
 B10 & \board{168} & \texttt{training/report.py} & To do \\
 \bottomrule

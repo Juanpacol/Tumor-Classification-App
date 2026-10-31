@@ -20,7 +20,7 @@ uv pip compile pyproject.toml --extra dev --python-version 3.11 --universal \
 
 ## Preprocessing
 
-`load_mri_image` (JPG/PNG to a 2D float32 array in [0, 1]) followed by `prepare_image`, which runs the quality gate and builds both model inputs (the grayscale image with its brain mask for radiomics, and a normalized 3-channel array for the CNN).
+`load_mri_image` (JPG/PNG to a 2D float32 array in [0, 1]) followed by `prepare_image`, which runs the quality gate and builds both model inputs (the grayscale image with its brain mask for radiomics, and the square `cnn_image` in [0, 1] for the CNN).
 
 ### Quality thresholds
 
@@ -51,13 +51,13 @@ The radiomics region of interest is the brain mask above (`src/preprocessing/bra
 
 ## Deep features
 
-`DeepFeatureExtractor.from_bundle(folder)` loads a frozen ImageNet backbone (EfficientNet-B0 by default) and `extract` / `extract_batch` turn the `cnn_input` of `prepare_image` into 1280-d embeddings. Weights are never downloaded at runtime. Create the bundle once on a development machine:
+`DeepFeatureExtractor.from_bundle(folder)` loads a frozen ImageNet backbone (EfficientNet-B0 by default) and `extract` / `extract_batch` turn the `cnn_image` of `prepare_image` into 1280-d embeddings, normalizing it with the mean and std stored in the bundle (D20). Weights are never downloaded at runtime. Create the bundle once on a development machine:
 
 ```bash
 python -m src.deep_learning.export_backbone --out weights
 ```
 
-The `weights/` folder is ignored by git. Details are in `docs/ml-engine/decisions.md` (D9).
+The `weights/` folder is ignored by git. The export writes the input size, mean and std that torchvision publishes for the weights. Details are in `docs/ml-engine/decisions.md` (D9, D20).
 
 ## Training data and model selection
 
