@@ -7,9 +7,18 @@
 .inner {
   position: relative;
   z-index: 1;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 4rem 1.5rem;
+  max-width: 640px;
+  margin: 0 1.5rem 0 auto;
+  margin-left: 36%;
+  padding: 4rem 1.5rem 4rem 0;
+}
+
+@media (max-width: 860px) {
+  .inner {
+    max-width: none;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
 }
 
 .brainAccent {
