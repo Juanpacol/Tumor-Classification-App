@@ -17,6 +17,7 @@ from adapters.outbound.persistence.sqlalchemy.repository import (
     SqlAlchemyStudyRepository,
 )
 from adapters.outbound.storage.filesystem_storage import FilesystemStorage
+from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
 from application.list_studies import ListStudies
 from application.upload_study import UploadStudy
@@ -83,6 +84,12 @@ def create_app(
             ListStudies(repository),
             GetStudy(repository),
             UploadStudy(repository, storage, classifier),
+            GenerateClinicalReport(
+                repository,
+                storage,
+                llm,
+                "fake" if settings.llm_provider == "fake" else settings.meta_model_id,
+            ),
         )
     )
 

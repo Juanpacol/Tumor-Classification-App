@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
 from application.list_studies import ListStudies, StudyDetail
 from application.upload_study import UploadStudy
@@ -149,6 +150,7 @@ def create_studies_router(
     list_studies: ListStudies,
     get_study: GetStudy,
     upload_study: UploadStudy,
+    generate_report: GenerateClinicalReport,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/studies", tags=["Studies"])
 
@@ -221,5 +223,27 @@ def create_studies_router(
             study.original_format, "application/octet-stream"
         )
         return Response(content=image, media_type=media_type)
+
+    @router.post(
+        "/{study_id}/report",
+        response_model=ReportResponse,
+        summary="Generate a study's clinical report",
+        description=(
+            "Returns the stored report of a completed study, or drafts one with the "
+            "LLM. Every claim carries its citations, checked against the study's "
+            "evidence. A previously failed report is generated again."
+        ),
+        responses={
+            404: {"description": "The study does not exist."},
+            409: {"description": "The study is not completed or has no prediction."},
+            502: {"description": "The model did not produce a valid report."},
+            503: {"description": "The report service is not available."},
+        },
+    )
+    async def report_endpoint(study_id: str) -> ReportResponse:
+        report = await generate_report.execute(study_id)
+        response = _report_response(report)
+        assert response is not None
+        return response
 
     return router
