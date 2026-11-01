@@ -13,7 +13,15 @@ from adapters.outbound.storage.in_memory_storage import InMemoryStorage
 from domain.models import StudyStatus
 from main import create_app
 from tests.doubles import ScriptedClassifier, ScriptedLLM
-from tests.factories import BASE_TIME, make_prediction, make_report, make_study
+from tests.factories import (
+    BASE_TIME,
+    image_bytes,
+    make_prediction,
+    make_report,
+    make_study,
+)
+
+PNG = image_bytes("PNG")
 
 
 def client_with(repository=None, storage=None, classifier=None, llm=None) -> TestClient:
@@ -39,7 +47,7 @@ def test_upload_study_returns_a_completed_study():
     with client_with(classifier=ScriptedClassifier(prediction)) as client:
         response = client.post(
             "/api/studies",
-            files={"file": ("scan.png", b"fake-bytes", "image/png")},
+            files={"file": ("scan.png", PNG, "image/png")},
             data={"clinical_notes": "Headache"},
         )
 
@@ -48,6 +56,37 @@ def test_upload_study_returns_a_completed_study():
     assert body["status"] == "completed"
     assert body["clinical_notes"] == "Headache"
     assert body["prediction"]["label"] == "no_tumor"
+
+
+def test_upload_of_a_file_that_is_not_an_image_is_415():
+    with client_with() as client:
+        response = client.post(
+            "/api/studies", files={"file": ("scan.dcm", b"DICM", "application/dicom")}
+        )
+
+    assert response.status_code == 415
+    assert response.json()["code"] == "UNSUPPORTED_MEDIA_TYPE"
+
+
+def test_upload_over_20_mb_is_413():
+    with client_with() as client:
+        response = client.post(
+            "/api/studies",
+            files={"file": ("scan.png", PNG + b"0" * (20 * 1024 * 1024), "image/png")},
+        )
+
+    assert response.status_code == 413
+
+
+def test_upload_with_notes_over_2000_characters_is_422():
+    with client_with() as client:
+        response = client.post(
+            "/api/studies",
+            files={"file": ("scan.png", PNG, "image/png")},
+            data={"clinical_notes": "x" * 2001},
+        )
+
+    assert response.status_code == 422
 
 
 def test_get_unknown_study_is_404():
@@ -176,14 +215,14 @@ def test_get_study_image_returns_the_uploaded_bytes():
     ) as client:
         upload = client.post(
             "/api/studies",
-            files={"file": ("scan.png", b"fake-bytes", "image/png")},
+            files={"file": ("scan.png", PNG, "image/png")},
         )
         study_id = upload.json()["id"]
 
         response = client.get(f"/api/studies/{study_id}/image")
 
     assert response.status_code == 200
-    assert response.content == b"fake-bytes"
+    assert response.content == PNG
     assert response.headers["content-type"] == "image/png"
 
 
