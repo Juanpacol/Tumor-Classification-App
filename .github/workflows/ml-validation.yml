@@ -73,17 +73,11 @@ jobs:
               print('⚠ Weights directory not found (OK for first setup)')
           "
 
-      - name: Run ML pipeline tests
+      - name: Run all ML engine tests
+        # Tests that need assets missing in CI (exported weights) skip themselves with a reason.
         run: |
           cd app/ml_engine
-          echo "Running ML pipeline tests..."
-          pytest src/tests/ -v --tb=short -k "pipeline or preprocessing" || echo "⚠ Tests may fail if test data not available"
-
-      - name: Test Grad-CAM explainability
-        run: |
-          cd app/ml_engine
-          echo "Testing Grad-CAM functionality..."
-          pytest src/tests/ -v --tb=short -k "grad_cam or explainability" || echo "⚠ Grad-CAM tests may require model weights"
+          pytest src/ -v --tb=short -rs
 
       - name: Validate model inference paths
         run: |
