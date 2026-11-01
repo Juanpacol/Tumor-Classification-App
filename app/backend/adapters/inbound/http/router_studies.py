@@ -1,6 +1,7 @@
 from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, Query, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -14,6 +15,8 @@ from ports.storage_port import StoragePort
 from ports.study_repository_port import StudyRepositoryPort
 
 IMAGE_MEDIA_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}
+MAX_PAGE_SIZE = 100
+INVALID_ID = {422: {"description": "The study id is not a valid UUID."}}
 
 
 class PredictionResponse(BaseModel):
@@ -158,9 +161,16 @@ def create_studies_router(
         "",
         response_model=StudyPageResponse,
         summary="List studies",
-        description="Lists studies newest first, with their prediction and report.",
+        description=(
+            "Lists studies newest first, with their prediction and report. "
+            f"Pages start at 1 and hold up to {MAX_PAGE_SIZE} studies."
+        ),
+        responses={422: {"description": "The page or page size is out of range."}},
     )
-    async def list_endpoint(page: int = 1, page_size: int = 20) -> StudyPageResponse:
+    async def list_endpoint(
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=MAX_PAGE_SIZE),
+    ) -> StudyPageResponse:
         result = await list_studies.execute(page, page_size)
         return StudyPageResponse(
             items=[_study_response(item) for item in result.items],
@@ -196,10 +206,10 @@ def create_studies_router(
         response_model=StudyDetailResponse,
         summary="Get a study",
         description="Returns one study with its prediction and report.",
-        responses={404: {"description": "The study does not exist."}},
+        responses={404: {"description": "The study does not exist."}, **INVALID_ID},
     )
-    async def get_endpoint(study_id: str) -> StudyDetailResponse:
-        detail = await get_study.execute(study_id)
+    async def get_endpoint(study_id: UUID) -> StudyDetailResponse:
+        detail = await get_study.execute(str(study_id))
         return _study_response(detail)
 
     @router.get(
@@ -207,10 +217,13 @@ def create_studies_router(
         response_model=bytes,
         summary="Get a study's image",
         description="Returns the uploaded MRI image for a study.",
-        responses={404: {"description": "The study or its image does not exist."}},
+        responses={
+            404: {"description": "The study or its image does not exist."},
+            **INVALID_ID,
+        },
     )
-    async def image_endpoint(study_id: str) -> Response:
-        study = await repository.get(study_id)
+    async def image_endpoint(study_id: UUID) -> Response:
+        study = await repository.get(str(study_id))
         if study is None:
             raise DomainError("STUDY_NOT_FOUND", "Study not found.", status_code=404)
         try:
