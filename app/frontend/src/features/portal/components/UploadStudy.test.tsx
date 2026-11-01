@@ -16,8 +16,10 @@ describe("UploadStudy", () => {
     expect(screen.getByRole("button", { name: "Upload study" })).toBeDisabled();
   });
 
-  it("uploads the picked file with trimmed notes and refreshes the list", async () => {
-    const uploadStudy = jest.fn().mockResolvedValue({});
+  it("uploads the picked file with trimmed notes and opens the new study", async () => {
+    const uploadStudy = jest
+      .fn()
+      .mockResolvedValue({ id: "study-new", prediction: null, report: null });
     const onUploaded = jest.fn();
     render(
       <UploadStudy client={clientWith(uploadStudy)} onUploaded={onUploaded} />,
@@ -31,7 +33,7 @@ describe("UploadStudy", () => {
     await userEvent.click(screen.getByRole("button", { name: "Upload study" }));
 
     expect(uploadStudy).toHaveBeenCalledWith(file, "54F, headaches");
-    expect(onUploaded).toHaveBeenCalled();
+    expect(onUploaded).toHaveBeenCalledWith("study-new");
   });
 
   it("shows the error when the upload fails", async () => {

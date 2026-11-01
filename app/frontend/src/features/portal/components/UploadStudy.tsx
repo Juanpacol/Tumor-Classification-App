@@ -11,13 +11,17 @@ type UploadState =
   | { status: "uploading" }
   | { status: "error"; message: string };
 
-/** Lets a user send an MRI image, with optional clinical notes, into the system. */
+/**
+ * Lets a user send an MRI image, with optional clinical notes, into the
+ * system. On success, `onUploaded` gets the new study's id so the caller
+ * can open its workspace.
+ */
 export function UploadStudy({
   client,
   onUploaded,
 }: {
   client: ApiClient;
-  onUploaded: () => void;
+  onUploaded: (studyId: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
@@ -29,12 +33,12 @@ export function UploadStudy({
     if (!file) return;
     setState({ status: "uploading" });
     try {
-      await client.uploadStudy(file, notes.trim() || undefined);
+      const study = await client.uploadStudy(file, notes.trim() || undefined);
       setFile(null);
       setNotes("");
       if (fileInput.current) fileInput.current.value = "";
       setState({ status: "idle" });
-      onUploaded();
+      onUploaded(study.id);
     } catch (error) {
       setState({
         status: "error",
