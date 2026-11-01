@@ -57,6 +57,14 @@ def make_report(macro_f1: float) -> dict[str, Any]:
             "best": "svm_rbf",
         },
         ablation={"cnn_only": 0.8, "radiomics_only": 0.6, "hybrid": 0.9},
+        augmentation={
+            "on": False,
+            "copies": 1,
+            "ranges": {"max_rotation_deg": 10.0},
+            "cv_without": {"mean": 0.9, "std": 0.02},
+            "cv_with": {"mean": 0.91, "std": 0.03},
+            "margin": 0.02,
+        },
         test=metrics_dict(macro_f1),
         calibration_method="sigmoid",
     )
@@ -85,6 +93,7 @@ def test_markdown_states_the_verdict_and_shows_every_section() -> None:
         "Confusion matrix",
         "Classifier selection",
         "Ablation",
+        "Augmentation",
         "Data",
     ):
         assert heading in markdown
@@ -137,3 +146,18 @@ def test_an_existing_report_is_never_overwritten(tmp_path: Path) -> None:
 
     with pytest.raises(FileExistsError):
         write_report(tmp_path / "run", make_report(0.95), FOLDS)
+
+
+def test_markdown_shows_the_augmentation_decision() -> None:
+    markdown = render_markdown(make_report(0.95))
+
+    assert "| originals | 0.900 | 0.020 |" in markdown
+    assert "| originals + 1 copy per image | 0.910 | 0.030 |" in markdown
+    assert "Augmentation **off**" in markdown and "at least 0.020" in markdown
+
+
+def test_markdown_counts_several_copies_in_the_plural() -> None:
+    report = make_report(0.95)
+    report["augmentation"] = {**report["augmentation"], "copies": 2}
+
+    assert "| originals + 2 copies per image |" in render_markdown(report)

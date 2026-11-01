@@ -23,6 +23,7 @@ def build_report(
     validation: dict[str, Any],
     selection: dict[str, Any],
     ablation: dict[str, float],
+    augmentation: dict[str, Any],
     test: dict[str, Any],
     calibration_method: str,
 ) -> dict[str, Any]:
@@ -37,6 +38,7 @@ def build_report(
         "validation": validation,
         "selection": selection,
         "ablation_macro_f1": ablation,
+        "augmentation": augmentation,
         "calibration_method": calibration_method,
         "test": test,
     }
@@ -104,6 +106,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"{report['calibration_method']}."
         ),
         "",
+        *_augmentation_lines(report["augmentation"]),
         "## Ablation (cross-validated macro-F1 on Train)",
         "",
         "| Features | Macro-F1 |",
@@ -146,6 +149,32 @@ def _validation_lines(validation: dict[str, Any]) -> list[str]:
             + " | ".join(str(per_class[label]) for label in labels)
             + f" | {sum(per_class.values())} |"
             for fold, per_class in counts.items()
+        ),
+        "",
+    ]
+
+
+def _augmentation_lines(augmentation: dict[str, Any]) -> list[str]:
+    verdict = "on" if augmentation["on"] else "off"
+    copies = augmentation["copies"]
+    without, with_copies = augmentation["cv_without"], augmentation["cv_with"]
+    return [
+        "## Augmentation (cross-validated macro-F1 on Train, selected classifier)",
+        "",
+        "| Fit rows | Macro-F1 mean | Macro-F1 std |",
+        "|---|---|---|",
+        f"| originals | {without['mean']:.3f} | {without['std']:.3f} |",
+        (
+            f"| originals + {copies} {'copy' if copies == 1 else 'copies'} per image "
+            f"| {with_copies['mean']:.3f} | {with_copies['std']:.3f} |"
+        ),
+        "",
+        (
+            f"Augmentation **{verdict}**: it stays on only if it gains at least "
+            f"{augmentation['margin']:.3f} (the std without copies). Copies vary the "
+            "CNN block only. Ranges: "
+            + ", ".join(f"{k} {v}" for k, v in augmentation["ranges"].items())
+            + "."
         ),
         "",
     ]

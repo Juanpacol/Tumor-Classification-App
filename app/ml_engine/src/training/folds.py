@@ -39,16 +39,29 @@ def assign_folds(
     return fold_of
 
 
-def fold_splits(fold_of_row: np.ndarray, n_splits: int) -> Splits:
+def fold_splits(
+    fold_of_row: np.ndarray, n_splits: int, is_copy: np.ndarray | None = None
+) -> Splits:
     """``(fit rows, validation rows)`` per fold, from the fold of each matrix row.
 
-    Raises ``ValueError`` naming the folds left without rows.
+    Augmented copies (``is_copy``) carry their original's fold. They are fit rows of
+    the other folds and never validation rows, so fold k validates exactly the
+    original images of fold k. Raises ``ValueError`` naming the folds left without
+    original rows. Without ``is_copy`` every row is an original.
     """
-    empty = [fold for fold in range(n_splits) if not np.any(fold_of_row == fold)]
+    originals = np.ones(len(fold_of_row), dtype=bool) if is_copy is None else ~is_copy
+    empty = [
+        fold
+        for fold in range(n_splits)
+        if not np.any((fold_of_row == fold) & originals)
+    ]
     if empty:
         raise ValueError(f"folds without usable images: {empty}")
     return [
-        (np.flatnonzero(fold_of_row != fold), np.flatnonzero(fold_of_row == fold))
+        (
+            np.flatnonzero(fold_of_row != fold),
+            np.flatnonzero((fold_of_row == fold) & originals),
+        )
         for fold in range(n_splits)
     ]
 
