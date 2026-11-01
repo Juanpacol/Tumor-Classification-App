@@ -13,6 +13,7 @@ from adapters.outbound.llm.meta_model_llm import MetaModelLLM
 from adapters.outbound.llm.spend_cap import CappedLLM
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from application.clinical_report import ClinicalReportOutput
+from application.grounded_report import GroundedClinicalReportOutput
 from application.report_guardrails import find_violations
 from domain.errors import DomainError
 from main import create_app
@@ -146,6 +147,13 @@ async def test_the_fake_report_is_valid_and_passes_the_guardrails(triage: bool) 
     assert isinstance(report, ClinicalReportOutput)
     prediction = make_prediction("s", needs_expert_triage=triage)
     assert find_violations(report, prediction) == []
+
+
+async def test_the_fake_grounded_report_has_a_claim_with_evidence_keys() -> None:
+    report = await FakeLLM().complete_json([], GroundedClinicalReportOutput)
+
+    assert isinstance(report, GroundedClinicalReportOutput)
+    assert report.findings[0].evidence_keys == ["prediction.label"]
 
 
 async def test_the_fake_has_no_answer_for_an_unknown_schema() -> None:
