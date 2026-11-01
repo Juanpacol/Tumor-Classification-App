@@ -21,6 +21,29 @@
   flex: 2 1 18rem;
 }
 
+.notes textarea {
+  resize: vertical;
+}
+
+.file {
+  padding: 0.35rem;
+  border: 1px dashed transparent;
+}
+
+.dragging {
+  border-color: var(--ink);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.problem {
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
+
 .label {
   font-size: 0.75rem;
   letter-spacing: 0.03em;
@@ -29,7 +52,7 @@
 }
 
 .file input,
-.notes input {
+.notes textarea {
   border: 1px solid var(--rule);
   background: rgba(255, 255, 255, 0.6);
   padding: 0.5rem 0.65rem;
@@ -38,6 +61,6 @@
   color: var(--ink);
 }
 
-.notes input::placeholder {
+.notes textarea::placeholder {
   color: var(--muted);
 }
