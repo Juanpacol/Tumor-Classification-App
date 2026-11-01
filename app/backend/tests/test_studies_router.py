@@ -1,16 +1,19 @@
 from fastapi.testclient import TestClient
 from src.pipelines import FakeInferencePipeline
 
+from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.ml.ml_engine_classifier import MLEngineClassifier
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from adapters.outbound.storage.in_memory_storage import InMemoryStorage
+from domain.models import StudyStatus
 from main import create_app
-from tests.doubles import ScriptedClassifier
+from tests.doubles import ScriptedClassifier, ScriptedLLM
 from tests.factories import make_prediction, make_report, make_study
 
 
-def client_with(repository=None, storage=None, classifier=None) -> TestClient:
+def client_with(repository=None, storage=None, classifier=None, llm=None) -> TestClient:
     app = create_app(
+        llm=llm or FakeLLM(),
         repository=repository or InMemoryStudyRepository(),
         storage=storage or InMemoryStorage(),
         classifier=classifier or ScriptedClassifier(),
@@ -65,6 +68,61 @@ async def test_get_study_exposes_the_report_citations():
         "evidence": [{"key": "prediction.label", "description": "glioma"}],
         "verified": True,
     }
+
+
+async def completed_study_with_image(repository, storage):
+    study = make_study(status=StudyStatus.COMPLETED)
+    await repository.save(study)
+    await repository.save_prediction(make_prediction(study.id))
+    storage.save(b"image", study.file_key)
+    return study
+
+
+async def test_post_report_returns_the_report_with_verified_citations():
+    repository, storage = InMemoryStudyRepository(), InMemoryStorage()
+    study = await completed_study_with_image(repository, storage)
+
+    with client_with(repository=repository, storage=storage) as client:
+        response = client.post(f"/api/studies/{study.id}/report")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    citations = body["content"]["citations"]
+    assert all(c["verified"] == bool(c["evidence"]) for c in citations)
+    assert any(c["verified"] for c in citations)
+    assert (await repository.get_report(study.id)).status.value == "completed"
+
+
+def test_post_report_of_an_unknown_study_is_404():
+    with client_with() as client:
+        response = client.post("/api/studies/missing/report")
+
+    assert response.status_code == 404
+
+
+async def test_post_report_without_a_prediction_is_409():
+    repository = InMemoryStudyRepository()
+    study = make_study(status=StudyStatus.COMPLETED)
+    await repository.save(study)
+
+    with client_with(repository=repository) as client:
+        response = client.post(f"/api/studies/{study.id}/report")
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "PREDICTION_NOT_FOUND"
+
+
+async def test_post_report_with_an_invalid_model_output_is_502_and_stored_as_failed():
+    repository, storage = InMemoryStudyRepository(), InMemoryStorage()
+    study = await completed_study_with_image(repository, storage)
+    llm = ScriptedLLM({}, {})
+
+    with client_with(repository=repository, storage=storage, llm=llm) as client:
+        response = client.post(f"/api/studies/{study.id}/report")
+
+    assert response.status_code == 502
+    assert (await repository.get_report(study.id)).status.value == "failed"
 
 
 def test_get_study_image_returns_the_uploaded_bytes():
