@@ -1,0 +1,43 @@
+.upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.15rem;
+  background: rgba(245, 244, 241, 0.55);
+  border: 1px solid var(--rule);
+}
+
+.file,
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 14rem;
+}
+
+.notes {
+  flex: 2 1 18rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.file input,
+.notes input {
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.6);
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.notes input::placeholder {
+  color: var(--muted);
+}

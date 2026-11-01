@@ -35,6 +35,13 @@
   font-size: 1rem;
 }
 
+.consequence {
+  margin-top: 1.5rem;
+  font-size: 1.125rem;
+  color: #6b6760;
+  font-style: italic;
+}
+
 .solution {
   margin-top: 2rem;
   font-size: 1.5rem;

@@ -5,8 +5,8 @@ import pytest
 
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from adapters.outbound.storage.in_memory_storage import InMemoryStorage
-from application.clinical_report import ClinicalReportOutput
 from application.generate_report import MAX_ATTEMPTS, GenerateClinicalReport
+from application.grounded_report import ClaimOutput, GroundedClinicalReportOutput
 from domain.errors import DomainError
 from domain.models import Report, ReportStatus, StudyStatus
 from tests.doubles import ScriptedLLM
@@ -16,24 +16,47 @@ IMAGE = b"de-identified-png"
 NOW = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
 
 
-def valid_output(**overrides: Any) -> ClinicalReportOutput:
-    fields: dict[str, Any] = {
-        "findings": "A lesion consistent with a glioma.",
-        "visual_observations": "Heterogeneous signal in the left frontal lobe.",
-        "impression": "Suggestive of a glioma. Radiologist confirmation is required.",
-        "differential_considerations": "Meningioma cannot be excluded.",
+NARRATIVE_FIELDS = (
+    "findings",
+    "visual_observations",
+    "impression",
+    "differential_considerations",
+)
+
+
+def claim(text: str, *keys: str) -> ClaimOutput:
+    return ClaimOutput(text=text, evidence_keys=list(keys))
+
+
+def valid_output(**overrides: Any) -> GroundedClinicalReportOutput:
+    """Narrative overrides are plain text; each becomes a single claim."""
+    narrative: dict[str, Any] = {
+        "findings": claim("A lesion consistent with a glioma.", "prediction.label"),
+        "visual_observations": claim("Heterogeneous signal in the left frontal lobe."),
+        "impression": claim(
+            "Suggestive of a glioma. Radiologist confirmation is required."
+        ),
+        "differential_considerations": claim("Meningioma cannot be excluded."),
+    }
+    other: dict[str, Any] = {
         "suggested_next_steps": ["Contrast-enhanced MRI", "Neurosurgery referral"],
         "ai_agreement": "agrees",
     }
-    fields.update(overrides)
-    return ClinicalReportOutput(**fields)
+    for key, value in overrides.items():
+        if key in NARRATIVE_FIELDS:
+            narrative[key] = value if isinstance(value, ClaimOutput) else claim(value)
+        else:
+            other[key] = value
+    return GroundedClinicalReportOutput(
+        **{key: [value] for key, value in narrative.items()}, **other
+    )
 
 
-def definitive() -> ClinicalReportOutput:
+def definitive() -> GroundedClinicalReportOutput:
     return valid_output(impression="The patient has a glioma.")
 
 
-def escalated(**overrides: Any) -> ClinicalReportOutput:
+def escalated(**overrides: Any) -> GroundedClinicalReportOutput:
     return valid_output(
         impression="The result is uncertain. Radiologist confirmation is required.",
         suggested_next_steps=["Expert review of the study", "Contrast-enhanced MRI"],
@@ -91,9 +114,59 @@ async def test_the_model_receives_the_image_the_prompt_and_the_schema() -> None:
     await setup.use_case.execute(setup.study.id)
 
     (call,) = setup.llm.calls
-    assert call["image"] == IMAGE and call["schema"] is ClinicalReportOutput
+    assert call["image"] == IMAGE and call["schema"] is GroundedClinicalReportOutput
     assert call["messages"][0]["role"] == "system"
     assert "Headache for 3 weeks" in call["messages"][1]["content"]
+    assert "prediction.label: glioma" in call["messages"][1]["content"]
+
+
+async def test_the_claims_become_the_report_text() -> None:
+    output = valid_output()
+    output.findings.append(claim("A second finding."))
+    setup = await ready(output)
+
+    report = await setup.use_case.execute(setup.study.id)
+
+    assert report.content is not None
+    assert report.content.findings == (
+        "A lesion consistent with a glioma. A second finding."
+    )
+
+
+async def test_a_claim_grounded_in_the_bundle_is_stored_as_verified() -> None:
+    setup = await ready(valid_output())
+
+    report = await setup.use_case.execute(setup.study.id)
+
+    assert report.content is not None
+    grounded = next(
+        c for c in report.content.citations if c.claim.startswith("A lesion")
+    )
+    assert grounded.verified is True
+    assert [ref.key for ref in grounded.evidence] == ["prediction.label"]
+
+
+async def test_a_claim_citing_an_invented_key_is_stored_as_unverified() -> None:
+    invented = valid_output(
+        findings=claim("The lesion is 3cm wide.", "prediction.tumor_size")
+    )
+    setup = await ready(invented)
+
+    report = await setup.use_case.execute(setup.study.id)
+
+    assert report.content is not None
+    ungrounded = next(c for c in report.content.citations if "3cm" in c.claim)
+    assert ungrounded.verified is False
+
+
+async def test_a_claim_without_evidence_is_kept_but_unverified() -> None:
+    setup = await ready(valid_output())
+
+    report = await setup.use_case.execute(setup.study.id)
+
+    assert report.content is not None
+    visual = next(c for c in report.content.citations if "Heterogeneous" in c.claim)
+    assert visual.verified is False and visual.evidence == []
 
 
 async def test_an_existing_report_is_returned_without_calling_the_model() -> None:

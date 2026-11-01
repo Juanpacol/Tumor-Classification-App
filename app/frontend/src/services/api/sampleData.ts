@@ -39,6 +39,18 @@ export const SAMPLE_REPORT: Report = {
     differential_considerations: "Sample differential considerations.",
     suggested_next_steps: ["Review the images with a radiologist."],
     ai_agreement: "agrees",
+    citations: [
+      {
+        claim: "Sample findings for the mock study.",
+        evidence: [{ key: "prediction.label", description: "glioma" }],
+        verified: true,
+      },
+      {
+        claim: "Sample visual observations.",
+        evidence: [],
+        verified: false,
+      },
+    ],
   },
 };
 

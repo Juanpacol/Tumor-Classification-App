@@ -12,7 +12,7 @@ from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.llm.meta_model_llm import MetaModelLLM
 from adapters.outbound.llm.spend_cap import CappedLLM
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
-from application.clinical_report import ClinicalReportOutput
+from application.grounded_report import GroundedClinicalReportOutput
 from application.report_guardrails import find_violations
 from domain.errors import DomainError
 from main import create_app
@@ -53,7 +53,7 @@ async def test_without_a_key_the_real_adapter_answers_503_instead_of_inventing()
 
     assert isinstance(llm, CappedLLM) and isinstance(llm.inner, MetaModelLLM)
     with pytest.raises(DomainError) as error:
-        await llm.complete_json([], ClinicalReportOutput)
+        await llm.complete_json([], GroundedClinicalReportOutput)
 
     assert error.value.status_code == 503 and error.value.code == "LLM_UNAVAILABLE"
 
@@ -141,15 +141,15 @@ async def test_the_real_adapter_closes_its_http_client() -> None:
 
 @pytest.mark.parametrize("triage", [True, False])
 async def test_the_fake_report_is_valid_and_passes_the_guardrails(triage: bool) -> None:
-    report = await FakeLLM().complete_json([], ClinicalReportOutput)
+    report = await FakeLLM().complete_json([], GroundedClinicalReportOutput)
 
-    assert isinstance(report, ClinicalReportOutput)
+    assert isinstance(report, GroundedClinicalReportOutput)
     prediction = make_prediction("s", needs_expert_triage=triage)
     assert find_violations(report, prediction) == []
 
 
 async def test_the_fake_has_no_answer_for_an_unknown_schema() -> None:
-    class Other(ClinicalReportOutput):
+    class Other(GroundedClinicalReportOutput):
         pass
 
     with pytest.raises(NotImplementedError, match="Other"):

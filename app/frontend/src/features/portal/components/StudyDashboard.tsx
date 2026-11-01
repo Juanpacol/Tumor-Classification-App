@@ -38,6 +38,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { PortalBackdrop } from "./PortalBackdrop";
 import { StatusTag } from "./StatusTag";
+import { UploadStudy } from "./UploadStudy";
 import styles from "./StudyDashboard.module.css";
 
 function prefersReducedMotion(): boolean {
@@ -92,7 +93,11 @@ export function StudyDashboard({ client }: { client?: ApiClient }) {
       OPENING_MS,
     );
   }
-  const { state, retry } = useStudies(client ?? defaultClient, page);
+  const apiClient = client ?? defaultClient;
+  const { state, retry } = useStudies(apiClient, page);
+  function goToUploadedStudy(studyId: string) {
+    router.push(`/studies/${studyId}`);
+  }
   const studies = useMemo(
     () => (state.status === "ready" ? state.data.items : []),
     [state],
@@ -114,6 +119,7 @@ export function StudyDashboard({ client }: { client?: ApiClient }) {
         <h1 className={styles.headline}>What needs a reader, first.</h1>
         <p className={styles.tagline}>Ordered by urgency, so nothing waits.</p>
       </header>
+      <UploadStudy client={apiClient} onUploaded={goToUploadedStudy} />
       {state.status === "loading" && (
         <p className={styles.message} role="status">
           Loading studies…

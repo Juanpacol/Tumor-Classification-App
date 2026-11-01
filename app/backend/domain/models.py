@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -42,6 +42,26 @@ class Prediction:
 
 
 @dataclass
+class EvidenceRef:
+    """A fact from the study a citation can point to, e.g. the prediction's
+    confidence or a radiomic feature that weighed into it."""
+
+    key: str
+    description: str
+
+
+@dataclass
+class Citation:
+    """One claim from a generated report, grounded in the study's own
+    evidence. `verified` is set by checking the claim against the evidence,
+    not by the presence of a citation alone."""
+
+    claim: str
+    evidence: list[EvidenceRef]
+    verified: bool = False
+
+
+@dataclass
 class ClinicalReport:
     study_id: str
     findings: str
@@ -50,6 +70,7 @@ class ClinicalReport:
     differential_considerations: str
     suggested_next_steps: list[str]
     ai_agreement: str
+    citations: list[Citation] = field(default_factory=list)
 
 
 @dataclass

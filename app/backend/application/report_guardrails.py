@@ -2,7 +2,7 @@
 
 import re
 
-from application.clinical_report import ClinicalReportOutput
+from application.grounded_report import ClaimOutput, GroundedClinicalReportOutput
 from domain.models import Prediction
 
 _DEFINITIVE = (
@@ -31,9 +31,21 @@ _UNCERTAINTY = ("uncertain", "discrepan", "disagree")
 _EXPERT_REVIEW = "expert review"
 
 
-def find_violations(report: ClinicalReportOutput, prediction: Prediction) -> list[str]:
+def find_violations(
+    report: GroundedClinicalReportOutput, prediction: Prediction
+) -> list[str]:
     """Reasons the report must be rejected; empty when it is acceptable."""
-    text = _full_text(report)
+    findings = _texts(report.findings)
+    impression = _texts(report.impression)
+    text = " ".join(
+        [
+            *findings,
+            *_texts(report.visual_observations),
+            *impression,
+            *_texts(report.differential_considerations),
+            *report.suggested_next_steps,
+        ]
+    )
     violations = [
         f"definitive diagnosis wording: {phrase!r}"
         for phrase in _DEFINITIVE
@@ -45,32 +57,24 @@ def find_violations(report: ClinicalReportOutput, prediction: Prediction) -> lis
         if _contains(text, term)
     ]
     if prediction.needs_expert_triage or report.ai_agreement != "agrees":
-        violations += _missing_escalation(report)
+        violations += _missing_escalation(
+            [*findings, *impression, *report.suggested_next_steps]
+        )
     return violations
 
 
-def _missing_escalation(report: ClinicalReportOutput) -> list[str]:
-    narrative = " ".join(
-        [report.findings, report.impression, *report.suggested_next_steps]
-    ).lower()
+def _texts(claims: list[ClaimOutput]) -> list[str]:
+    return [claim.text for claim in claims]
+
+
+def _missing_escalation(narrative: list[str]) -> list[str]:
+    joined = " ".join(narrative).lower()
     missing = []
-    if not any(word in narrative for word in _UNCERTAINTY):
+    if not any(word in joined for word in _UNCERTAINTY):
         missing.append("uncertainty or discrepancy is not stated")
-    if _EXPERT_REVIEW not in narrative:
+    if _EXPERT_REVIEW not in joined:
         missing.append("expert review is not recommended")
     return missing
-
-
-def _full_text(report: ClinicalReportOutput) -> str:
-    return " ".join(
-        [
-            report.findings,
-            report.visual_observations,
-            report.impression,
-            report.differential_considerations,
-            *report.suggested_next_steps,
-        ]
-    )
 
 
 def _contains(text: str, phrase: str) -> bool:
