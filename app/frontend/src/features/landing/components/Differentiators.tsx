@@ -9,6 +9,10 @@ const ITEMS = [
     text: "Every result comes with a heatmap of the exact region that drove it — not a black-box score you're asked to trust.",
   },
   {
+    title: "Every claim shows its source",
+    text: "Each statement in the report points to the study data it came from. Anything that can't be traced is flagged as not verified instead of passed off as fact.",
+  },
+  {
     title: "Works where the cloud doesn't",
     text: "Runs on an on-premise, open-source model instead of a locked-in cloud API — built for clinics without reliable connectivity.",
   },
