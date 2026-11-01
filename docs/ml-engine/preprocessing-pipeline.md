@@ -171,9 +171,9 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B7. Train-only augmentation
 
 - **Input:** a Training image after B6. **Output:** k augmented copies (default k = 1).
-- **Rule:** fixed seed. Rotation +/-10 degrees, horizontal flip, scale +/-10%, brightness/contrast +/-10%. Each copy inherits the label, `group_id` and fold of its original. Copies are used only as fit rows of a fold and in the final fit; never in validation folds, Testing or inference. The feature cache key includes the transform parameters.
+- **Rule:** fixed seed. Rotation +/-10 degrees, horizontal flip, scale +/-10%, brightness/contrast +/-10%, applied to the B6 output, so copies vary the CNN block only (their radiomics are the original's). Each copy inherits the label, `group_id` and fold of its original. Copies are used only as fit rows of the folds other than their own, so they reach the saved per-fold models (D16) but never validation folds, Testing or inference. The feature cache key includes the transform parameters. The run keeps augmentation only if it raises CV macro-F1 by at least the std across folds (D21).
 - **Tools:** OpenCV, NumPy (no new dependency). **Cost:** about 3 extra minutes of CPU feature extraction (1,830 images at about 90 ms).
-- **Evidence:** train-only augmentation is a strong rule [4], [2]. Its gain with a frozen CNN is weak evidence [9], [5], so a +/-augmentation ablation decides whether it stays enabled. **Boards:** #167.
+- **Evidence:** train-only augmentation is a strong rule [4], [2]. Its gain with a frozen CNN is weak evidence [9], [5], so a +/-augmentation comparison on CV decides whether it stays enabled. **Boards:** #167.
 
 ### B8. CNN tensor
 
@@ -218,8 +218,8 @@ Each guarantee is a unit test or a report entry.
 |---|---|---|---|
 | G1 | No `group_id` is present in both Training and Testing | B2 | #165 |
 | G2 | Quality thresholds are computed from Training images only | B4 | #165 |
-| G3 | No augmented copy reaches a validation fold, Testing or inference | B7 | #167 |
-| G4 | An augmented copy is always in the same fold as its original | B7 | #167 |
+| G3 | No augmented copy reaches a validation fold, Testing or inference (unit test) | B7 | #167 |
+| G4 | An augmented copy is always in the same fold as its original (unit test) | B7 | #167 |
 | G5 | B3-B6 and B8 give the same tensor at training and at inference for the same image | B3-B8 | #166, #113 |
 | G6 | The output of B6 is always 224x224 and keeps the aspect ratio of the crop | B6 | #166 |
 | G7 | Testing is scored exactly once per run (unit test) | B9 | #112 |
@@ -263,7 +263,7 @@ Each guarantee is a unit test or a report entry.
 | B4 | #109, #165, #175 | `preprocessing/quality.py`, `training/thresholds.py` | Done: metrics redefined, Training-only calibration applied (decision D17) |
 | B5 | #166 | `preprocessing/brain_mask.py` | Done: half-Otsu mask shared with B4, full-image fallback under 5% coverage, skull stripping removed (decision D18) |
 | B6 | #166 | `preprocessing/geometry.py`, `preprocessing/prepare.py` | Done: square centered on the B5 region, 5% margin, black beyond the border, resize to 224 (decision D19) |
-| B7 | #167 | `training/` (new) | To do |
+| B7 | #167 | `training/augmentation.py`, `training/features.py`, `training/folds.py` | Done on synthetic data: copies of the B6 output, CNN block only, kept only if CV improves (decision D21). Real-data run to do |
 | B8 | #166, #111 | `deep_learning/extractor.py`, `deep_learning/bundle.py` | Done: tensor built in the extractor with the bundle's mean and std, filled from the weights' metadata (decision D20) |
 | B9 | #112 | `training/folds.py`, `training/` | Done on synthetic data: folds assigned once and shared, `folds.csv`, balanced accuracy (decision D16). Real-data run to do |
 | B10 | #168 | `training/report.py` | To do |
