@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 
 from domain.models import (
     ChatMessage,
+    Citation,
     ClinicalReport,
+    EvidenceRef,
     Prediction,
     Report,
     ReportStatus,
@@ -57,6 +59,13 @@ def make_clinical_report(study_id: str) -> ClinicalReport:
         differential_considerations="Metastasis",
         suggested_next_steps=["Contrast MRI", "Neurosurgery consult"],
         ai_agreement="agree",
+        citations=[
+            Citation(
+                claim="Mass in left frontal lobe",
+                evidence=[EvidenceRef(key="prediction.label", description="glioma")],
+                verified=True,
+            )
+        ],
     )
 
 
