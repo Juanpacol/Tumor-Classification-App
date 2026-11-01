@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
+from application.image_upload import MAX_UPLOAD_BYTES
 from application.list_studies import ListStudies, StudyDetail
 from application.upload_study import UploadStudy
 from domain.errors import DomainError
@@ -15,6 +16,7 @@ from ports.storage_port import StoragePort
 from ports.study_repository_port import StudyRepositoryPort
 
 IMAGE_MEDIA_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}
+MAX_NOTES_LENGTH = 2000
 MAX_PAGE_SIZE = 100
 INVALID_ID = {422: {"description": "The study id is not a valid UUID."}}
 
@@ -139,14 +141,6 @@ def _study_response(detail: StudyDetail) -> StudyDetailResponse:
     )
 
 
-def _original_format(file: UploadFile) -> str:
-    content_type = file.content_type or ""
-    if content_type in IMAGE_MEDIA_TYPES.values():
-        return next(k for k, v in IMAGE_MEDIA_TYPES.items() if v == content_type)
-    suffix = (file.filename or "").rsplit(".", 1)[-1].lower()
-    return suffix or "unknown"
-
-
 def create_studies_router(
     repository: StudyRepositoryPort,
     storage: StoragePort,
@@ -184,21 +178,25 @@ def create_studies_router(
         response_model=StudyDetailResponse,
         summary="Upload a study",
         description=(
-            "Uploads an MRI image, classifies it and returns the resulting study. "
-            "A study whose image fails the quality check is returned as rejected."
+            "Uploads a JPG or PNG MRI image, classifies it and returns the resulting "
+            "study. The image is stored without its embedded metadata (EXIF, XMP, "
+            "text chunks) and without its file name. A study whose image fails the "
+            "quality check is returned as rejected; one whose classification fails "
+            "is stored as failed."
         ),
-        responses={503: {"description": "The classification model is not available."}},
+        responses={
+            413: {"description": "The file is larger than 20 MB."},
+            415: {"description": "The file is not a JPG or PNG image."},
+            422: {"description": "The clinical notes are longer than 2000 characters."},
+            503: {"description": "The classification model is not available."},
+        },
     )
     async def upload_endpoint(
         file: UploadFile = File(...),  # noqa: B008
-        clinical_notes: str | None = Form(default=None),
+        clinical_notes: str | None = Form(default=None, max_length=MAX_NOTES_LENGTH),
     ) -> StudyDetailResponse:
-        image = await file.read()
-        detail = await upload_study.execute(
-            image=image,
-            original_format=_original_format(file),
-            clinical_notes=clinical_notes,
-        )
+        image = await file.read(MAX_UPLOAD_BYTES + 1)
+        detail = await upload_study.execute(image=image, clinical_notes=clinical_notes)
         return _study_response(detail)
 
     @router.get(

@@ -39,6 +39,28 @@ class UnsupportedImageError(DomainError):
         )
 
 
+class FileTooLargeError(DomainError):
+    """The uploaded file is larger than the upload limit."""
+
+    def __init__(self, limit_bytes: int):
+        super().__init__(
+            "FILE_TOO_LARGE",
+            f"The file is larger than {limit_bytes // (1024 * 1024)} MB.",
+            status_code=413,
+        )
+
+
+class UnsupportedMediaTypeError(DomainError):
+    """The uploaded file is not a well-formed JPEG or PNG image."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "UNSUPPORTED_MEDIA_TYPE",
+            "Only JPG and PNG images are accepted.",
+            status_code=415,
+        )
+
+
 class QualityCheckFailedError(DomainError):
     """The image was read but failed the quality gate, with the measured metrics."""
 

@@ -1,3 +1,4 @@
+import io
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -92,3 +93,22 @@ def make_message(study_id: str, minutes: int = 0, **overrides: object) -> ChatMe
     }
     fields.update(overrides)
     return ChatMessage(**fields)  # type: ignore[arg-type]
+
+
+def image_bytes(fmt: str = "PNG", with_metadata: bool = False) -> bytes:
+    """A tiny valid image; with metadata it carries EXIF (and a text chunk for PNG)."""
+    from PIL import Image, PngImagePlugin
+
+    image = Image.new("L", (8, 8), color=90)
+    options: dict[str, object] = {}
+    if with_metadata:
+        exif = Image.Exif()
+        exif[0x010E] = "Patient Jane Doe"
+        options["exif"] = exif.tobytes()
+        if fmt == "PNG":
+            info = PngImagePlugin.PngInfo()
+            info.add_text("Comment", "Patient Jane Doe")
+            options["pnginfo"] = info
+    buffer = io.BytesIO()
+    image.save(buffer, format=fmt, **options)
+    return buffer.getvalue()

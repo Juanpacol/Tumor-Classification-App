@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from application.image_upload import prepare_upload
 from application.list_studies import StudyDetail
 from domain.errors import DomainError
 from domain.models import Study, StudyStatus
@@ -28,9 +29,15 @@ class UploadStudy:
     async def execute(
         self,
         image: bytes,
-        original_format: str,
         clinical_notes: str | None = None,
     ) -> StudyDetail:
+        """Store the image without its metadata, classify it and save the outcome.
+
+        A file that is too large or not a JPG/PNG is refused before anything is
+        stored. A quality rejection is saved as REJECTED; any other classifier
+        error is saved as FAILED and raised again.
+        """
+        image, original_format = prepare_upload(image)
         study = Study(
             id=str(uuid.uuid4()),
             file_key="",
@@ -46,13 +53,21 @@ class UploadStudy:
             prediction = await self._classifier.classify(study.id, image)
         except DomainError as error:
             if error.status_code != 422:
+                await self._fail(study)
                 raise
             study.status = StudyStatus.REJECTED
             study.rejection_reason = error.message
             await self._repository.save(study)
             return StudyDetail(study=study, prediction=None, report=None)
+        except Exception:
+            await self._fail(study)
+            raise
 
         study.status = StudyStatus.COMPLETED
         await self._repository.save(study)
         await self._repository.save_prediction(prediction)
         return StudyDetail(study=study, prediction=prediction, report=None)
+
+    async def _fail(self, study: Study) -> None:
+        study.status = StudyStatus.FAILED
+        await self._repository.save(study)
