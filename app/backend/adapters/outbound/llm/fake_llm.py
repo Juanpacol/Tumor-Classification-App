@@ -14,7 +14,29 @@ CANNED_RESPONSES: dict[str, dict[str, Any]] = {
         "differential_considerations": "Not assessed in this demo.",
         "suggested_next_steps": ["Expert review of the study"],
         "ai_agreement": "uncertain",
-    }
+    },
+    "GroundedClinicalReportOutput": {
+        "findings": [
+            {
+                "text": "Demo report generated without a model.",
+                "evidence_keys": ["prediction.label"],
+            }
+        ],
+        "visual_observations": [
+            {"text": "No image analysis was performed.", "evidence_keys": []}
+        ],
+        "impression": [
+            {
+                "text": "The finding is uncertain. Radiologist confirmation is required.",
+                "evidence_keys": ["prediction.confidence"],
+            }
+        ],
+        "differential_considerations": [
+            {"text": "Not assessed in this demo.", "evidence_keys": []}
+        ],
+        "suggested_next_steps": ["Expert review of the study"],
+        "ai_agreement": "uncertain",
+    },
 }
 
 
