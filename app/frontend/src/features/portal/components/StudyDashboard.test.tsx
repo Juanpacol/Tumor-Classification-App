@@ -9,8 +9,9 @@ import {
 import { createMockClient } from "@/services/api/mockClient";
 import { StudyDashboard } from "./StudyDashboard";
 
+const push = jest.fn();
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push }),
   usePathname: () => "/studies",
 }));
 
@@ -154,5 +155,20 @@ describe("StudyDashboard", () => {
     await waitFor(() =>
       expect(listStudies).toHaveBeenLastCalledWith({ page: 2, pageSize: 10 }),
     );
+  });
+
+  it("opens the uploaded study's workspace", async () => {
+    const client = createMockClient();
+    client.uploadStudy = jest
+      .fn()
+      .mockResolvedValue({ id: "study-new", prediction: null, report: null });
+    render(<StudyDashboard client={client} />);
+    await screen.findAllByRole("link");
+
+    const file = new File(["mri"], "scan.png", { type: "image/png" });
+    await userEvent.upload(screen.getByLabelText("MRI image"), file);
+    await userEvent.click(screen.getByRole("button", { name: "Upload study" }));
+
+    expect(push).toHaveBeenCalledWith("/studies/study-new");
   });
 });

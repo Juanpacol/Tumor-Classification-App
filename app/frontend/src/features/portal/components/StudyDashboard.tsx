@@ -95,9 +95,8 @@ export function StudyDashboard({ client }: { client?: ApiClient }) {
   }
   const apiClient = client ?? defaultClient;
   const { state, retry } = useStudies(apiClient, page);
-  function refreshAfterUpload() {
-    setPage(1);
-    retry();
+  function goToUploadedStudy(studyId: string) {
+    router.push(`/studies/${studyId}`);
   }
   const studies = useMemo(
     () => (state.status === "ready" ? state.data.items : []),
@@ -120,7 +119,7 @@ export function StudyDashboard({ client }: { client?: ApiClient }) {
         <h1 className={styles.headline}>What needs a reader, first.</h1>
         <p className={styles.tagline}>Ordered by urgency, so nothing waits.</p>
       </header>
-      <UploadStudy client={apiClient} onUploaded={refreshAfterUpload} />
+      <UploadStudy client={apiClient} onUploaded={goToUploadedStudy} />
       {state.status === "loading" && (
         <p className={styles.message} role="status">
           Loading studies…
