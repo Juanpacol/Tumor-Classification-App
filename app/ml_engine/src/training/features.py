@@ -17,9 +17,18 @@ from src.deep_learning.extractor import DeepFeatureExtractor
 from src.errors import MLEngineError
 from src.preprocessing.loading import load_mri_image
 from src.preprocessing.prepare import PreprocessingConfig, prepare_image
+from src.training.augmentation import (
+    AugmentationConfig,
+    AugmentationParams,
+    augment,
+    copy_rng,
+    draw,
+)
 from src.training.dataset import Sample
 
 Featurizer = Callable[[Path], tuple[np.ndarray, np.ndarray]]
+CopyFeaturizer = Callable[[np.ndarray, Sequence[AugmentationParams]], np.ndarray]
+Digest = Callable[[Path], str]
 
 
 @dataclass(frozen=True)
@@ -77,17 +86,23 @@ def make_featurizer(
     extractor: DeepFeatureExtractor,
     preprocessing: PreprocessingConfig,
     radiomics: RadiomicsConfig,
+    on_prepared: Callable[[Path, np.ndarray], None] | None = None,
 ) -> tuple[Featurizer, str]:
     """The real per-image featurizer and the fingerprint of its configuration.
 
     The featurizer raises ``UnsupportedImageError`` or ``QualityCheckError`` for
-    images the engine would reject at serving time.
+    images the engine would reject at serving time. ``on_prepared`` receives the
+    CNN image of every usable image it computes, so augmented copies can be made
+    without preparing the image a second time.
     """
 
     def featurize(path: Path) -> tuple[np.ndarray, np.ndarray]:
         prepared = prepare_image(load_mri_image(path), preprocessing)
         radiomic = extract_radiomics(prepared.radiomics_image, prepared.mask, radiomics)
-        return radiomic.values.astype(np.float32), extractor.extract(prepared.cnn_image)
+        cnn = extractor.extract(prepared.cnn_image)
+        if on_prepared is not None:
+            on_prepared(path, prepared.cnn_image)
+        return radiomic.values.astype(np.float32), cnn
 
     return featurize, config_fingerprint(preprocessing, radiomics, extractor.manifest)
 
@@ -105,10 +120,12 @@ class FeatureCache:
         fingerprint: str,
         featurize: Featurizer,
         radiomics: RadiomicsConfig,
+        digest: Digest = sha256_of,
     ) -> None:
         self._directory = directory / fingerprint
         self._featurize = featurize
         self._names = feature_names(radiomics)
+        self._digest = digest
 
     def table(
         self, samples: Sequence[Sample]
@@ -133,7 +150,7 @@ class FeatureCache:
         return FeatureTable(tuple(kept), radiomics, cnn, self._names), skipped
 
     def _entry(self, path: Path) -> dict[str, np.ndarray]:
-        digest = sha256_of(path)
+        digest = self._digest(path)
         cached = self._directory / digest[:2] / f"{digest}.npz"
         if cached.is_file():
             with np.load(cached) as data:
@@ -144,8 +161,100 @@ class FeatureCache:
             entry = {"radiomics": radiomics, "cnn": cnn}
         except MLEngineError as error:
             entry = {"reason": np.array(str(error))}
-        cached.parent.mkdir(parents=True, exist_ok=True)
-        temporary = cached.with_suffix(".tmp.npz")
-        np.savez(temporary, **entry)
-        temporary.replace(cached)
+        _save(cached, entry)
         return entry
+
+
+def augmentation_fingerprint(config: AugmentationConfig, seed: int) -> str:
+    """Hash of the transform ranges, the number of copies and the run seed."""
+    payload = json.dumps({"augmentation": asdict(config), "seed": seed}, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def make_copy_featurizer(extractor: DeepFeatureExtractor) -> CopyFeaturizer:
+    """CNN features of the copies of one CNN image (after block B6), one row per
+    parameter set. Copies vary the CNN block only."""
+
+    def featurize(
+        cnn_image: np.ndarray, params: Sequence[AugmentationParams]
+    ) -> np.ndarray:
+        return extractor.extract_batch(
+            np.stack([augment(cnn_image, p) for p in params])
+        )
+
+    return featurize
+
+
+def make_cnn_input(preprocessing: PreprocessingConfig) -> Callable[[Path], np.ndarray]:
+    """The CNN image of a usable file, for copies whose original came from the cache."""
+    return lambda path: prepare_image(load_mri_image(path), preprocessing).cnn_image
+
+
+class CopyCache:
+    """CNN features of the augmented copies of each image, one ``.npz`` per original.
+
+    It lives in its own folder under the feature cache, named after the
+    augmentation fingerprint, so copies made under other settings are never
+    reused and the originals' entries are never touched. ``add`` makes the copies
+    from a CNN image already prepared for the original; ``cnn`` prepares one with
+    ``cnn_input`` only for an original that was read from the cache.
+    """
+
+    def __init__(
+        self,
+        directory: Path,
+        config: AugmentationConfig,
+        seed: int,
+        featurize: CopyFeaturizer,
+        cnn_input: Callable[[Path], np.ndarray],
+        digest: Digest = sha256_of,
+    ) -> None:
+        self._directory = directory / f"aug-{augmentation_fingerprint(config, seed)}"
+        self._config = config
+        self._seed = seed
+        self._featurize = featurize
+        self._cnn_input = cnn_input
+        self._digest = digest
+
+    def add(self, path: Path, cnn_image: np.ndarray) -> None:
+        """Make and store the copies of ``path`` from its CNN image, unless cached."""
+        digest = self._digest(path)
+        if not self._file(digest).is_file():
+            self._compute(digest, cnn_image)
+
+    def cnn(self, samples: Sequence[Sample]) -> np.ndarray:
+        """``(len(samples) * copies, C)``: the copies of each sample, in sample order."""
+        rows = [self._entry(sample.path) for sample in samples]
+        return np.vstack(rows) if rows else np.empty((0, 0), dtype=np.float32)
+
+    def _entry(self, path: Path) -> np.ndarray:
+        digest = self._digest(path)
+        cached = self._file(digest)
+        if cached.is_file():
+            with np.load(cached) as data:
+                return data["cnn"]
+        return self._compute(digest, self._cnn_input(path))
+
+    def _compute(self, digest: str, cnn_image: np.ndarray) -> np.ndarray:
+        params = [
+            draw(self._config, copy_rng(self._seed, digest, index))
+            for index in range(self._config.copies)
+        ]
+        cnn = self._featurize(cnn_image, params)
+        _save(self._file(digest), {"cnn": cnn})
+        return cnn
+
+    def _file(self, digest: str) -> Path:
+        return self._directory / digest[:2] / f"{digest}.npz"
+
+
+def copy_rows(table: FeatureTable, copy_cnn: np.ndarray, copies: int) -> np.ndarray:
+    """Matrix rows of the copies: each original's radiomic row with its copy's CNN row."""
+    return np.hstack([np.repeat(table.radiomics, copies, axis=0), copy_cnn])
+
+
+def _save(cached: Path, entry: dict[str, np.ndarray]) -> None:
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    temporary = cached.with_suffix(".tmp.npz")
+    np.savez(temporary, **entry)
+    temporary.replace(cached)

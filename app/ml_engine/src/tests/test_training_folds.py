@@ -87,3 +87,46 @@ def test_an_empty_fold_is_an_error_that_names_it() -> None:
 def test_fewer_than_two_folds_is_rejected() -> None:
     with pytest.raises(ValueError):
         assign_folds(samples(), 1, 0)
+
+
+def with_copies(
+    fold_of_original: np.ndarray, copies: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fold of every row and the copy mask, originals first, as a training run builds them."""
+    folds = np.concatenate([fold_of_original, np.repeat(fold_of_original, copies)])
+    is_copy = np.arange(len(folds)) >= len(fold_of_original)
+    return folds, is_copy
+
+
+def test_no_copy_is_ever_a_validation_row() -> None:
+    folds, is_copy = with_copies(np.array([0, 1, 2, 0, 1, 2]), 2)
+
+    splits = fold_splits(folds, 3, is_copy)
+
+    assert not any(is_copy[validation].any() for _, validation in splits)
+
+
+def test_a_copy_is_a_fit_row_of_every_fold_but_its_own() -> None:
+    folds, is_copy = with_copies(np.array([0, 1, 2, 0, 1, 2]), 2)
+
+    splits = fold_splits(folds, 3, is_copy)
+
+    for row in np.flatnonzero(is_copy):
+        for fold, (fit, validation) in enumerate(splits):
+            in_split = row in fit or row in validation
+            assert in_split == (folds[row] != fold)
+
+
+def test_validation_rows_are_the_same_with_and_without_copies() -> None:
+    fold_of_original = np.array([0, 1, 2, 0, 1, 2])
+    folds, is_copy = with_copies(fold_of_original, 1)
+
+    plain = fold_splits(fold_of_original, 3)
+    augmented = fold_splits(folds, 3, is_copy)
+
+    assert [v.tolist() for _, v in plain] == [v.tolist() for _, v in augmented]
+
+
+def test_a_fold_with_only_copies_counts_as_empty() -> None:
+    with pytest.raises(ValueError, match=r"\[1\]"):
+        fold_splits(np.array([0, 2, 1]), 3, np.array([False, False, True]))
