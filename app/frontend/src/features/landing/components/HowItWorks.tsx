@@ -17,7 +17,7 @@ const STEPS = [
   {
     number: "03",
     title: "Shows its work",
-    text: "Reports the probability of every class and the measurements behind the call, so the radiologist can check it, not just trust it.",
+    text: "The radiologist sees why, not only what: class probabilities, the unusual measurements, and the claims of the report traced to their source.",
   },
   {
     number: "04",
