@@ -1,6 +1,11 @@
+import uuid
+from datetime import timedelta
+
+import pytest
 from fastapi.testclient import TestClient
 from src.pipelines import FakeInferencePipeline
 
+from adapters.inbound.http.router_studies import MAX_PAGE_SIZE
 from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.ml.ml_engine_classifier import MLEngineClassifier
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
@@ -8,7 +13,7 @@ from adapters.outbound.storage.in_memory_storage import InMemoryStorage
 from domain.models import StudyStatus
 from main import create_app
 from tests.doubles import ScriptedClassifier, ScriptedLLM
-from tests.factories import make_prediction, make_report, make_study
+from tests.factories import BASE_TIME, make_prediction, make_report, make_study
 
 
 def client_with(repository=None, storage=None, classifier=None, llm=None) -> TestClient:
@@ -47,10 +52,45 @@ def test_upload_study_returns_a_completed_study():
 
 def test_get_unknown_study_is_404():
     with client_with() as client:
-        response = client.get("/api/studies/missing")
+        response = client.get(f"/api/studies/{uuid.uuid4()}")
 
     assert response.status_code == 404
     assert response.json()["code"] == "STUDY_NOT_FOUND"
+
+
+@pytest.mark.parametrize("path", ["/api/studies/missing", "/api/studies/missing/image"])
+def test_a_study_id_that_is_not_a_uuid_is_422(path):
+    with client_with() as client:
+        response = client.get(path)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "query", ["page=0", "page_size=0", f"page_size={MAX_PAGE_SIZE + 1}"]
+)
+def test_list_studies_rejects_a_page_out_of_range(query):
+    with client_with() as client:
+        response = client.get(f"/api/studies?{query}")
+
+    assert response.status_code == 422
+
+
+async def test_list_studies_pages_newest_first():
+    repository = InMemoryStudyRepository()
+    studies = [
+        make_study(created_at=BASE_TIME + timedelta(minutes=minute))
+        for minute in range(3)
+    ]
+    for study in studies:
+        await repository.save(study)
+
+    with client_with(repository=repository) as client:
+        response = client.get("/api/studies?page=2&page_size=2")
+
+    body = response.json()
+    assert [item["id"] for item in body["items"]] == [studies[0].id]
+    assert (body["page"], body["page_size"], body["total"]) == (2, 2, 3)
 
 
 async def test_get_study_exposes_the_report_citations():
