@@ -95,7 +95,7 @@ def create_app(
         )
     )
 
-    app.include_router(create_chat_router(StudyChat(repository, llm)))
+    app.include_router(create_chat_router(StudyChat(repository, storage, llm)))
 
     return app
 
