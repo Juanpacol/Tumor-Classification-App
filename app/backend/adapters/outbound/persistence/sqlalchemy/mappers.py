@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import asdict
+from typing import Any
 
 from adapters.outbound.persistence.sqlalchemy.orm import (
     ChatMessageRow,
@@ -9,7 +10,9 @@ from adapters.outbound.persistence.sqlalchemy.orm import (
 )
 from domain.models import (
     ChatMessage,
+    Citation,
     ClinicalReport,
+    EvidenceRef,
     Prediction,
     Report,
     ReportStatus,
@@ -85,9 +88,23 @@ def report_to_domain(row: ReportRow) -> Report:
         status=ReportStatus(row.status),
         model=row.model,
         created_at=row.created_at,
-        content=ClinicalReport(**row.content) if row.content is not None else None,
+        content=_content_to_domain(row.content),
         error=row.error,
     )
+
+
+def _content_to_domain(content: dict[str, Any] | None) -> ClinicalReport | None:
+    if content is None:
+        return None
+    citations = [
+        Citation(
+            claim=citation["claim"],
+            evidence=[EvidenceRef(**ref) for ref in citation["evidence"]],
+            verified=citation["verified"],
+        )
+        for citation in content.get("citations", [])
+    ]
+    return ClinicalReport(**{**content, "citations": citations})
 
 
 def message_to_row(message: ChatMessage) -> ChatMessageRow:

@@ -2,19 +2,6 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 CANNED_RESPONSES: dict[str, dict[str, Any]] = {
-    "ClinicalReportOutput": {
-        "findings": (
-            "Demo report generated without a model. The result is uncertain and "
-            "must not be used clinically."
-        ),
-        "visual_observations": "No image analysis was performed.",
-        "impression": (
-            "The finding is uncertain. Radiologist confirmation is required."
-        ),
-        "differential_considerations": "Not assessed in this demo.",
-        "suggested_next_steps": ["Expert review of the study"],
-        "ai_agreement": "uncertain",
-    },
     "GroundedClinicalReportOutput": {
         "findings": [
             {

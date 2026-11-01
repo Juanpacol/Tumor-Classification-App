@@ -25,6 +25,17 @@ class PredictionResponse(BaseModel):
     model_version: str
 
 
+class EvidenceRefResponse(BaseModel):
+    key: str
+    description: str
+
+
+class CitationResponse(BaseModel):
+    claim: str
+    evidence: list[EvidenceRefResponse]
+    verified: bool
+
+
 class ClinicalReportResponse(BaseModel):
     findings: str
     visual_observations: str
@@ -32,6 +43,7 @@ class ClinicalReportResponse(BaseModel):
     differential_considerations: str
     suggested_next_steps: list[str]
     ai_agreement: str
+    citations: list[CitationResponse]
 
 
 class ReportResponse(BaseModel):
@@ -90,6 +102,19 @@ def _report_response(report: Report | None) -> ReportResponse | None:
                 differential_considerations=content.differential_considerations,
                 suggested_next_steps=content.suggested_next_steps,
                 ai_agreement=content.ai_agreement,
+                citations=[
+                    CitationResponse(
+                        claim=citation.claim,
+                        evidence=[
+                            EvidenceRefResponse(
+                                key=ref.key, description=ref.description
+                            )
+                            for ref in citation.evidence
+                        ],
+                        verified=citation.verified,
+                    )
+                    for citation in content.citations
+                ],
             )
             if content
             else None

@@ -6,7 +6,7 @@ from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepo
 from adapters.outbound.storage.in_memory_storage import InMemoryStorage
 from main import create_app
 from tests.doubles import ScriptedClassifier
-from tests.factories import make_prediction
+from tests.factories import make_prediction, make_report, make_study
 
 
 def client_with(repository=None, storage=None, classifier=None) -> TestClient:
@@ -48,6 +48,23 @@ def test_get_unknown_study_is_404():
 
     assert response.status_code == 404
     assert response.json()["code"] == "STUDY_NOT_FOUND"
+
+
+async def test_get_study_exposes_the_report_citations():
+    repository = InMemoryStudyRepository()
+    study = make_study()
+    await repository.save(study)
+    await repository.save_report(make_report(study.id))
+
+    with client_with(repository=repository) as client:
+        response = client.get(f"/api/studies/{study.id}")
+
+    [citation] = response.json()["report"]["content"]["citations"]
+    assert citation == {
+        "claim": "Mass in left frontal lobe",
+        "evidence": [{"key": "prediction.label", "description": "glioma"}],
+        "verified": True,
+    }
 
 
 def test_get_study_image_returns_the_uploaded_bytes():
