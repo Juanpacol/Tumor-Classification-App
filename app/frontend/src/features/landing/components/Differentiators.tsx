@@ -5,8 +5,8 @@ import styles from "./Differentiators.module.css";
 
 const ITEMS = [
   {
-    title: "Nothing to take on faith",
-    text: "Every result comes with a heatmap of the exact region that drove it — not a black-box score you're asked to trust.",
+    title: "Says when it isn't sure",
+    text: "Low-confidence cases are flagged for an expert, and the report states its uncertainty instead of hiding it — not a black-box score you're asked to trust.",
   },
   {
     title: "Every claim shows its source",

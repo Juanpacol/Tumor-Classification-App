@@ -20,7 +20,7 @@ const LAYERS = [
     number: "03",
     title: "ML Engine",
     tag: "Standalone pipeline",
-    text: "An importable, testable package: DICOM preprocessing, classical radiomics features, and a CNN with Grad-CAM, orchestrated end to end.",
+    text: "An importable, testable package: DICOM preprocessing, classical radiomics features, and CNN features, orchestrated end to end.",
   },
 ];
 
