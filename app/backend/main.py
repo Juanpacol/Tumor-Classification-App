@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from adapters.inbound.http.error_handlers import register_exception_handlers
+from adapters.inbound.http.router_chat import create_chat_router
 from adapters.inbound.http.router_health import create_health_router
 from adapters.inbound.http.router_studies import create_studies_router
 from adapters.outbound.llm.factory import build_llm
@@ -20,6 +21,7 @@ from adapters.outbound.storage.filesystem_storage import FilesystemStorage
 from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
 from application.list_studies import ListStudies
+from application.study_chat import StudyChat
 from application.upload_study import UploadStudy
 from ports.classifier_port import ClassifierPort
 from ports.llm_port import LLMPort
@@ -92,6 +94,8 @@ def create_app(
             ),
         )
     )
+
+    app.include_router(create_chat_router(StudyChat(repository, llm)))
 
     return app
 
