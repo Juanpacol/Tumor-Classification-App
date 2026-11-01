@@ -1,7 +1,8 @@
 import pytest
 
 from application.clinical_report import ClinicalReportOutput
-from application.report_guardrails import find_violations
+from application.grounded_report import ClaimOutput, GroundedClinicalReportOutput
+from application.report_guardrails import find_violations, find_violations_grounded
 from tests.factories import make_prediction
 
 
@@ -108,3 +109,46 @@ def test_escalation_wording_can_be_in_the_next_steps() -> None:
     )
 
     assert find_violations(escalated, confident_prediction()) == []  # type: ignore[arg-type]
+
+
+def _claim(text: str) -> ClaimOutput:
+    return ClaimOutput(text=text, evidence_keys=[])
+
+
+def grounded_report(**overrides: object) -> GroundedClinicalReportOutput:
+    fields: dict[str, object] = {
+        "findings": [_claim("A lesion is consistent with a glioma.")],
+        "visual_observations": [
+            _claim("Heterogeneous signal in the left frontal lobe.")
+        ],
+        "impression": [
+            _claim("Suggestive of a glioma. Radiologist confirmation is required.")
+        ],
+        "differential_considerations": [_claim("Meningioma cannot be excluded.")],
+        "suggested_next_steps": ["Contrast-enhanced MRI", "Neurosurgery referral"],
+        "ai_agreement": "agrees",
+    }
+    fields.update(overrides)
+    return GroundedClinicalReportOutput(**fields)  # type: ignore[arg-type]
+
+
+def test_a_cautious_grounded_report_has_no_violations() -> None:
+    assert find_violations_grounded(grounded_report(), confident_prediction()) == []  # type: ignore[arg-type]
+
+
+def test_grounded_definitive_wording_is_rejected() -> None:
+    violations = find_violations_grounded(
+        grounded_report(impression=[_claim("The patient has a glioma.")]),
+        confident_prediction(),  # type: ignore[arg-type]
+    )
+
+    assert any("definitive diagnosis wording" in v for v in violations)
+
+
+def test_a_flagged_study_must_state_uncertainty_in_a_grounded_report() -> None:
+    flagged = make_prediction("s", needs_expert_triage=True)
+
+    violations = find_violations_grounded(grounded_report(), flagged)
+
+    assert "uncertainty or discrepancy is not stated" in violations
+    assert "expert review is not recommended" in violations

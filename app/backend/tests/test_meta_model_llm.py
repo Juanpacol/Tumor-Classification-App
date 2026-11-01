@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from adapters.outbound.llm.meta_model_llm import MetaModelLLM
+from application.grounded_report import GroundedClinicalReportOutput
 from domain.errors import DomainError
 
 
@@ -207,3 +208,34 @@ async def test_a_response_without_usage_still_notifies_the_listener():
     await llm.complete_json([{"role": "user", "content": "x"}], Address)
 
     assert seen == [None]
+
+
+@pytest.mark.asyncio
+async def test_complete_json_round_trips_the_grounded_report_schema():
+    body = {
+        "findings": [
+            {"text": "Grounded finding.", "evidence_keys": ["prediction.label"]}
+        ],
+        "visual_observations": [{"text": "No evidence cited.", "evidence_keys": []}],
+        "impression": [{"text": "Suggestive of glioma.", "evidence_keys": []}],
+        "differential_considerations": [
+            {"text": "Meningioma possible.", "evidence_keys": []}
+        ],
+        "suggested_next_steps": ["Expert review"],
+        "ai_agreement": "uncertain",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        assert payload["response_format"]["json_schema"]["name"] == (
+            "GroundedClinicalReportOutput"
+        )
+        return _completion_response(json.dumps(body))
+
+    llm = _llm(handler)
+    result = await llm.complete_json(
+        [{"role": "user", "content": "x"}], GroundedClinicalReportOutput
+    )
+
+    assert isinstance(result, GroundedClinicalReportOutput)
+    assert result.findings[0].evidence_keys == ["prediction.label"]
