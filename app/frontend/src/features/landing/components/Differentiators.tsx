@@ -5,16 +5,16 @@ import styles from "./Differentiators.module.css";
 
 const ITEMS = [
   {
-    title: "Explainability by design",
-    text: "Grad-CAM isn't a feature checkbox — it's the trust mechanism at the core of every result.",
+    title: "Nothing to take on faith",
+    text: "Every result comes with a heatmap of the exact region that drove it — not a black-box score you're asked to trust.",
   },
   {
-    title: "Data sovereignty",
-    text: "Runs on an on-premise, open-source LLM instead of a locked-in cloud API — built for clinics without reliable cloud access.",
+    title: "Works where the cloud doesn't",
+    text: "Runs on an on-premise, open-source model instead of a locked-in cloud API — built for clinics without reliable connectivity.",
   },
   {
-    title: "Hybrid ML architecture",
-    text: "Classical radiomics plus deep learning generalize better on small, heterogeneous datasets.",
+    title: "Built for the data you actually have",
+    text: "Combines classical radiomics with deep learning, which generalizes better on the small, uneven datasets real clinics work with.",
   },
 ];
 
@@ -26,7 +26,7 @@ export function Differentiators() {
       ref={ref}
       className={`${styles.section} fadeUp ${isVisible ? "isVisible" : ""}`}
     >
-      <h2 className={styles.title}>For the technical judges</h2>
+      <h2 className={styles.title}>Why it holds up outside a demo</h2>
       <div className={styles.grid}>
         {ITEMS.map((item) => (
           <div key={item.title} className={styles.card}>
