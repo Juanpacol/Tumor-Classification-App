@@ -45,6 +45,7 @@ from src.training.folds import (
     fold_splits,
     used_per_fold_and_class,
 )
+from src.training.guarantees import leakage_guarantees
 from src.training.model import (
     DEFAULT_SEED,
     CandidateScore,
@@ -54,9 +55,11 @@ from src.training.model import (
     cross_validate_scores,
 )
 from src.training.report import build_report, write_report
+from src.training.shortcut import metadata_baseline, recall_by_source_size
 from src.training.stats import feature_stats
 
 LABELS = [label.value for label in TumorLabel]
+NO_TUMOR = TumorLabel.NO_TUMOR.value
 
 
 @dataclass(frozen=True)
@@ -150,13 +153,18 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         train_table.cnn.shape[1],
         config.seed,
     )
+    guarantees = leakage_guarantees(split, rows.splits, len(y_train))
+    baseline = metadata_baseline(train_table.samples, y_train, splits, config.seed)
     calibrated = calibrate(model, rows.x, rows.y, rows.splits)
-    test = evaluate(
-        calibrated,
-        test_table.matrix,
-        np.array([s.label.value for s in test_table.samples]),
-        LABELS,
-    )
+    y_test = np.array([s.label.value for s in test_table.samples])
+    test_predictions = calibrated.predict(test_table.matrix)
+    test = evaluate(y_test, test_predictions, LABELS)
+    shortcut_audit = {
+        "metadata_baseline": baseline,
+        "no_tumor_test_recall_by_source_size": recall_by_source_size(
+            test_table.samples, y_test, test_predictions, NO_TUMOR
+        ),
+    }
 
     created_at = now.isoformat()
     dataset = _dataset_summary(
@@ -189,6 +197,8 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         augmentation,
         asdict(test),
         CALIBRATION_METHOD,
+        shortcut_audit,
+        guarantees,
     )
     write_artifact(
         artifact_dir,
@@ -211,6 +221,7 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
             "radiomic_feature_names": list(train_table.radiomic_names),
             "augmentation": augmentation,
             "metrics": {"test": asdict(test), **selection_dict, "ablation": ablation},
+            "shortcut_audit": shortcut_audit,
             "dataset": dataset,
         },
     )

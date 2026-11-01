@@ -26,6 +26,8 @@ def build_report(
     augmentation: dict[str, Any],
     test: dict[str, Any],
     calibration_method: str,
+    shortcut_audit: dict[str, Any],
+    guarantees: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Collect the results of one training run and whether the target was met."""
     return {
@@ -41,6 +43,8 @@ def build_report(
         "augmentation": augmentation,
         "calibration_method": calibration_method,
         "test": test,
+        "shortcut_audit": shortcut_audit,
+        "leakage_guarantees": guarantees,
     }
 
 
@@ -107,6 +111,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         ),
         "",
         *_augmentation_lines(report["augmentation"]),
+        *_shortcut_lines(report["shortcut_audit"]),
+        *_guarantee_lines(report["leakage_guarantees"]),
         "## Ablation (cross-validated macro-F1 on Train)",
         "",
         "| Features | Macro-F1 |",
@@ -178,6 +184,50 @@ def _augmentation_lines(augmentation: dict[str, Any]) -> list[str]:
         ),
         "",
     ]
+
+
+def _shortcut_lines(audit: dict[str, Any]) -> list[str]:
+    baseline = audit["metadata_baseline"]
+    verdict = (
+        "**WARNING: at or above the warning level. Present this result to the team "
+        "before publishing a model.**"
+        if baseline["warning"]
+        else "Below the warning level."
+    )
+    return [
+        "## Shortcut audit",
+        "",
+        (
+            f"A {baseline['classifier']} that sees only "
+            f"{', '.join(baseline['features'])} reaches a cross-validated balanced "
+            f"accuracy of **{baseline['mean_balanced_accuracy']:.3f}** "
+            f"(std {baseline['std_balanced_accuracy']:.3f}) on the same folds as the "
+            f"model. Warning level {baseline['warning_level']:.2f}. {verdict}"
+        ),
+        "",
+        "| no_tumor images in Test | Recall | Support |",
+        "|---|---|---|",
+        *(
+            f"| {name} | {_recall(group['recall'])} | {group['support']} |"
+            for name, group in audit["no_tumor_test_recall_by_source_size"].items()
+        ),
+        "",
+    ]
+
+
+def _guarantee_lines(guarantees: list[dict[str, Any]]) -> list[str]:
+    return [
+        "## Leakage guarantees",
+        "",
+        "| # | Guarantee | Status |",
+        "|---|---|---|",
+        *(f"| {g['id']} | {g['guarantee']} | {g['status']} |" for g in guarantees),
+        "",
+    ]
+
+
+def _recall(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.3f}"
 
 
 def _inline(value: Any) -> str:

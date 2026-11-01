@@ -67,7 +67,32 @@ def make_report(macro_f1: float) -> dict[str, Any]:
         },
         test=metrics_dict(macro_f1),
         calibration_method="sigmoid",
+        shortcut_audit=shortcut_audit(0.55),
+        guarantees=[
+            {
+                "id": "G1",
+                "guarantee": "No shared group_id",
+                "status": "checked in this run",
+            }
+        ],
     )
+
+
+def shortcut_audit(balanced_accuracy: float) -> dict[str, Any]:
+    return {
+        "metadata_baseline": {
+            "features": ["width", "height", "file_size"],
+            "classifier": "random_forest",
+            "mean_balanced_accuracy": balanced_accuracy,
+            "std_balanced_accuracy": 0.04,
+            "warning_level": 0.7,
+            "warning": balanced_accuracy >= 0.7,
+        },
+        "no_tumor_test_recall_by_source_size": {
+            "512x512": {"recall": None, "support": 0},
+            "other": {"recall": 0.875, "support": 8},
+        },
+    }
 
 
 @pytest.mark.parametrize(
@@ -94,6 +119,8 @@ def test_markdown_states_the_verdict_and_shows_every_section() -> None:
         "Classifier selection",
         "Ablation",
         "Augmentation",
+        "Shortcut audit",
+        "Leakage guarantees",
         "Data",
     ):
         assert heading in markdown
@@ -161,3 +188,19 @@ def test_markdown_counts_several_copies_in_the_plural() -> None:
     report["augmentation"] = {**report["augmentation"], "copies": 2}
 
     assert "| originals + 2 copies per image |" in render_markdown(report)
+
+
+def test_markdown_shows_the_shortcut_audit_and_the_guarantees() -> None:
+    markdown = render_markdown(make_report(0.95))
+
+    assert "balanced accuracy of **0.550**" in markdown
+    assert "Below the warning level." in markdown
+    assert "| 512x512 | n/a | 0 |" in markdown and "| other | 0.875 | 8 |" in markdown
+    assert "| G1 | No shared group_id | checked in this run |" in markdown
+
+
+def test_markdown_flags_a_metadata_shortcut() -> None:
+    report = make_report(0.95)
+    report["shortcut_audit"] = shortcut_audit(0.8)
+
+    assert "WARNING: at or above the warning level" in render_markdown(report)

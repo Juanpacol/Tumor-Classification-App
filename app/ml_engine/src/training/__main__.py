@@ -46,6 +46,17 @@ def main(argv: list[str] | None = None) -> None:
     print(f"artifact: {result.artifact_dir}")
     print(f"report:   {result.report_dir}")
     print(f"test macro-F1 {test['macro_f1']:.3f}, accuracy {test['accuracy']:.3f}")
+    baseline = result.report["shortcut_audit"]["metadata_baseline"]
+    print(
+        f"metadata-only baseline balanced accuracy {baseline['mean_balanced_accuracy']:.3f}"
+    )
+    if baseline["warning"]:
+        print(
+            f"WARNING: the metadata-only baseline reaches {baseline['warning_level']:.2f} "
+            "balanced accuracy or more, so the class can be told from the file alone. "
+            "Present the result to the team before publishing a model.",
+            file=sys.stderr,
+        )
     if not result.report["target_met"]:
         print(
             f"Target macro-F1 {result.report['target_macro_f1']:.2f} not met: "
