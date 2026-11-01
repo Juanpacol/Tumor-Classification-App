@@ -1,4 +1,12 @@
-from application.report_prompt import PROMPT_VERSION, SYSTEM_PROMPT, build_messages
+from application.evidence_bundle import BuildEvidenceBundle
+from application.report_prompt import (
+    GROUNDED_PROMPT_VERSION,
+    GROUNDED_SYSTEM_PROMPT,
+    PROMPT_VERSION,
+    SYSTEM_PROMPT,
+    build_grounded_messages,
+    build_messages,
+)
 from tests.factories import make_prediction, make_study
 
 
@@ -73,3 +81,26 @@ def test_notes_cannot_close_their_own_delimiter() -> None:
 
 def test_missing_notes_are_stated() -> None:
     assert "none provided" in user_message(clinical_notes=None)
+
+
+def test_grounded_prompt_is_versioned() -> None:
+    assert GROUNDED_PROMPT_VERSION == "grounded-report-v1"
+
+
+def test_grounded_system_prompt_keeps_the_base_guardrails() -> None:
+    assert SYSTEM_PROMPT in GROUNDED_SYSTEM_PROMPT
+    assert "evidence_keys" in GROUNDED_SYSTEM_PROMPT
+
+
+def test_grounded_user_message_lists_the_evidence_bundle_keys() -> None:
+    study = make_study()
+    prediction = make_prediction(study.id, label="glioma")
+    bundle = BuildEvidenceBundle().execute(prediction)
+
+    messages = build_grounded_messages(study, prediction, bundle)
+
+    content = messages[1]["content"]
+    assert messages[0]["content"] == GROUNDED_SYSTEM_PROMPT
+    assert "Predicted label: glioma" in content
+    assert "prediction.label: glioma" in content
+    assert "prediction.confidence: 0.700" in content
