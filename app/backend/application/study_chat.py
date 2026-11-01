@@ -9,6 +9,7 @@ from application.evidence_bundle import BuildEvidenceBundle
 from domain.errors import DomainError
 from domain.models import ChatMessage, Prediction, ReportStatus, Study, StudyStatus
 from ports.llm_port import LLMPort
+from ports.storage_port import StoragePort
 from ports.study_repository_port import StudyRepositoryPort
 
 
@@ -18,10 +19,12 @@ class StudyChat:
     def __init__(
         self,
         repository: StudyRepositoryPort,
+        storage: StoragePort,
         llm: LLMPort,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._repository = repository
+        self._storage = storage
         self._llm = llm
         self._clock = clock
 
@@ -36,7 +39,7 @@ class StudyChat:
         """Yields the answer's text chunks, then the stored assistant message.
 
         Raises ``DomainError`` 404 for an unknown study and 409 for one without a
-        prediction. LLM errors surface on the first chunk. The exchange is stored
+        prediction or image. LLM errors surface on the first chunk. The exchange is stored
         only when the answer completes.
         """
         study = await self._require_study(study_id)
@@ -48,6 +51,7 @@ class StudyChat:
             else None
         )
         history = await self._repository.list_messages(study_id)
+        image = self._load_image(study)
         messages = build_messages(
             study,
             prediction,
@@ -57,13 +61,21 @@ class StudyChat:
             question,
         )
         answer: list[str] = []
-        async for chunk in self._llm.stream(messages):
+        async for chunk in self._llm.stream(messages, image=image):
             answer.append(chunk)
             yield chunk
         await self._repository.add_message(self._message(study_id, "user", question))
         reply = self._message(study_id, "assistant", "".join(answer))
         await self._repository.add_message(reply)
         yield reply
+
+    def _load_image(self, study: Study) -> bytes:
+        try:
+            return self._storage.load(study.file_key)
+        except KeyError:
+            raise DomainError(
+                "IMAGE_NOT_FOUND", "The study image is missing.", status_code=409
+            ) from None
 
     def _message(self, study_id: str, role: str, content: str) -> ChatMessage:
         return ChatMessage(
