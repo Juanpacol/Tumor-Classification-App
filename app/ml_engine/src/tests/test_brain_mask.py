@@ -1,6 +1,10 @@
 import numpy as np
 
-from src.preprocessing.brain_mask import bounding_box, foreground_mask, region_of_interest
+from src.preprocessing.brain_mask import (
+    bounding_box,
+    foreground_mask,
+    region_of_interest,
+)
 from src.tests.synthetic import head_phantom
 
 

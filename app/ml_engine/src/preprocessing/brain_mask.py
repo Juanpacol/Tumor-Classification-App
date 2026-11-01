@@ -42,4 +42,6 @@ def bounding_box(mask: np.ndarray) -> tuple[slice, slice]:
     """
     rows = np.flatnonzero(mask.any(axis=1))
     cols = np.flatnonzero(mask.any(axis=0))
-    return slice(int(rows[0]), int(rows[-1]) + 1), slice(int(cols[0]), int(cols[-1]) + 1)
+    return slice(int(rows[0]), int(rows[-1]) + 1), slice(
+        int(cols[0]), int(cols[-1]) + 1
+    )
