@@ -17,12 +17,12 @@ const STEPS = [
   {
     number: "03",
     title: "Shows its work",
-    text: "Highlights exactly which part of the brain drove the conclusion, so the radiologist can check it, not just trust it.",
+    text: "Reports the probability of every class and the measurements behind the call, so the radiologist can check it, not just trust it.",
   },
   {
     number: "04",
     title: "Hands off cleanly",
-    text: "Packages the finding, the confidence, and the heatmap into one case file — ready for the radiologist to review.",
+    text: "Packages the finding, the confidence, and the report with its cited evidence into one case file — ready for the radiologist to review.",
   },
 ];
 
