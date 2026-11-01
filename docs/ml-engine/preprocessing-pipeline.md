@@ -223,6 +223,7 @@ Each guarantee is a unit test or a report entry.
 | G5 | B3-B6 and B8 give the same tensor at training and at inference for the same image | B3-B8 | #166, #113 |
 | G6 | The output of B6 is always 224x224 and keeps the aspect ratio of the crop | B6 | #166 |
 | G7 | Testing is scored exactly once per run (unit test) | B9 | #112 |
+| G8 | Scaler and PCA are fitted inside each fold, never on validation rows (unit test) | B9 | #112, #168 |
 
 ---
 
@@ -266,7 +267,7 @@ Each guarantee is a unit test or a report entry.
 | B7 | #167 | `training/augmentation.py`, `training/features.py`, `training/folds.py` | Done on synthetic data: copies of the B6 output, CNN block only, kept only if CV improves (decision D21). Real-data run to do |
 | B8 | #166, #111 | `deep_learning/extractor.py`, `deep_learning/bundle.py` | Done: tensor built in the extractor with the bundle's mean and std, filled from the weights' metadata (decision D20) |
 | B9 | #112 | `training/folds.py`, `training/` | Done on synthetic data: folds assigned once and shared, `folds.csv`, balanced accuracy (decision D16). Real-data run to do |
-| B10 | #168 | `training/report.py` | To do |
+| B10 | #168 | `training/shortcut.py`, `training/guarantees.py`, `training/report.py` | Done on synthetic data: metadata-only baseline on the shared folds, no_tumor recall by source size, guarantee status, CLI warning at 0.70 (decision D22). Real-data run to do |
 
 Implementation order, from the Boards dependencies: #165 and #166, then #112 (run on the real dataset), then #167, then #168.
 

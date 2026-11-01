@@ -290,6 +290,17 @@ The repository is public for the hackathon evaluation, and the artifact publishe
 - **Cost.** One CNN pass per copy (about 1,830 with k = 1, cached) and one more 5-fold CV of the selected classifier. Copies are extracted even when the decision turns them off.
 - **Status:** **Verified** on synthetic data, where augmentation came out off. Not run on the real dataset yet.
 
+## D22. Shortcut audit and leakage guarantees in the training report (AB-168)
+
+`src/training/{shortcut,guarantees,evaluation,report,run,__main__}.py`. Pipeline block B10.
+
+- **Metadata-only baseline.** A random forest (300 trees, balanced class weights, run seed) sees only width, height and file size, read from the file header of each usable Training image, and is cross-validated on the same rows and the same grouped splits as the hybrid model (originals only). Its mean balanced accuracy is the shortcut risk. A random forest was chosen over a linear model because the known cue is a threshold (exactly 512x512, section 2 of the pipeline doc), which a linear model on raw sizes would partly miss and so understate the risk.
+- **Warning at 0.70.** At or above it the report and the CLI say to present the result to the team before a model is published. The run is not stopped: the decision belongs to the team. The level is our choice (section 8 of the pipeline doc).
+- **no_tumor recall by source size.** Testing recall of `no_tumor` for its 512x512 images and for the rest, with the support of each group. A group without images shows `n/a`. It reuses the single prediction on Testing: `evaluate` now takes the predictions instead of the model, so Testing is still predicted once (G7).
+- **Guarantees with a status.** G1 (no shared `group_id`) and G3 (no copy is a validation row) are checked on the data of the run and raise `LeakageError` before calibration if broken. G2 (thresholds from Training only), G7 (Testing scored once) and the new G8 (scaler and PCA fitted inside each fold) hold by the structure of the code and are covered by unit tests, so the report marks them "by design, unit-tested".
+- **Recorded.** `report.json` and `report.md` hold `shortcut_audit` and `leakage_guarantees`; the artifact manifest holds `shortcut_audit`.
+- **Status:** **Verified** on synthetic data, where every image has the same size. Not run on the real dataset yet; that run is the one that tells whether the 512x512 cue survives B6 (D19).
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
