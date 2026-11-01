@@ -26,3 +26,36 @@
   font-size: 0.8125rem;
   color: var(--muted);
 }
+
+.citations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+.refs {
+  margin-top: 0.25rem;
+  padding-left: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.verified,
+.unverified {
+  border: 1px solid currentColor;
+  padding: 0 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.verified {
+  color: var(--ink);
+}
+
+.unverified {
+  color: var(--muted);
+}
