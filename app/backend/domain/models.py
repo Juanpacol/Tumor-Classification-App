@@ -63,6 +63,26 @@ class Report:
 
 
 @dataclass
+class EvidenceRef:
+    """A fact from the study a citation can point to, e.g. the prediction's
+    confidence or a radiomic feature that weighed into it."""
+
+    key: str
+    description: str
+
+
+@dataclass
+class Citation:
+    """One claim from a generated report, grounded in the study's own
+    evidence. `verified` is set by checking the claim against the evidence,
+    not by the presence of a citation alone."""
+
+    claim: str
+    evidence: list[EvidenceRef]
+    verified: bool = False
+
+
+@dataclass
 class ChatMessage:
     id: str
     study_id: str
