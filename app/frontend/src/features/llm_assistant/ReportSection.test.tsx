@@ -50,6 +50,37 @@ describe("ReportSection", () => {
     expect(generateReport).not.toHaveBeenCalled();
   });
 
+  it("labels each claim as verified or not verified, with the evidence it cites", () => {
+    render(
+      <ReportSection
+        client={clientWith(jest.fn())}
+        study={study("study-confident")}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Evidence" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getByText("Not verified")).toBeInTheDocument();
+    expect(screen.getByText("prediction.label")).toBeInTheDocument();
+  });
+
+  it("omits the evidence section when the report has no citations", () => {
+    const report = {
+      ...SAMPLE_REPORT,
+      content: { ...SAMPLE_REPORT.content!, citations: [] },
+    };
+    render(
+      <ReportSection
+        client={clientWith(jest.fn())}
+        study={{ ...study("study-confident"), report }}
+      />,
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Evidence" }),
+    ).not.toBeInTheDocument();
+  });
+
   it.each(["disagrees", "uncertain"] as const)(
     "warns about a discrepancy when the assistant %s",
     (agreement) => {

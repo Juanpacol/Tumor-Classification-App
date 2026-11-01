@@ -1,5 +1,5 @@
 import { Alert } from "@/features/portal/components";
-import type { AiAgreement, ClinicalReport } from "@/services/api";
+import type { AiAgreement, Citation, ClinicalReport } from "@/services/api";
 import styles from "./ReportView.module.css";
 
 export const REPORT_DISCLAIMER =
@@ -38,6 +38,7 @@ export function ReportView({ content }: { content: ClinicalReport }) {
           ))}
         </ul>
       </section>
+      <Evidence citations={content.citations} />
       <p className={styles.disclaimer}>{REPORT_DISCLAIMER}</p>
     </div>
   );
@@ -48,6 +49,39 @@ function Section({ title, children }: { title: string; children: string }) {
     <section>
       <h3 className={styles.heading}>{title}</h3>
       <p>{children}</p>
+    </section>
+  );
+}
+
+/** Every claim with the evidence it cites and whether that evidence checks out. */
+function Evidence({ citations }: { citations: Citation[] }) {
+  if (citations.length === 0) return null;
+  return (
+    <section>
+      <h3 className={styles.heading}>Evidence</h3>
+      <ul className={styles.citations}>
+        {citations.map((citation) => (
+          <li key={citation.claim}>
+            <span
+              className={
+                citation.verified ? styles.verified : styles.unverified
+              }
+            >
+              {citation.verified ? "Verified" : "Not verified"}
+            </span>{" "}
+            {citation.claim}
+            {citation.evidence.length > 0 && (
+              <ul className={styles.refs}>
+                {citation.evidence.map((ref) => (
+                  <li key={ref.key}>
+                    <code>{ref.key}</code>: {ref.description}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
