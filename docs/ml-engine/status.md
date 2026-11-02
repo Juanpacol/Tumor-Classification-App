@@ -1,6 +1,6 @@
 # ML Engine status
 
-Last updated 2026-10-29 (AB-113 in review). Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
+Last updated 2026-11-02 (AB-212). Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
 
 ## Data flow
 
@@ -8,9 +8,9 @@ Last updated 2026-10-29 (AB-113 in review). Azure Boards is the source of truth 
 load_mri_image -> prepare_image -> extract_radiomics (45) ----+
  (AB-108)          (AB-109)        DeepFeatureExtractor (1280) +-> sklearn pipeline -> calibrated
  JPG/PNG -> 2D     quality gate,   (AB-110, AB-111)               scaler + PCA(32) / scaler   classifier
- float [0, 1]      optional skull                                 -> classifier (AB-112)      -> PredictionResult
-                   stripping,                                                                  (contract, AB-107)
-                   mask, CNN input
+ float [0, 1]      brain mask,                                    -> classifier (AB-112)      -> PredictionResult
+                   square crop,                                                                (contract, AB-107)
+                   CNN input (AB-166)
 ```
 
 ## State
@@ -18,43 +18,43 @@ load_mri_image -> prepare_image -> extract_radiomics (45) ----+
 | Area | Stories | State |
 |---|---|---|
 | Contract, fake pipeline, seeds | AB-107 | Merged |
-| Loader, quality gate, optional skull stripping | AB-108, AB-109 | Merged. Quality thresholds are provisional (D7) |
+| Loader, quality gate, brain mask, geometry | AB-108, AB-109, AB-165, AB-166, AB-175 | Merged. Thresholds calibrated on Training (D17); skull stripping removed (D18) |
 | Radiomic and CNN features | AB-110, AB-111 | Merged. Verified with real ImageNet weights on CPU (D9) |
 | Dataset cleaning | AB-150 | Merged. 3,434 images kept (`DATASET_CLEANING_REPORT.md`) |
-| Training, selection, calibration, artifact, report, CLI | AB-112 | Code done (part 1 merged, part 2 in review). **Needs a run on the real dataset** |
-| Serving pipeline (`BundleInferencePipeline.from_bundle`, `predict(bytes)`) | AB-113 | Code done, in review. Tested on a synthetic artifact (D13) |
+| Training, selection, calibration, artifact, report, CLI | AB-112, AB-167, AB-168 | Merged |
+| Out-of-fold metrics, round files, trainer container, baseline run | AB-212 | Baseline 0.1.0 run (D24): Test macro-F1 0.807, target 0.90 not met; results go to the team before any model is published |
+| Serving pipeline (`BundleInferencePipeline.from_bundle`, `predict(bytes)`) | AB-113 | Merged. Tested on a synthetic artifact (D13) |
 | Publish artifacts as a GitHub Release | AB-114 | Not started |
 | CI, lock, branching | AB-151 to AB-154 | Merged. Lock is universal with CPU-only PyTorch (D10) |
 
-## Blocked on the real dataset
+## Next: tuning rounds
 
-Everything below needs the Kaggle Brain Tumor MRI Dataset (Masoud Nickparvar) in `app/ml_engine/src/data`, which is not in the repo.
+The dataset is versioned in `app/ml_engine/src/data` and every round runs in the `trainer` container (`app/ml_engine/README.md`, *Tuning rounds* and *Training in Docker*). The baseline is round `0.1.0` (D24).
 
-1. Run the training once and read its report: the 0.90 macro-F1 target, the per-class scores and the number of skipped images.
-2. Calibrate the quality thresholds (D7). They are guesses until then.
-3. Compare the three backbones and the sigmoid against isotonic calibration (D9, D12).
-4. Look at real skull stripping masks before any ablation (D7).
-5. Measure the extraction time on the real set (estimated at about 5 minutes, not measured).
-
-AB-112 stays open until step 1 produces a report.
+1. Tune in rounds `0.2.0`, `0.3.0`, ... (one family of parameters per round), comparing only the out-of-fold section and the CV scores (D23).
+2. Compare the three backbones and the sigmoid against isotonic calibration (D9, D12). Both need code changes; they are not round-file keys.
+3. Read Test only for the version that is kept, then publish it (AB-114).
 
 ## Not verified yet
 
 - Timing and memory on Cloud Run (AB-120).
 - Terms of use of the ImageNet weights for commercial use. Check before AB-114.
 - EXIF orientation on real uploads, and the upload size cap in the backend (D5).
-- Nothing in the pipeline has been run on real MRI images.
 
 ## How to resume
 
+From the repository root (Git Bash: prefix with `MSYS_NO_PATHCONV=1`):
+
 ```bash
-cd app/ml_engine
-python3.11 -m venv .venv && .venv/bin/pip install -r requirements.lock
-.venv/bin/python -m pytest src/tests/ --cov=src --cov-fail-under=80
-.venv/bin/python -m src.deep_learning.export_backbone --out weights
-python -m src.preprocessing.deduplication --data-dir src/data      # manifest.csv goes to src/data/processed/dedup_<timestamp>/
-python -m src.training --data-dir src/data --manifest src/data/processed/dedup_<timestamp>/manifest.csv --version 0.1.0
+docker compose build trainer
+docker compose run --rm --entrypoint pytest trainer src/ -q
+docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
+docker compose run --rm trainer src.training --data-dir src/data \
+  --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
+  --config rounds/<version>.toml --version <version>
 ```
+
+A local `python3.11` venv with `pip install -r requirements.lock` still works for the same commands from `app/ml_engine`.
 
 Run the CI checks from the repository root, as CI does:
 
