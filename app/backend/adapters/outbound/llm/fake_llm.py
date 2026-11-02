@@ -4,10 +4,7 @@ from typing import Any
 CANNED_RESPONSES: dict[str, dict[str, Any]] = {
     "GroundedClinicalReportOutput": {
         "findings": [
-            {
-                "text": "Demo report generated without a model.",
-                "evidence_keys": ["prediction.label"],
-            }
+            {"text": "Demo report generated without a model.", "evidence_keys": []}
         ],
         "visual_observations": [
             {"text": "No image analysis was performed.", "evidence_keys": []}

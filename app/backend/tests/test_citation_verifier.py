@@ -52,7 +52,7 @@ def test_a_claim_is_unverified_if_any_one_of_its_keys_is_missing():
 
 def test_claims_are_verified_independently_of_each_other():
     claims = [
-        ClaimOutput(text="Grounded.", evidence_keys=["prediction.label"]),
+        ClaimOutput(text="Grounded in glioma.", evidence_keys=["prediction.label"]),
         ClaimOutput(text="Not grounded.", evidence_keys=["prediction.not_real"]),
     ]
 
@@ -60,3 +60,48 @@ def test_claims_are_verified_independently_of_each_other():
 
     assert grounded.verified is True
     assert ungrounded.verified is False
+
+
+def _verify(text: str, *keys: str) -> bool:
+    [citation] = VerifyCitations().execute(
+        [ClaimOutput(text=text, evidence_keys=list(keys))], _bundle()
+    )
+    return citation.verified
+
+
+def test_a_number_matching_the_cited_value_is_verified():
+    assert _verify("Confidence is 0.70.", "prediction.confidence")
+    assert _verify("The model is 70% confident.", "prediction.confidence")
+
+
+def test_a_number_contradicting_the_cited_value_is_unverified():
+    assert not _verify("The classifier is 99% confident.", "prediction.confidence")
+    assert not _verify("Confidence is 0.95.", "prediction.confidence")
+
+
+def test_a_claim_naming_another_class_than_the_cited_label_is_unverified():
+    assert not _verify("The predicted label is pituitary.", "prediction.label")
+    assert not _verify(
+        "The classifier is 70% confident it is meningioma.",
+        "prediction.label",
+        "prediction.confidence",
+    )
+
+
+def test_a_claim_citing_the_label_must_name_it():
+    assert not _verify("There is midline shift.", "prediction.label")
+
+
+def test_another_class_may_be_named_when_its_probability_is_cited():
+    assert _verify(
+        "Glioma is favored; meningioma is less likely at 10%.",
+        "prediction.label",
+        "prediction.probabilities.meningioma",
+    )
+
+
+def test_a_class_written_with_spaces_matches_its_key():
+    assert _verify(
+        "No tumor has a probability of 0.10.", "prediction.probabilities.no_tumor"
+    )
+    assert not _verify("It is likely no tumor.", "prediction.probabilities.glioma")
