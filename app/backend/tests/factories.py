@@ -96,7 +96,7 @@ def make_message(study_id: str, minutes: int = 0, **overrides: object) -> ChatMe
 
 
 def image_bytes(fmt: str = "PNG", with_metadata: bool = False) -> bytes:
-    """A tiny valid image; with metadata it carries EXIF (and a text chunk for PNG)."""
+    """A tiny valid image; with metadata it carries EXIF (and text chunks for PNG)."""
     from PIL import Image, PngImagePlugin
 
     image = Image.new("L", (8, 8), color=90)
@@ -104,11 +104,24 @@ def image_bytes(fmt: str = "PNG", with_metadata: bool = False) -> bytes:
     if with_metadata:
         exif = Image.Exif()
         exif[0x010E] = "Patient Jane Doe"
+        exif[0x0110] = "Scanner X200"
+        exif[0x0132] = "2026:01:01 12:00:00"
         options["exif"] = exif.tobytes()
         if fmt == "PNG":
             info = PngImagePlugin.PngInfo()
             info.add_text("Comment", "Patient Jane Doe")
+            info.add_itxt("Author", "Dr. Jane Doe")
             options["pnginfo"] = info
     buffer = io.BytesIO()
     image.save(buffer, format=fmt, **options)
+    return buffer.getvalue()
+
+
+def patterned_image(fmt: str = "PNG") -> bytes:
+    """A 64x64 gradient image, large enough that truncating it cuts pixel data."""
+    from PIL import Image
+
+    image = Image.frombytes("L", (64, 64), bytes(range(256)) * 16)
+    buffer = io.BytesIO()
+    image.save(buffer, format=fmt)
     return buffer.getvalue()

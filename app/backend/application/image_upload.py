@@ -4,11 +4,16 @@ Metadata is removed without re-encoding, so the stored and classified pixels are
 exactly the ones that were uploaded.
 """
 
+import io
 import struct
+
+from PIL import Image
 
 from domain.errors import FileTooLargeError, UnsupportedMediaTypeError
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+_PILLOW_FORMATS = ["JPEG", "PNG"]
 
 _JPEG_SOI = b"\xff\xd8"
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -25,15 +30,26 @@ def prepare_upload(image: bytes) -> tuple[bytes, str]:
     The format is read from the content, never from the file name. Raises
     ``FileTooLargeError`` above ``MAX_UPLOAD_BYTES`` and
     ``UnsupportedMediaTypeError`` for anything that is not a well-formed JPEG
-    or PNG container.
+    or PNG container, or whose pixels cannot be fully decoded.
     """
     if len(image) > MAX_UPLOAD_BYTES:
         raise FileTooLargeError(MAX_UPLOAD_BYTES)
     if image.startswith(_JPEG_SOI):
-        return _strip_jpeg(image), "jpg"
-    if image.startswith(_PNG_SIGNATURE):
-        return _strip_png(image), "png"
-    raise UnsupportedMediaTypeError()
+        stripped, original_format = _strip_jpeg(image), "jpg"
+    elif image.startswith(_PNG_SIGNATURE):
+        stripped, original_format = _strip_png(image), "png"
+    else:
+        raise UnsupportedMediaTypeError()
+    _decode(stripped)
+    return stripped, original_format
+
+
+def _decode(image: bytes) -> None:
+    try:
+        with Image.open(io.BytesIO(image), formats=_PILLOW_FORMATS) as decoded:
+            decoded.load()
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError):
+        raise UnsupportedMediaTypeError() from None
 
 
 def _strip_jpeg(image: bytes) -> bytes:

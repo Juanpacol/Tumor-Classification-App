@@ -1,11 +1,13 @@
 import io
+import struct
+import zlib
 
 import pytest
 from PIL import Image
 
 from application.image_upload import MAX_UPLOAD_BYTES, prepare_upload
 from domain.errors import FileTooLargeError, UnsupportedMediaTypeError
-from tests.factories import image_bytes
+from tests.factories import image_bytes, patterned_image
 
 
 @pytest.mark.parametrize("fmt, expected", [("PNG", "png"), ("JPEG", "jpg")])
@@ -60,3 +62,30 @@ def test_anything_but_a_well_formed_jpeg_or_png_is_unsupported(content):
         prepare_upload(content)
 
     assert error.value.status_code == 415
+
+
+def _with_corrupt_idat(png: bytes) -> bytes:
+    start = png.index(b"IDAT") - 4
+    (length,) = struct.unpack(">I", png[start : start + 4])
+    data = bytes(b ^ 0xFF for b in png[start + 8 : start + 8 + length])
+    crc = struct.pack(">I", zlib.crc32(b"IDAT" + data))
+    return png[: start + 8] + data + crc + png[start + 12 + length :]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [patterned_image("JPEG")[:-200], _with_corrupt_idat(patterned_image("PNG"))],
+    ids=["truncated-jpeg-scan", "corrupt-png-idat"],
+)
+def test_a_well_formed_container_with_undecodable_pixels_is_unsupported(content):
+    with pytest.raises(UnsupportedMediaTypeError) as error:
+        prepare_upload(content)
+
+    assert error.value.status_code == 415
+
+
+@pytest.mark.parametrize("fmt", ["PNG", "JPEG"])
+def test_a_decodable_image_passes(fmt):
+    original = patterned_image(fmt)
+
+    assert prepare_upload(original)[0] == original

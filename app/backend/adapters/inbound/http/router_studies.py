@@ -2,14 +2,14 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
 from application.image_upload import MAX_UPLOAD_BYTES
 from application.list_studies import ListStudies, StudyDetail
-from application.upload_study import UploadStudy
+from application.upload_study import StudyRejectedError, UploadStudy
 from domain.errors import DomainError
 from domain.models import Prediction, Report
 from ports.storage_port import StoragePort
@@ -68,6 +68,13 @@ class StudyDetailResponse(BaseModel):
     rejection_reason: str | None
     prediction: PredictionResponse | None
     report: ReportResponse | None
+
+
+class StudyRejectedResponse(BaseModel):
+    code: str
+    message: str
+    details: dict[str, Any]
+    study: StudyDetailResponse
 
 
 class StudyPageResponse(BaseModel):
@@ -141,6 +148,16 @@ def _study_response(detail: StudyDetail) -> StudyDetailResponse:
     )
 
 
+def _rejection_response(rejection: StudyRejectedError) -> JSONResponse:
+    body = StudyRejectedResponse(
+        code=rejection.code,
+        message=rejection.message,
+        details=rejection.details or {},
+        study=_study_response(rejection.detail),
+    )
+    return JSONResponse(status_code=422, content=body.model_dump())
+
+
 def create_studies_router(
     repository: StudyRepositoryPort,
     storage: StoragePort,
@@ -176,27 +193,53 @@ def create_studies_router(
     @router.post(
         "",
         response_model=StudyDetailResponse,
+        status_code=201,
         summary="Upload a study",
         description=(
-            "Uploads a JPG or PNG MRI image, classifies it and returns the resulting "
-            "study. The image is stored without its embedded metadata (EXIF, XMP, "
-            "text chunks) and without its file name. A study whose image fails the "
-            "quality check is returned as rejected; one whose classification fails "
-            "is stored as failed."
+            "Uploads a JPG or PNG MRI image with optional clinical notes, classifies "
+            "it and returns the completed study with its prediction. The format is "
+            "read from the content, and the image is stored without its embedded "
+            "metadata (EXIF, XMP, text chunks) and without its file name. Nothing is "
+            "stored when the request is refused (413, 415, 503 or invalid fields). "
+            "A study whose image the classifier rejects is stored as rejected and "
+            "returned in a 422; one whose classification fails unexpectedly is "
+            "stored as failed and answered with a generic 500."
         ),
         responses={
             413: {"description": "The file is larger than 20 MB."},
-            415: {"description": "The file is not a JPG or PNG image."},
-            422: {"description": "The clinical notes are longer than 2000 characters."},
+            415: {
+                "description": (
+                    "The file is not a decodable JPG or PNG image (DICOM, other "
+                    "formats and corrupt files)."
+                )
+            },
+            422: {
+                "model": StudyRejectedResponse,
+                "description": (
+                    "The classifier rejected the image (`QUALITY_CHECK_FAILED` or "
+                    "`UNSUPPORTED_IMAGE`): the body carries the reason and the "
+                    "study stored as rejected. A request with no file or with "
+                    f"clinical notes longer than {MAX_NOTES_LENGTH} characters is "
+                    "also answered with 422, as a validation error with `detail`."
+                ),
+            },
+            500: {
+                "description": "Classification failed; the study is stored as failed."
+            },
             503: {"description": "The classification model is not available."},
         },
     )
     async def upload_endpoint(
         file: UploadFile = File(...),  # noqa: B008
         clinical_notes: str | None = Form(default=None, max_length=MAX_NOTES_LENGTH),
-    ) -> StudyDetailResponse:
+    ) -> StudyDetailResponse | JSONResponse:
         image = await file.read(MAX_UPLOAD_BYTES + 1)
-        detail = await upload_study.execute(image=image, clinical_notes=clinical_notes)
+        try:
+            detail = await upload_study.execute(
+                image=image, clinical_notes=clinical_notes
+            )
+        except StudyRejectedError as rejection:
+            return _rejection_response(rejection)
         return _study_response(detail)
 
     @router.get(

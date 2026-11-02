@@ -2,8 +2,9 @@ import pytest
 
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from adapters.outbound.storage.in_memory_storage import InMemoryStorage
-from application.upload_study import UploadStudy
+from application.upload_study import StudyRejectedError, UploadStudy
 from domain.errors import (
+    ClassificationFailedError,
     ModelUnavailableError,
     QualityCheckFailedError,
     UnsupportedImageError,
@@ -55,41 +56,67 @@ async def test_an_unsupported_file_is_refused_and_nothing_is_stored():
     assert storage._store == {}
 
 
-async def test_an_unreadable_image_becomes_a_rejected_study():
-    use_case = UploadStudy(
-        InMemoryStudyRepository(),
-        InMemoryStorage(),
-        ScriptedClassifier(UnsupportedImageError("not an MRI")),
-    )
+async def test_an_upload_without_a_model_is_refused_and_nothing_is_stored():
+    repo, storage = InMemoryStudyRepository(), InMemoryStorage()
+    use_case = UploadStudy(repo, storage, ScriptedClassifier(ready=False))
 
-    detail = await use_case.execute(image=PNG)
+    with pytest.raises(ModelUnavailableError) as error:
+        await use_case.execute(image=PNG)
 
-    assert detail.study.status is StudyStatus.REJECTED
-    assert detail.prediction is None
-
-
-async def test_a_failed_quality_check_becomes_a_rejected_study():
-    use_case = UploadStudy(
-        InMemoryStudyRepository(),
-        InMemoryStorage(),
-        ScriptedClassifier(QualityCheckFailedError("too noisy", {"snr": 1.0})),
-    )
-
-    detail = await use_case.execute(image=PNG)
-
-    assert detail.study.status is StudyStatus.REJECTED
-    assert detail.study.rejection_reason is not None
+    assert error.value.status_code == 503
+    assert (await repo.list_recent(1, 20))[1] == 0
+    assert storage._store == {}
 
 
 @pytest.mark.parametrize(
-    "error", [ModelUnavailableError("no bundle"), RuntimeError("boom")]
+    "error, code",
+    [
+        (UnsupportedImageError("too small"), "UNSUPPORTED_IMAGE"),
+        (QualityCheckFailedError("too noisy", {"snr": 1.0}), "QUALITY_CHECK_FAILED"),
+    ],
+    ids=["unsupported-image", "quality-check"],
 )
-async def test_a_classifier_failure_is_stored_as_failed_and_raised(error):
+async def test_a_rejected_image_is_stored_as_rejected_with_its_reason(error, code):
     repo = InMemoryStudyRepository()
     use_case = UploadStudy(repo, InMemoryStorage(), ScriptedClassifier(error))
 
-    with pytest.raises(type(error)):
+    with pytest.raises(StudyRejectedError) as raised:
         await use_case.execute(image=PNG)
 
+    reason = error.details["reason"]
+    assert raised.value.code == code
+    assert raised.value.status_code == 422
+    assert raised.value.details["reason"] == reason
+    assert raised.value.detail.prediction is None
+    stored = await repo.get(raised.value.detail.study.id)
+    assert stored.status is StudyStatus.REJECTED
+    assert stored.rejection_reason == reason
+    assert await repo.get_prediction(stored.id) is None
+
+
+async def test_a_domain_error_from_the_classifier_is_stored_as_failed_and_raised():
+    repo = InMemoryStudyRepository()
+    error = ModelUnavailableError("unloaded")
+    use_case = UploadStudy(repo, InMemoryStorage(), ScriptedClassifier(error))
+
+    with pytest.raises(ModelUnavailableError):
+        await use_case.execute(image=PNG)
+
+    [study], _ = await repo.list_recent(1, 20)
+    assert study.status is StudyStatus.FAILED
+
+
+async def test_an_unexpected_error_is_stored_as_failed_and_raised_as_generic():
+    repo = InMemoryStudyRepository()
+    use_case = UploadStudy(
+        repo, InMemoryStorage(), ScriptedClassifier(RuntimeError("boom"))
+    )
+
+    with pytest.raises(ClassificationFailedError) as raised:
+        await use_case.execute(image=PNG)
+
+    assert raised.value.status_code == 500
+    assert "boom" not in raised.value.message
+    assert raised.value.__cause__ is None
     [study], _ = await repo.list_recent(1, 20)
     assert study.status is StudyStatus.FAILED

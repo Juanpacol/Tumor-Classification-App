@@ -5,6 +5,11 @@ from fastapi.responses import JSONResponse
 
 from domain.errors import DomainError
 
+UNEXPECTED_ERROR = {
+    "code": "INTERNAL_ERROR",
+    "message": "Something went wrong. Try again later.",
+}
+
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
@@ -13,3 +18,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         if exc.details is not None:
             content["details"] = exc.details
         return JSONResponse(status_code=exc.status_code, content=content)
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        """Answer any unhandled error with a generic body, never its message."""
+        return JSONResponse(status_code=500, content=UNEXPECTED_ERROR)
