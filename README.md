@@ -41,40 +41,47 @@ See [CLAUDE.md](./CLAUDE.md) for the architecture rules and [docs/ml-engine/stat
 
 ## 🚀 Quick start
 
-Prerequisites: Python 3.11+, Node.js 18+ and Docker (only for the local database).
+Prerequisites: Docker, Python 3.11+ and Node.js 20+ (Node 18 also works).
 
-### Backend
+### Run the whole project
 
 ```bash
-docker compose up -d postgres        # PostgreSQL on localhost:5432
-cd app/backend
-pip install -e ".[dev]"
-cp .env.example .env
-alembic upgrade head                 # create the schema
-uvicorn main:app --reload            # http://localhost:8000, docs at /docs
-pytest                               # integration tests need a reachable PostgreSQL
+docker compose up -d --build                           # Postgres, backend, frontend
+docker compose exec backend alembic upgrade head       # create the schema (first run only)
 ```
 
-If port 5432 is already taken by a local PostgreSQL, change the host port in `docker-compose.yml` and in `DATABASE_URL`.
+| Check | Expect |
+|---|---|
+| http://localhost:8000/health | `database_reachable: true` |
+| http://localhost:8000/docs | API docs |
+| http://localhost:3000 | landing page; the portal is at `/studies` |
 
-Do not run the whole stack with `docker compose up` yet. The compose file still defines Redis, MinIO and a Celery worker that the backend no longer uses, and the worker points to a module that does not exist.
+By default it runs with no model and no key:
 
-### ML engine
+| To get | Do |
+|---|---|
+| Real reports and chat | `export LLM_PROVIDER=meta META_MODEL_API_KEY=<key>` before `docker compose up`. Send only public dataset images, never patient data |
+| Real classification | Put a trained bundle in `app/ml_engine/artifacts/current` (or set `MODEL_BUNDLE_DIR`). Without it `/health` says `model_loaded: false` and classification answers 503. Training: [app/ml_engine/README.md](./app/ml_engine/README.md) |
+| Portal with no backend | `NEXT_PUBLIC_API_MODE=mock` in `app/frontend/.env.local` serves sample data |
+
+Upgrading from the old compose file? `docker compose up -d --remove-orphans` removes the leftover Redis and MinIO containers.
+
+Port 5432 taken? Create `docker-compose.override.yml` (git-ignored) with `services: {postgres: {ports: !override ["5436:5432"]}}`, and use that port in `DATABASE_URL` when running the backend on the host.
+
+### Run each part on the host
 
 ```bash
-cd app/ml_engine
-pip install -r requirements.lock
-pytest src/tests
-```
+# Backend (needs Postgres: docker compose up -d postgres)
+cd app/backend && pip install -e ".[dev]" && cp .env.example .env
+alembic upgrade head && uvicorn main:app --reload     # :8000
+pytest                                                # integration tests need Postgres
 
-Exporting the backbone weights, training and serving are described in [app/ml_engine/README.md](./app/ml_engine/README.md).
+# Frontend
+cd app/frontend && npm install && cp .env.example .env.local
+npm run dev                                           # :3000
 
-### Frontend
-
-```bash
-cd app/frontend
-npm install
-npm run dev                          # http://localhost:3000
+# ML engine
+cd app/ml_engine && pip install -r requirements.lock && pytest src/tests
 ```
 
 ## 📁 Project structure
