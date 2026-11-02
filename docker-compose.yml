@@ -54,6 +54,16 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     command: npm run dev
 
+  # Training rounds (app/ml_engine/README.md). Not started by `docker compose up`:
+  #   docker compose run --rm trainer src.training --config rounds/<v>.toml --version <v> ...
+  trainer:
+    build:
+      context: ./app/ml_engine
+    profiles: ["train"]
+    working_dir: /work
+    volumes:
+      - ./app/ml_engine:/work
+
 volumes:
   postgres_data:
 
