@@ -6,14 +6,14 @@ A Clinical Decision Support System (CDSS) prototype that combines classical radi
 
 ## 📌 Project status
 
-Reviewed on 2026-10-29. This table says what exists today, not what is planned.
+Reviewed on 2026-11-02. This table says what exists today, not what is planned.
 
 | Area | Works today | Not built yet |
 |---|---|---|
-| **ML engine** | JPG/PNG loader, image quality gate, 45 radiomic features (GLCM, LBP, wavelet, intensity), frozen EfficientNet-B0 embeddings, a training pipeline (cross-validation, calibration, report) and a serving pipeline. All tested on **synthetic** data | A model trained on the real dataset (the dataset is not in this repository), so **there are no accuracy figures yet**. Grad-CAM explanations. DICOM input |
-| **Backend** | FastAPI service with a `/health` endpoint and API docs, hexagonal structure, PostgreSQL schema managed with Alembic, a client for the Meta Model API (Muse Spark) that is not yet connected to any endpoint | Study upload and classification endpoints, report and chat endpoints, de-identification. `/health` reports `model_loaded: true` because the service still uses a fake classifier |
-| **Frontend** | Landing page and the "how we built it" page, deployed on Vercel | The clinician portal, the MRI viewer (Cornerstone3D is installed but no viewer exists), the results panel and the chat |
-| **Infrastructure** | CI on GitHub Actions (tests, type checks, commit format). Frontend on Vercel, backend on Google Cloud Run, database on Supabase | Automatic database migrations on deploy |
+| **ML engine** | JPG/PNG loader, quality gate with calibrated thresholds, brain mask, 45 radiomic features, frozen EfficientNet-B0 embeddings, training pipeline (grouped cross-validation, calibration, shortcut audit) and serving pipeline | A published model that loads with the current engine, so **no accuracy figures yet**. Grad-CAM. DICOM input |
+| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), Alembic schema, end-to-end test | A published model (without one, classification answers 503). DICOM and its de-identification |
+| **Frontend** | Landing, "how we built it" and the clinician portal: study list, upload with checks, image viewer, clinical summary, report with citations, chat | DICOM viewing. Explanation heatmap |
+| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy | Backend deployed with a model. End-to-end demo checklist |
 
 Live frontend: https://ether-self-five.vercel.app
 
@@ -25,7 +25,7 @@ Three independent components:
 - **ML engine** (`app/ml_engine`): a standalone package with the hybrid pipeline (radiomics + CNN).
 - **Frontend** (`app/frontend`): Next.js web app.
 
-Planned request flow (the backend does not implement it yet):
+Request flow (needs a published model to classify):
 
 ```
 Clinician            Backend (FastAPI)            ML engine             Muse Spark API
@@ -157,7 +157,7 @@ Pull requests target `develop` (QA). Changes reach `main` only through a promoti
 ## ⚠️ Important notes
 
 - Ether is a **Clinical Decision Support System** prototype: it is meant to augment a specialist's evaluation, never to replace it, and it is **not validated on clinical data**.
-- No real patient data is processed or stored today. Only JPG and PNG images are supported. De-identification and DICOM support are planned, not implemented.
+- No real patient data is processed or stored today. Only JPG and PNG images are supported, and their embedded metadata is removed on upload. DICOM support and its de-identification are planned, not implemented.
 - Explanations such as Grad-CAM heatmaps are planned, not implemented.
 
 ## 📜 Third-party assets and licenses
