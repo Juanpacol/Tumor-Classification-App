@@ -118,3 +118,6 @@ secrets/
 # Windows
 Thumbs.db
 ehthumbs.db
+
+# Local compose overrides (e.g. a different Postgres port)
+docker-compose.override.yml
