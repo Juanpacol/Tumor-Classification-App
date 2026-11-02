@@ -301,6 +301,35 @@ The repository is public for the hackathon evaluation, and the artifact publishe
 - **Recorded.** `report.json` and `report.md` hold `shortcut_audit` and `leakage_guarantees`; the artifact manifest holds `shortcut_audit`.
 - **Status:** **Verified** on synthetic data, where every image has the same size. Not run on the real dataset yet; that run is the one that tells whether the 512x512 cue survives B6 (D19).
 
+## D23. Out-of-fold per-class metrics, round files and the training container (AB-212)
+
+`src/training/{out_of_fold,config,model,ablation,report,run,__main__}.py`, `rounds/`, `Dockerfile`, `.dockerignore`, root `docker-compose.yml` (service `trainer`). OpenSpec change `baseline-training-run`.
+
+- **Why.** Parameters are tuned over several rounds on the real dataset. Per-class metrics existed only for Testing, so tuning would have been guided by Testing and made its final score optimistic; every parameter but the seed and fold count was a code default, so a round meant editing code with no record of its values.
+- **Out-of-fold per-class metrics.** For the selected classifier and the rows the run kept (with or without copies), the fold models that cross-validation already fitted (`cross_validate` with `return_estimator` and `return_indices`) predict their validation rows, so nothing is refitted; only originals are predicted, each once. `cross_val_predict` is not used because it needs splits that partition every row, and with copies they do not. The pipeline is **uncalibrated**: the calibrated ensemble fits its sigmoids on the validation rows, so its predictions there are not out-of-fold. Counts are **pooled** over folds (the fold spread is already in the per-fold macro-F1 std). It runs before calibration and reads no Testing feature, so G7 holds. Recorded as `cv_out_of_fold` in the report and the manifest metrics.
+- **Round files.** `--config <file>.toml`, read with `tomllib` (stdlib in 3.11, no new dependency; comments allowed, unlike JSON). Each section is overlaid on the defaults and the dataclasses are rebuilt, so their own validation still runs. Unknown sections, keys and classifiers, wrong types (array elements included), out-of-range values, and the guarded keys (`class_weight`, `random_state`, `metrics_version`) stop the run before any image is read. Ints given for float fields become floats, so `3` and `3.0` share a cache key. Range checks live in the config dataclasses themselves (`RadiomicsConfig`, `AugmentationConfig`, `PreprocessingConfig`, `QualityThresholds`). Classifier overrides go through `candidate_classifiers` and a fit on a tiny synthetic set, so incompatible combinations (for example `penalty = "l1"` with the `lbfgs` solver) fail at load. `--seed` and `--n-splits` override the file. PCA size and hyperparameters moved into `ModelConfig`; `ablate_blocks` now takes the classifier itself.
+- **Recorded.** `config.json` (every resolved value, including each candidate's full `get_params`) next to the report, plus `config` and `config_source` (path and SHA-256 of the bytes parsed at load, or `null`) in the report. The manifest holds `config_source` and only the `run`, `model` and `classifiers` parts under `config`, since preprocessing, radiomics and augmentation are already its top-level keys. The resolved configuration, not the file, is the reproducibility record. Feature cache keys already hash every preprocessing, radiomics and augmentation value, so a round that changes only PCA or classifiers reuses every cached feature (tested).
+- **Container.** The trainer image holds only `requirements.lock` (build context `app/ml_engine` with a `.dockerignore` that lets only the lock through); code, data, weights, artifacts and the cache are mounted. It is not the backend image, so a backend change cannot change the training environment. The compose profile keeps `docker compose up` from starting it.
+- **Versions.** SemVer: baseline `0.1.0`, each round bumps the minor version and adds `rounds/<version>.toml`.
+- **Known limitation.** Many rounds on the same 5 folds overfit the CV estimate. Mitigation: one family of parameters per round, few rounds, Testing read for the kept version only.
+- **Status:** **Verified** by unit tests (427 passing in the trainer image) and by the baseline run (D24).
+
+## D24. Baseline round 0.1.0 on the real dataset (AB-212)
+
+Run on 2026-11-02 in the `trainer` container (CPU, 12 threads) with `rounds/0.1.0.toml` (today's defaults), seed 42, manifest `dedup_20261028T234450903626Z`. Report `artifacts/reports/20261102T171520Z/` (not in git; the numbers below are copied from its `report.json`), artifact `artifacts/model-v0.1.0/`.
+
+- **Data.** 1,830 Training images after the leakage-free split (glioma 850, meningioma 446, no_tumor 260, pituitary 274; removed because their group is in Testing: glioma 142, meningioma 93, pituitary 245, no_tumor 15) and 1,109 Testing images. The quality gate skipped none.
+- **Selection (CV macro-F1, mean ± std over 5 grouped folds).** Logistic regression 0.898 ± 0.011 (selected), SVM RBF 0.879 ± 0.013, random forest 0.843 ± 0.016. Balanced accuracy follows the same order (0.901, 0.894, 0.854).
+- **Augmentation: off.** With one copy per image CV macro-F1 is 0.891 ± 0.007 against 0.898 without, so it does not reach the 0.011 margin (D21).
+- **Ablation (CV macro-F1).** CNN only 0.893, radiomics only 0.754, hybrid 0.898. The hybrid gain over CNN only (+0.005) is inside one fold std, so this run does not show that radiomics add to the CNN.
+- **Out-of-fold per class (Train, uncalibrated, pooled).** Recall: glioma 0.927, meningioma 0.843, pituitary 0.901, no_tumor 0.931. Precision: 0.947, 0.823, 0.882, 0.927. The main confusion is glioma ↔ meningioma (56 and 37 images); 19 of 1,570 tumors are predicted no_tumor.
+- **Testing (scored once, calibrated model).** Macro-F1 **0.807**, accuracy 0.826, balanced accuracy 0.844. Recall: glioma 0.771, meningioma 0.678, pituitary 0.936, no_tumor 0.992. no_tumor precision is **0.590**: 85 of 984 tumor images (30 glioma, 55 meningioma) are predicted no_tumor, against 19 of 1,570 in cross-validation.
+- **Shortcut audit.** The metadata-only baseline reaches 0.588 ± 0.014 balanced accuracy, below the 0.70 warning. no_tumor Testing recall is 1.000 for 512x512 images (2) and 0.992 for the rest (123), so the size cue cannot be judged on Testing (almost no 512x512 no_tumor images there).
+- **Guarantees.** G1 and G3 checked in the run; G2, G7, G8 by design and unit-tested.
+- **Time.** First run 503 s wall (8.4 min), including extraction of 4,769 cache entries (2,939 images and 1,830 copies). Rerun of the same round with the cache: 182 s, with identical metrics (task 7.2). A round that changed only `classifiers.svm_rbf.C`: 140 s, no feature recomputed (task 7.1).
+- **Outcome: target not met.** Testing macro-F1 0.807 < 0.90, so per #112 criterion 9 the results go to the team and **no model is published** until it has reviewed them. The metadata baseline did not trigger the #168 warning.
+- **What the team should look at.** (1) Cross-validation on Training (0.898) overestimates Testing (0.807) by 9 points, and almost all of the gap is tumors called no_tumor, the clinically worst error (8.6% of Testing tumors). Cross-validation does not show this error, so tuning rounds compared on it alone may not close the gap; the Testing split looks distributed differently from Training for glioma and meningioma. (2) Radiomics did not measurably help on top of the CNN. (3) Augmentation as configured does not help. These are observations for the next story; this round does not change any parameter.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
@@ -322,17 +351,7 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 
 - [x] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** Done in AB-175 (D17).
 - [x] **Skull stripping on real images.** Not needed: skull stripping was removed in AB-166 (D18).
-- [ ] **Limits vs the real dataset.** Not possible yet: `src/data` is not in the repo. Once the Kaggle dataset is downloaded, run from `app/ml_engine`:
-  ```bash
-  python -c "
-  import pathlib
-  from PIL import Image
-  files = [p for p in pathlib.Path('src/data').rglob('*') if p.suffix.lower() in {'.jpg', '.jpeg', '.png'}]
-  print('max bytes', max(p.stat().st_size for p in files))
-  print('max pixels', max(Image.open(p).size[0] * Image.open(p).size[1] for p in files))
-  "
-  ```
-  If either value is close to `MAX_FILE_BYTES` or `MAX_PIXELS`, raise the limit.
+- [x] **Limits vs the real dataset.** Measured on 2026-11-02 over all 7,200 images in `src/data`, in the trainer image (AB-212): largest file 306,492 bytes (0.6% of `MAX_FILE_BYTES`, 50 MiB), largest image 1,988,250 pixels (8% of `MAX_PIXELS`, 25 M). No limit needs raising.
 - [ ] **Backend upload cap.** The 50 MB cap in the loader is defense in depth. Enforce an upload size limit in the upload endpoint (#118) before the file is stored.
 - [ ] **EXIF behavior on real uploads.** Confirm with a phone photo of a screen that orientation comes out right.
 - [ ] **Package rename** (see D2).
