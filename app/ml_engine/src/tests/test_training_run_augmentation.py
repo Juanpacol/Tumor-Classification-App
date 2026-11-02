@@ -88,14 +88,21 @@ def test_augmentation_stays_on_only_above_the_margin(
     on: bool,
 ) -> None:
     seen: dict[str, Any] = {}
+    predictions = np.array(["glioma"] * N_TRAIN)
     monkeypatch.setattr(
         run,
         "compare_classifiers",
-        lambda *a: SelectionResult(
-            {"logistic_regression": score(0.80, 0.02)}, "logistic_regression"
+        lambda *a, **k: SelectionResult(
+            {"logistic_regression": score(0.80, 0.02)},
+            "logistic_regression",
+            {"logistic_regression": predictions},
         ),
     )
-    monkeypatch.setattr(run, "cross_validate_scores", lambda *a: score(mean_with, 0.03))
+    monkeypatch.setattr(
+        run,
+        "cross_validate_predictions",
+        lambda *a, **k: (score(mean_with, 0.03), predictions),
+    )
     for name in ("ablate_blocks", "calibrate"):
         real = getattr(run, name)
         signature = inspect.signature(real)

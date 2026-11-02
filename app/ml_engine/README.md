@@ -68,14 +68,52 @@ The cleaned dataset is described by the `manifest.csv` that the deduplication st
 With the backbone bundle exported (see *Deep features*) and the cleaning `manifest.csv`:
 
 ```bash
-python -m src.training --data-dir src/data --manifest <path>/manifest.csv --version 0.1.0
+python -m src.training --data-dir src/data --manifest <path>/manifest.csv --config rounds/0.1.0.toml --version 0.1.0
 ```
 
 It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then assigns every Train image to one of 5 grouped folds (`StratifiedGroupKFold` on `group_id`), selects a classifier by cross-validated macro-F1 on those folds (balanced accuracy is reported too), cross-validates it again with one augmented copy of each usable Train image (made from its CNN input, used only as fit rows) and keeps augmentation only if macro-F1 rises by at least the std across folds, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
 
 - `model-v<version>/`: `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
-- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics including balanced accuracy, confusion matrix, images per fold and class, selection, the augmentation decision, ablation, the shortcut audit, the status of each leakage guarantee, and whether the 0.90 macro-F1 target was met), and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
+- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics including balanced accuracy, confusion matrix, images per fold and class, selection, the out-of-fold per-class metrics on Train, the augmentation decision, ablation, the shortcut audit, the status of each leakage guarantee, and whether the 0.90 macro-F1 target was met), `config.json` with every resolved parameter, and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
+
+The out-of-fold section gives per-class precision, recall, F1 and the confusion matrix of the selected classifier (uncalibrated), predicting every usable Train image once with the model of the fold that validates it. It never reads Test, so it is the section to tune on (D23).
 
 The CLI prints the balanced accuracy of a classifier that sees only width, height and file size; at 0.70 or more it warns that the class can be told from the file alone, and that result goes to the team before a model is published.
 
-The same `--seed` (default 42) reproduces the same metrics. Features, including those of the augmented copies, are cached under `artifacts/feature-cache`, so a second run skips the extraction. An existing artifact or report is never overwritten.
+The same resolved configuration reproduces the same metrics. Features, including those of the augmented copies, are cached under `artifacts/feature-cache`, so a second run skips the extraction. An existing artifact or report is never overwritten.
+
+### Tuning rounds
+
+Each round is a TOML file in `rounds/`, versioned in git, named after the round's SemVer version: `0.1.0` is the baseline, and every round bumps the minor version (`0.2.0`, `0.3.0`, ...). A file overrides only the keys it sets; start from a copy of the previous round and say in a comment why the round exists. `rounds/0.1.0.toml` lists every tunable key:
+
+| Section | What it sets |
+|---|---|
+| `[run]` | `seed`, `n_splits` |
+| `[preprocessing]`, `[preprocessing.thresholds]` | `PreprocessingConfig` and `QualityThresholds` (not `metrics_version`) |
+| `[radiomics]` | `RadiomicsConfig` |
+| `[augmentation]` | `AugmentationConfig` |
+| `[model]` | `pca_components` |
+| `[classifiers.<name>]` | hyperparameters of `logistic_regression`, `svm_rbf` or `random_forest` (any `get_params()` key except `class_weight` and `random_state`) |
+
+An unknown or guarded key stops the run before any image is read, with an error naming it. `--seed` and `--n-splits` on the command line override the file. Rounds that change only `[model]` or `[classifiers.*]` reuse every cached feature; changes to preprocessing, radiomics or augmentation recompute what they affect.
+
+Compare rounds on the out-of-fold section and the cross-validated scores only. Each round reports Test too, but choosing values by Test makes the final Test score optimistic; read it for the version you keep. Many rounds on the same 5 folds also overfit the CV estimate, so change one family of parameters per round and keep the number of rounds small.
+
+### Training in Docker
+
+The `trainer` service of the root `docker-compose.yml` is an image with `requirements.lock` installed (`Dockerfile` here) that mounts `app/ml_engine` at `/work`, so code, data, round files, weights, artifacts and the feature cache stay on the host. Editing code or a round file needs no rebuild; rebuild only after `requirements.lock` changes. `docker compose up` does not start it (profile `train`). CPU only. From the repo root:
+
+```bash
+docker compose build trainer
+docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
+docker compose run --rm trainer src.training --data-dir src/data \
+  --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
+  --config rounds/0.2.0.toml --version 0.2.0
+docker compose run --rm --entrypoint pytest trainer src/ -q                       # tests
+```
+
+- In Git Bash prefix the commands with `MSYS_NO_PATHCONV=1`, or it rewrites `/work`-style paths.
+- To time a round: `time docker compose run ...` (POSIX) or `Measure-Command { docker compose run ... }` (PowerShell).
+- On a Linux host the container writes files as root; add `--user "$(id -u):$(id -g)" -e HOME=/tmp` to `run`.
+
+To try a round in the app, copy its artifact to the folder the backend mounts and restart it: `cp -r artifacts/model-v0.2.0 artifacts/current` (replace the folder if it exists), then `docker compose restart backend`.

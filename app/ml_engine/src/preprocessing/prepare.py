@@ -29,6 +29,12 @@ class PreprocessingConfig:
     thresholds: QualityThresholds = field(default_factory=QualityThresholds)
 
     def __post_init__(self) -> None:
+        if not 0 <= self.min_mask_fraction <= 1:
+            raise ValueError(
+                f"min_mask_fraction must be in [0, 1], got {self.min_mask_fraction}"
+            )
+        if self.cnn_size < 1:
+            raise ValueError(f"cnn_size must be at least 1, got {self.cnn_size}")
         if not 0 <= self.crop_margin <= 1:
             raise ValueError(f"crop_margin must be in [0, 1], got {self.crop_margin}")
 

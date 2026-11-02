@@ -1,5 +1,3 @@
-import pytest
-
 from src.tests.synthetic import grouped_splits, separable_features
 from src.training.ablation import VARIANTS, ablate_blocks
 from src.training.model import candidate_classifiers, cross_validate_scores
@@ -19,7 +17,12 @@ def scores(informative: tuple[str, ...]) -> dict[str, float]:
         splits,
     ).mean_macro_f1
     return ablate_blocks(
-        matrix, labels, N_RADIOMIC, "logistic_regression", splits, hybrid
+        matrix,
+        labels,
+        N_RADIOMIC,
+        candidate_classifiers()["logistic_regression"],
+        splits,
+        hybrid,
     )
 
 
@@ -34,7 +37,7 @@ def test_the_hybrid_score_is_reused_not_refitted() -> None:
         matrix,
         labels,
         N_RADIOMIC,
-        "logistic_regression",
+        candidate_classifiers()["logistic_regression"],
         grouped_splits(labels, groups, 3),
         0.123,
     )
@@ -55,17 +58,3 @@ def test_radiomics_only_wins_when_only_the_radiomic_block_carries_signal() -> No
 
     assert result["radiomics_only"] > 0.9
     assert result["cnn_only"] < 0.6
-
-
-def test_unknown_classifier_is_rejected() -> None:
-    matrix, labels, groups = separable_features(n_per_class=10)
-
-    with pytest.raises(KeyError):
-        ablate_blocks(
-            matrix,
-            labels,
-            N_RADIOMIC,
-            "xgboost",
-            grouped_splits(labels, groups, 3),
-            0.0,
-        )

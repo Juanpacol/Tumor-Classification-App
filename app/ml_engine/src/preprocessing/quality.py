@@ -35,6 +35,10 @@ class QualityThresholds:
     min_entropy: float = 3.2
     metrics_version: int = METRICS_VERSION
 
+    def __post_init__(self) -> None:
+        if self.min_snr < 0 or self.min_entropy < 0:
+            raise ValueError("quality thresholds must not be negative")
+
 
 def shannon_entropy(gray: np.ndarray, mask: np.ndarray) -> float:
     """Shannon entropy in bits of the intensity histogram inside ``mask``."""

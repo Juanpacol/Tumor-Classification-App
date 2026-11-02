@@ -11,7 +11,9 @@ from src.tests.training_support import NOW, PER_CLASS, make_config
 from src.training import __main__ as cli
 from src.training import run
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE
+from src.training.config import apply_round
 from src.training.model import candidate_classifiers
+from src.training.report import CONFIG_FILE
 from src.training.run import TrainingResult, train
 from src.training.shortcut import WARNING_BALANCED_ACCURACY
 
@@ -198,3 +200,67 @@ def test_the_report_has_the_shortcut_audit_and_guarantees(
     assert by_size["other"]["support"] == PER_CLASS
     ids = [g["id"] for g in result.report["leakage_guarantees"]]
     assert ids == ["G1", "G2", "G3", "G7", "G8"]
+
+
+def test_the_report_has_out_of_fold_metrics_on_train(result: TrainingResult) -> None:
+    oof = result.report["cv_out_of_fold"]
+
+    assert isinstance(oof["augmented"], bool)
+    assert (
+        sum(map(sum, oof["confusion_matrix"]))
+        == result.report["dataset"]["train_images"]
+    )
+    assert {label: m["support"] for label, m in oof["per_class"].items()} == {
+        label.value: PER_CLASS for label in TumorLabel
+    }
+    manifest = json.loads((result.artifact_dir / MANIFEST_FILE).read_text())
+    assert manifest["metrics"]["cv_out_of_fold"] == oof
+
+
+def test_the_run_records_its_resolved_configuration(result: TrainingResult) -> None:
+    config = json.loads((result.report_dir / CONFIG_FILE).read_text())
+    report = json.loads((result.report_dir / "report.json").read_text())
+    manifest = json.loads((result.artifact_dir / MANIFEST_FILE).read_text())
+
+    assert config == report["config"]
+    assert manifest["config"] == {
+        key: config[key] for key in ("run", "model", "classifiers")
+    }
+    assert manifest["preprocessing"] == config["preprocessing"]
+    assert config["run"] == {"seed": 42, "n_splits": 3}
+    assert result.report["config_source"] is None is manifest["config_source"]
+
+
+def npz_files(cache: Path) -> dict[Path, int]:
+    return {path: path.stat().st_mtime_ns for path in cache.rglob("*.npz")}
+
+
+def test_a_classifier_only_round_reuses_every_cached_feature(
+    workspace: dict[str, Path], result: TrainingResult, tmp_path: Path
+) -> None:
+    round_file = tmp_path / "round.toml"
+    round_file.write_text(
+        "[classifiers.svm_rbf]\nC = 3.0\n[model]\npca_components = 8\n"
+    )
+    config = apply_round(make_config(workspace, tmp_path / "out"), round_file)
+    before = npz_files(workspace["root"] / "cache")
+
+    again = train(config, now=NOW)
+
+    assert npz_files(workspace["root"] / "cache") == before
+    assert again.report["config"]["classifiers"]["svm_rbf"]["C"] == 3.0
+    assert again.report["config"]["model"]["pca_components"] == 8
+    assert again.report["config_source"]["path"] == round_file.as_posix()
+
+
+def test_a_preprocessing_round_recomputes_features(
+    workspace: dict[str, Path], result: TrainingResult, tmp_path: Path
+) -> None:
+    round_file = tmp_path / "round.toml"
+    round_file.write_text("[preprocessing]\ncrop_margin = 0.1\n")
+    before = npz_files(workspace["root"] / "cache")
+    config = apply_round(make_config(workspace, tmp_path / "out"), round_file)
+
+    train(config, now=NOW)
+
+    assert set(npz_files(workspace["root"] / "cache")) > set(before)
