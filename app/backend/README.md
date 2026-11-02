@@ -71,7 +71,7 @@ Meta offers no hard spending cap (only an e-mail alert) and the backend is publi
 - `report_guardrails.py`: rejects definitive wording ("the patient has", "diagnosed with", ...), treatment or medication wording, and, when triage is flagged or the model does not agree, a report that does not state the uncertainty and recommend expert review.
 - `generate_report.py`: `GenerateClinicalReport`. Only COMPLETED studies (404 for an unknown one, 409 for the rest), returns the stored report unless `regenerate` is set or the last one failed, and retries once with the reasons when the output is invalid. If it is still invalid the failure is stored and the answer is 502.
 
-Still missing: the `POST /api/studies/{id}/report` endpoint (it needs the study upload of AB-118), the check with the live API (AB-161) and the manual review of 10 reports from the public Test images.
+Still missing: the check with the live API (AB-161) and the manual review of 10 reports from the public Test images.
 
 ## Data sent to Meta while free credits are in use
 
@@ -81,6 +81,26 @@ The Billing page of the Meta console says: "While using free credits your conten
 - Do not use the `-contributor` model variants either: they are cheaper in exchange for training on the content.
 - Before any use with real data, either stop using the free credits (the "Stop using free credits" link in Billing, which moves the usage to the card) or do not send that data to this service.
 
+
+## Study upload (AB-118)
+
+`POST /api/studies` takes a multipart `file` and optional `clinical_notes` (at most 2000 characters) and classifies the image in the same request (`application/upload_study.py`, `application/image_upload.py`).
+
+- **Checked before anything is stored**, in this order: a model is loaded, the file is at most 20 MB, its content (never its name or content type) is a JPEG or PNG, and its pixels decode fully. DICOM, other formats and corrupt files are 415.
+- **Stored without metadata**: EXIF, XMP, IPTC, comments and PNG text chunks are removed without re-encoding, so the stored and classified pixels are the uploaded ones. The key is `studies/<study uuid>`; the original filename is not kept anywhere. Removing EXIF also removes its orientation tag, so an image is classified as stored, not rotated.
+- **No PHI in the logs**: an unexpected classifier error is logged as the study id, the error type and the raising file and line, never its message, the notes or the filename.
+
+| Outcome | Stored | HTTP status | Body |
+|---|---|---|---|
+| Classified | `completed` + prediction | 201 | the study |
+| Classifier rejects the image | `rejected` + reason | 422 | `code` (`QUALITY_CHECK_FAILED` or `UNSUPPORTED_IMAGE`), `message`, `details`, `study` |
+| Unexpected classifier error | `failed` | 500 | `INTERNAL_ERROR`, generic message |
+| Missing file or notes too long | nothing | 422 | FastAPI validation `detail` |
+| Over 20 MB | nothing | 413 | `FILE_TOO_LARGE` |
+| Not a decodable JPEG/PNG | nothing | 415 | `UNSUPPORTED_MEDIA_TYPE` |
+| No model loaded | nothing | 503 | `MODEL_UNAVAILABLE` |
+
+Any other unhandled error in the API answers 500 with a generic `INTERNAL_ERROR` body.
 
 ## MRI classifier (ml_engine)
 
@@ -94,7 +114,7 @@ The Billing page of the Meta console says: "While using free credits your conten
 | Condition | code | HTTP status | `details` |
 |---|---|---|---|
 | No model loaded | `MODEL_UNAVAILABLE` | 503 | — |
-| File is not a supported image | `UNSUPPORTED_IMAGE` | 422 | `reason` |
+| Decodable image the model cannot use (e.g. under 64 px) | `UNSUPPORTED_IMAGE` | 422 | `reason` |
 | Image fails the quality gate | `QUALITY_CHECK_FAILED` | 422 | `reason`, `snr`, `entropy`, `skull_stripped` |
 
 ### Docker
