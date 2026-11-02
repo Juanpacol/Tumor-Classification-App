@@ -21,6 +21,7 @@ export function fileProblem(file: File): string | null {
 const MESSAGE_BY_STATUS: Record<number, string> = {
   413: "The image is larger than 20 MB.",
   415: "The server could not read this file as a JPG or PNG image.",
+  422: `The clinical notes are longer than ${MAX_NOTES_LENGTH} characters.`,
   500: "The server failed while processing the image. Try again.",
   503: "The classification model is not available right now. Try again in a few minutes.",
 };

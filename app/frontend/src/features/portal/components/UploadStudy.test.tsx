@@ -37,6 +37,25 @@ describe("UploadStudy", () => {
     expect(onUploaded).toHaveBeenCalledWith("study-new");
   });
 
+  it("opens a study the classifier rejected like any other", async () => {
+    const uploadStudy = jest.fn().mockResolvedValue({
+      id: "study-rejected",
+      status: "rejected",
+      rejection_reason: "too noisy",
+      prediction: null,
+      report: null,
+    });
+    const onUploaded = jest.fn();
+    render(
+      <UploadStudy client={clientWith(uploadStudy)} onUploaded={onUploaded} />,
+    );
+
+    await userEvent.upload(screen.getByLabelText("MRI image"), file);
+    await userEvent.click(screen.getByRole("button", { name: "Upload study" }));
+
+    expect(onUploaded).toHaveBeenCalledWith("study-rejected");
+  });
+
   it("shows the error when the upload fails", async () => {
     const uploadStudy = jest
       .fn()
@@ -105,6 +124,7 @@ describe("UploadStudy", () => {
   it.each([
     [413, "larger than 20 MB"],
     [415, "could not read this file"],
+    [422, "notes are longer than 2000 characters"],
     [500, "failed while processing"],
     [503, "not available right now"],
   ])(
