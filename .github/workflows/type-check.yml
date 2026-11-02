@@ -1,6 +1,11 @@
 name: Type Checking
 
 on:
+  push:
+    branches: [develop, main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     types: [opened, synchronize, reopened]
     paths-ignore:
