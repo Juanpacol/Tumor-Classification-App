@@ -78,3 +78,11 @@ def test_quality_error_body_keeps_reason_and_metrics():
     assert response.status_code == 422
     assert response.json()["code"] == "QUALITY_CHECK_FAILED"
     assert response.json()["details"] == {"reason": "snr below threshold", **METRICS}
+
+
+def test_an_unexpected_error_maps_to_a_generic_json_500():
+    response = _client_raising(RuntimeError("secret at /data/jane_roe")).get("/boom")
+
+    assert response.status_code == 500
+    assert response.json()["code"] == "INTERNAL_ERROR"
+    assert "jane_roe" not in response.text

@@ -61,6 +61,17 @@ class UnsupportedMediaTypeError(DomainError):
         )
 
 
+class ClassificationFailedError(DomainError):
+    """Classification failed unexpectedly; the message stays generic on purpose."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "INTERNAL_ERROR",
+            "The image could not be processed. Try again later.",
+            status_code=500,
+        )
+
+
 class QualityCheckFailedError(DomainError):
     """The image was read but failed the quality gate, with the measured metrics."""
 

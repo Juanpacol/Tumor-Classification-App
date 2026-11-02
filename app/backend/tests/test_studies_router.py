@@ -1,8 +1,11 @@
+import io
+import logging
 import uuid
 from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from src.pipelines import FakeInferencePipeline
 
 from adapters.inbound.http.router_studies import MAX_PAGE_SIZE
@@ -10,6 +13,7 @@ from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.ml.ml_engine_classifier import MLEngineClassifier
 from adapters.outbound.persistence.in_memory_repository import InMemoryStudyRepository
 from adapters.outbound.storage.in_memory_storage import InMemoryStorage
+from domain.errors import QualityCheckFailedError, UnsupportedImageError
 from domain.models import StudyStatus
 from main import create_app
 from tests.doubles import ScriptedClassifier, ScriptedLLM
@@ -19,6 +23,7 @@ from tests.factories import (
     make_prediction,
     make_report,
     make_study,
+    patterned_image,
 )
 
 PNG = image_bytes("PNG")
@@ -42,51 +47,119 @@ def test_list_studies_is_empty_by_default():
     assert response.json() == {"items": [], "page": 1, "page_size": 20, "total": 0}
 
 
-def test_upload_study_returns_a_completed_study():
+async def test_upload_study_returns_a_completed_study():
+    repository = InMemoryStudyRepository()
     prediction = make_prediction("placeholder", label="no_tumor")
-    with client_with(classifier=ScriptedClassifier(prediction)) as client:
+    notes = "x" * 2000
+    with client_with(repository, classifier=ScriptedClassifier(prediction)) as client:
         response = client.post(
             "/api/studies",
             files={"file": ("scan.png", PNG, "image/png")},
-            data={"clinical_notes": "Headache"},
+            data={"clinical_notes": notes},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
     assert body["status"] == "completed"
-    assert body["clinical_notes"] == "Headache"
+    assert body["clinical_notes"] == notes
     assert body["prediction"]["label"] == "no_tumor"
+    assert (await repository.get(body["id"])).status is StudyStatus.COMPLETED
+    assert (await repository.get_prediction(body["id"])).label == "no_tumor"
 
 
-def test_upload_of_a_file_that_is_not_an_image_is_415():
-    with client_with() as client:
+@pytest.mark.parametrize(
+    "error, code",
+    [
+        (QualityCheckFailedError("too noisy", {"snr": 1.0}), "QUALITY_CHECK_FAILED"),
+        (UnsupportedImageError("image is 32x32"), "UNSUPPORTED_IMAGE"),
+    ],
+    ids=["quality-check", "unsupported-image"],
+)
+async def test_a_rejected_upload_is_422_with_the_stored_study(error, code):
+    repository = InMemoryStudyRepository()
+    with client_with(repository, classifier=ScriptedClassifier(error)) as client:
         response = client.post(
-            "/api/studies", files={"file": ("scan.dcm", b"DICM", "application/dicom")}
-        )
-
-    assert response.status_code == 415
-    assert response.json()["code"] == "UNSUPPORTED_MEDIA_TYPE"
-
-
-def test_upload_over_20_mb_is_413():
-    with client_with() as client:
-        response = client.post(
-            "/api/studies",
-            files={"file": ("scan.png", PNG + b"0" * (20 * 1024 * 1024), "image/png")},
-        )
-
-    assert response.status_code == 413
-
-
-def test_upload_with_notes_over_2000_characters_is_422():
-    with client_with() as client:
-        response = client.post(
-            "/api/studies",
-            files={"file": ("scan.png", PNG, "image/png")},
-            data={"clinical_notes": "x" * 2001},
+            "/api/studies", files={"file": ("scan.png", PNG, "image/png")}
         )
 
     assert response.status_code == 422
+    body = response.json()
+    reason = error.details["reason"]
+    assert body["code"] == code
+    assert body["details"]["reason"] == reason
+    assert body["study"]["status"] == "rejected"
+    assert body["study"]["rejection_reason"] == reason
+    assert body["study"]["prediction"] is None
+    stored = await repository.get(body["study"]["id"])
+    assert stored.status is StudyStatus.REJECTED
+    assert stored.rejection_reason == reason
+
+
+async def test_an_unexpected_classifier_error_is_a_generic_500_without_phi(caplog):
+    repository = InMemoryStudyRepository()
+    classifier = ScriptedClassifier(RuntimeError("boom at /data/jane_roe"))
+    with (
+        caplog.at_level(logging.DEBUG),
+        client_with(repository, classifier=classifier) as client,
+    ):
+        response = client.post(
+            "/api/studies",
+            files={"file": ("jane_roe.png", PNG, "image/png")},
+            data={"clinical_notes": "Patient Jane Roe, 54"},
+        )
+
+    assert response.status_code == 500
+    assert response.json()["code"] == "INTERNAL_ERROR"
+    assert "boom" not in response.text and "jane_roe" not in response.text
+    [study], _ = await repository.list_recent(1, 20)
+    assert study.status is StudyStatus.FAILED
+    assert study.id in caplog.text and "RuntimeError" in caplog.text
+    for phi in ("Jane Roe", "jane_roe", "boom"):
+        assert phi not in caplog.text
+
+
+TEXT_AS_PNG = ("scan.png", b"not an image at all", "image/png")
+DICOM = ("scan.dcm", b"\x00" * 128 + b"DICM" + b"\x00" * 64, "application/dicom")
+TRUNCATED_JPEG = ("scan.jpg", patterned_image("JPEG")[:-200], "image/jpeg")
+OVERSIZED = ("scan.png", PNG + b"0" * (20 * 1024 * 1024 + 1 - len(PNG)), "image/png")
+
+
+@pytest.mark.parametrize(
+    "file, notes, ready, status, code",
+    [
+        (("scan.png", PNG, "image/png"), "x" * 2001, True, 422, None),
+        (None, None, True, 422, None),
+        (OVERSIZED, None, True, 413, "FILE_TOO_LARGE"),
+        (DICOM, None, True, 415, "UNSUPPORTED_MEDIA_TYPE"),
+        (TEXT_AS_PNG, None, True, 415, "UNSUPPORTED_MEDIA_TYPE"),
+        (TRUNCATED_JPEG, None, True, 415, "UNSUPPORTED_MEDIA_TYPE"),
+        (("scan.png", PNG, "image/png"), None, False, 503, "MODEL_UNAVAILABLE"),
+    ],
+    ids=[
+        "notes-too-long",
+        "file-missing",
+        "over-20-mb",
+        "dicom",
+        "text-renamed-png",
+        "truncated-jpeg",
+        "no-model",
+    ],
+)
+async def test_a_refused_upload_stores_nothing(file, notes, ready, status, code):
+    repository, storage = InMemoryStudyRepository(), InMemoryStorage()
+    classifier = ScriptedClassifier(make_prediction("placeholder"), ready=ready)
+    with client_with(repository, storage, classifier) as client:
+        response = client.post(
+            "/api/studies",
+            files={"file": file} if file else {"other": ("x.txt", b"x", "text/plain")},
+            data={"clinical_notes": notes} if notes else {},
+        )
+
+    assert response.status_code == status
+    if code:
+        assert response.json()["code"] == code
+    assert (await repository.list_recent(1, 20))[1] == 0
+    assert storage._store == {}
 
 
 def test_get_unknown_study_is_404():
@@ -224,6 +297,43 @@ def test_get_study_image_returns_the_uploaded_bytes():
     assert response.status_code == 200
     assert response.content == PNG
     assert response.headers["content-type"] == "image/png"
+
+
+@pytest.mark.parametrize("fmt, mime", [("JPEG", "image/jpeg"), ("PNG", "image/png")])
+def test_the_stored_image_has_no_metadata_and_the_same_pixels(fmt, mime):
+    storage = InMemoryStorage()
+    original = image_bytes(fmt, with_metadata=True)
+    classifier = ScriptedClassifier(make_prediction("placeholder"))
+    with client_with(storage=storage, classifier=classifier) as client:
+        response = client.post("/api/studies", files={"file": ("scan", original, mime)})
+
+    study_id = response.json()["id"]
+    assert list(storage._store) == [f"studies/{uuid.UUID(study_id)}"]
+    stored = storage.load(f"studies/{study_id}")
+    with (
+        Image.open(io.BytesIO(stored)) as clean,
+        Image.open(io.BytesIO(original)) as source,
+    ):
+        assert source.getexif()
+        assert not clean.getexif()
+        assert not getattr(clean, "text", {})
+        assert clean.tobytes() == source.tobytes()
+    for chunk in (b"eXIf", b"tEXt", b"iTXt", b"Jane Doe", b"Scanner X200"):
+        assert chunk not in stored
+
+
+async def test_the_original_filename_is_not_kept():
+    repository, storage = InMemoryStudyRepository(), InMemoryStorage()
+    classifier = ScriptedClassifier(make_prediction("placeholder"))
+    with client_with(repository, storage, classifier) as client:
+        response = client.post(
+            "/api/studies", files={"file": ("john_doe_mri.png", PNG, "image/png")}
+        )
+
+    study = await repository.get(response.json()["id"])
+    assert "john_doe_mri" not in response.text
+    assert "john_doe_mri" not in repr(study)
+    assert all("john_doe_mri" not in key for key in storage._store)
 
 
 def test_health_classifier_default_still_works():
