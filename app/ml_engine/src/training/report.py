@@ -13,6 +13,7 @@ from src.training.folds import FoldRow
 
 TARGET_MACRO_F1 = 0.90
 FOLDS_FILE = "folds.csv"
+CONFIG_FILE = "config.json"
 
 
 def build_report(
@@ -24,10 +25,13 @@ def build_report(
     selection: dict[str, Any],
     ablation: dict[str, float],
     augmentation: dict[str, Any],
+    cv_out_of_fold: dict[str, Any],
     test: dict[str, Any],
     calibration_method: str,
     shortcut_audit: dict[str, Any],
     guarantees: list[dict[str, Any]],
+    config: dict[str, Any],
+    config_source: dict[str, str] | None,
 ) -> dict[str, Any]:
     """Collect the results of one training run and whether the target was met."""
     return {
@@ -41,20 +45,24 @@ def build_report(
         "selection": selection,
         "ablation_macro_f1": ablation,
         "augmentation": augmentation,
+        "cv_out_of_fold": cv_out_of_fold,
         "calibration_method": calibration_method,
         "test": test,
         "shortcut_audit": shortcut_audit,
         "leakage_guarantees": guarantees,
+        "config": config,
+        "config_source": config_source,
     }
 
 
 def write_report(
     directory: Path, report: dict[str, Any], folds: Sequence[FoldRow]
 ) -> None:
-    """Write ``report.json``, ``report.md`` and the fold record ``folds.csv`` to a new
-    folder (never overwrites)."""
+    """Write ``report.json``, ``report.md``, the resolved ``config.json`` and the fold
+    record ``folds.csv`` to a new folder (never overwrites)."""
     directory.mkdir(parents=True)
     (directory / "report.json").write_text(json.dumps(report, indent=2))
+    (directory / CONFIG_FILE).write_text(json.dumps(report["config"], indent=2))
     (directory / "report.md").write_text(render_markdown(report))
     with (directory / FOLDS_FILE).open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, [f.name for f in fields(FoldRow)])
@@ -78,22 +86,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Per class (test)",
         "",
-        "| Class | Precision | Recall | F1 | Support |",
-        "|---|---|---|---|---|",
-        *(
-            f"| {name} | {m['precision']:.3f} | {m['recall']:.3f} | {m['f1']:.3f} | {m['support']} |"
-            for name, m in test["per_class"].items()
-        ),
-        "",
+        *_per_class_lines(test),
         "## Confusion matrix (test, rows are the truth)",
         "",
-        "| | " + " | ".join(test["per_class"]) + " |",
-        "|---|" + "---|" * len(test["per_class"]),
-        *(
-            f"| {name} | " + " | ".join(str(v) for v in row) + " |"
-            for name, row in zip(test["per_class"], test["confusion_matrix"])
-        ),
-        "",
+        *_confusion_lines(test),
         *_validation_lines(report["validation"]),
         "## Classifier selection (cross-validated on Train, chosen by macro-F1)",
         "",
@@ -110,6 +106,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"{report['calibration_method']}."
         ),
         "",
+        *_out_of_fold_lines(report["cv_out_of_fold"]),
         *_augmentation_lines(report["augmentation"]),
         *_shortcut_lines(report["shortcut_audit"]),
         *_guarantee_lines(report["leakage_guarantees"]),
@@ -132,8 +129,66 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "The reason for every skipped image is in `report.json`.",
         "",
+        *_config_lines(report["config_source"]),
     ]
     return "\n".join(lines)
+
+
+def _per_class_lines(metrics: dict[str, Any]) -> list[str]:
+    return [
+        "| Class | Precision | Recall | F1 | Support |",
+        "|---|---|---|---|---|",
+        *(
+            f"| {name} | {m['precision']:.3f} | {m['recall']:.3f} | {m['f1']:.3f} | {m['support']} |"
+            for name, m in metrics["per_class"].items()
+        ),
+        "",
+    ]
+
+
+def _confusion_lines(metrics: dict[str, Any]) -> list[str]:
+    return [
+        "| | " + " | ".join(metrics["per_class"]) + " |",
+        "|---|" + "---|" * len(metrics["per_class"]),
+        *(
+            f"| {name} | " + " | ".join(str(v) for v in row) + " |"
+            for name, row in zip(metrics["per_class"], metrics["confusion_matrix"])
+        ),
+        "",
+    ]
+
+
+def _out_of_fold_lines(metrics: dict[str, Any]) -> list[str]:
+    setting = "with" if metrics["augmented"] else "without"
+    return [
+        "## Per-class metrics (cross-validated on Train, out-of-fold, uncalibrated)",
+        "",
+        (
+            f"Selected classifier, {setting} augmented copies. Every usable Train image "
+            "is predicted once, by the model of the fold that validates it, and the "
+            "counts are pooled over folds. Compare tuning rounds on this section, not on "
+            "Test."
+        ),
+        "",
+        *_per_class_lines(metrics),
+        "Confusion matrix (rows are the truth):",
+        "",
+        *_confusion_lines(metrics),
+    ]
+
+
+def _config_lines(source: dict[str, str] | None) -> list[str]:
+    origin = (
+        f"round file `{source['path']}` (sha256 `{source['sha256'][:12]}`)"
+        if source
+        else "the defaults (no round file)"
+    )
+    return [
+        "## Configuration",
+        "",
+        f"Parameters from {origin}. Every resolved value is in `{CONFIG_FILE}`.",
+        "",
+    ]
 
 
 def _validation_lines(validation: dict[str, Any]) -> list[str]:

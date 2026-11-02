@@ -1,4 +1,5 @@
 import csv
+import json
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,7 @@ import pytest
 
 from src.training.folds import FoldRow
 from src.training.report import (
+    CONFIG_FILE,
     FOLDS_FILE,
     TARGET_MACRO_F1,
     build_report,
@@ -65,6 +67,7 @@ def make_report(macro_f1: float) -> dict[str, Any]:
             "cv_with": {"mean": 0.91, "std": 0.03},
             "margin": 0.02,
         },
+        cv_out_of_fold={"augmented": False, **metrics_dict(0.88)},
         test=metrics_dict(macro_f1),
         calibration_method="sigmoid",
         shortcut_audit=shortcut_audit(0.55),
@@ -75,6 +78,8 @@ def make_report(macro_f1: float) -> dict[str, Any]:
                 "status": "checked in this run",
             }
         ],
+        config={"run": {"seed": 42}},
+        config_source=None,
     )
 
 
@@ -204,3 +209,36 @@ def test_markdown_flags_a_metadata_shortcut() -> None:
     report["shortcut_audit"] = shortcut_audit(0.8)
 
     assert "WARNING: at or above the warning level" in render_markdown(report)
+
+
+def test_markdown_shows_out_of_fold_metrics_apart_from_test() -> None:
+    markdown = render_markdown(make_report(0.95))
+    heading = (
+        "## Per-class metrics (cross-validated on Train, out-of-fold, uncalibrated)"
+    )
+
+    assert heading in markdown
+    section = markdown.split(heading)[1].split("\n## ")[0]
+    assert "without augmented copies" in section
+    assert "not on Test" in section
+    assert "| glioma | 0.900 | 0.800 | 0.850 | 10 |" in section
+    assert "Confusion matrix (rows are the truth):" in section
+    assert markdown.index("## Per class (test)") < markdown.index(heading)
+
+
+def test_markdown_names_the_configuration_source() -> None:
+    report = make_report(0.95)
+    assert "the defaults (no round file)" in render_markdown(report)
+
+    report["config_source"] = {"path": "rounds/0.2.0.toml", "sha256": "ab" * 32}
+    assert "round file `rounds/0.2.0.toml` (sha256 `abababababab`)" in render_markdown(
+        report
+    )
+
+
+def test_the_resolved_config_is_written_next_to_the_report(tmp_path: Path) -> None:
+    write_report(tmp_path / "r", make_report(0.95), [])
+
+    assert json.loads((tmp_path / "r" / CONFIG_FILE).read_text()) == {
+        "run": {"seed": 42}
+    }

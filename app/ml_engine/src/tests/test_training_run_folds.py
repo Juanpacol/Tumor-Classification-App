@@ -127,7 +127,7 @@ def test_every_cross_validated_step_shares_the_recorded_folds(
 
     for name in (
         "compare_classifiers",
-        "cross_validate_scores",
+        "cross_validate_predictions",
         "ablate_blocks",
         "calibrate",
     ):

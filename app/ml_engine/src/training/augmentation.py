@@ -19,6 +19,26 @@ class AugmentationConfig:
     brightness_range: float = 0.1
     contrast_range: float = 0.1
 
+    def __post_init__(self) -> None:
+        if self.copies < 0:
+            raise ValueError(f"copies must be at least 0, got {self.copies}")
+        if not 0 <= self.max_rotation_deg <= 180:
+            raise ValueError(
+                f"max_rotation_deg must be in [0, 180], got {self.max_rotation_deg}"
+            )
+        if not 0 <= self.flip_probability <= 1:
+            raise ValueError(
+                f"flip_probability must be in [0, 1], got {self.flip_probability}"
+            )
+        ranges = {
+            "scale_range": self.scale_range,
+            "brightness_range": self.brightness_range,
+            "contrast_range": self.contrast_range,
+        }
+        for name, value in ranges.items():
+            if not 0 <= value < 1:
+                raise ValueError(f"{name} must be in [0, 1), got {value}")
+
 
 @dataclass(frozen=True)
 class AugmentationParams:

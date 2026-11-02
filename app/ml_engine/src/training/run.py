@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
@@ -11,11 +11,9 @@ from typing import Any
 
 import numpy as np
 
-from src.classical.config import RadiomicsConfig
 from src.contracts import TumorLabel
 from src.deep_learning.bundle import sha256_of
 from src.deep_learning.extractor import DeepFeatureExtractor
-from src.preprocessing.prepare import PreprocessingConfig
 from src.seed import set_seed
 from src.training.ablation import ablate_blocks
 from src.training.artifact import write_artifact
@@ -25,6 +23,7 @@ from src.training.calibration import (
     CALIBRATION_METHOD,
     calibrate,
 )
+from src.training.config import TrainingConfig, resolved_config
 from src.training.dataset import Split, load_samples, split_samples
 from src.training.evaluation import evaluate
 from src.training.features import (
@@ -38,7 +37,6 @@ from src.training.features import (
     make_featurizer,
 )
 from src.training.folds import (
-    N_SPLITS,
     Splits,
     assign_folds,
     fold_record,
@@ -47,34 +45,19 @@ from src.training.folds import (
 )
 from src.training.guarantees import leakage_guarantees
 from src.training.model import (
-    DEFAULT_SEED,
     CandidateScore,
     build_model,
     candidate_classifiers,
     compare_classifiers,
-    cross_validate_scores,
+    cross_validate_predictions,
 )
+from src.training.out_of_fold import out_of_fold_metrics
 from src.training.report import build_report, write_report
 from src.training.shortcut import metadata_baseline, recall_by_source_size
 from src.training.stats import feature_stats
 
 LABELS = [label.value for label in TumorLabel]
 NO_TUMOR = TumorLabel.NO_TUMOR.value
-
-
-@dataclass(frozen=True)
-class TrainingConfig:
-    data_dir: Path
-    manifest: Path
-    backbone_bundle: Path
-    out_dir: Path
-    seed: int = DEFAULT_SEED
-    n_splits: int = N_SPLITS
-    version: str = "0.0.0-dev"
-    cache_dir: Path | None = None
-    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
-    radiomics: RadiomicsConfig = field(default_factory=RadiomicsConfig)
-    augmentation: AugmentationConfig = field(default_factory=AugmentationConfig)
 
 
 @dataclass(frozen=True)
@@ -124,34 +107,47 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         config.n_splits,
     )
 
-    selection = compare_classifiers(x_train, y_train, n_radiomic, splits, config.seed)
+    selection = compare_classifiers(
+        x_train, y_train, n_radiomic, splits, config.seed, config.model
+    )
+    pca_components = config.model.pca_components
+    classifier = candidate_classifiers(config.seed, config.model.classifier_params)[
+        selection.best
+    ]
     without = selection.scores[selection.best]
-    with_copies = cross_validate_scores(
-        candidate_classifiers(config.seed)[selection.best],
+    with_copies, copies_predictions = cross_validate_predictions(
+        classifier,
         augmented_rows.x,
         augmented_rows.y,
         n_radiomic,
         augmented_rows.splits,
+        len(y_train),
         config.seed,
+        pca_components,
     )
     augmented = keeps_augmentation(
         without.mean_macro_f1, without.std_macro_f1, with_copies.mean_macro_f1
     )
     rows, chosen = (augmented_rows, with_copies) if augmented else (plain, without)
+    predictions = (
+        copies_predictions if augmented else selection.predictions[selection.best]
+    )
+    cv_out_of_fold = {
+        "augmented": augmented,
+        **asdict(out_of_fold_metrics(y_train, predictions, LABELS)),
+    }
     ablation = ablate_blocks(
         rows.x,
         rows.y,
         n_radiomic,
-        selection.best,
+        classifier,
         rows.splits,
         chosen.mean_macro_f1,
         config.seed,
+        pca_components,
     )
     model = build_model(
-        candidate_classifiers(config.seed)[selection.best],
-        n_radiomic,
-        train_table.cnn.shape[1],
-        config.seed,
+        classifier, n_radiomic, train_table.cnn.shape[1], config.seed, pca_components
     )
     guarantees = leakage_guarantees(split, rows.splits, len(y_train))
     baseline = metadata_baseline(train_table.samples, y_train, splits, config.seed)
@@ -186,6 +182,8 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
             folds, config.n_splits, LABELS
         ),
     }
+    resolved = resolved_config(config)
+    source = asdict(config.round_source) if config.round_source else None
     report = build_report(
         created_at,
         config.version,
@@ -195,10 +193,13 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         selection_dict,
         ablation,
         augmentation,
+        cv_out_of_fold,
         asdict(test),
         CALIBRATION_METHOD,
         shortcut_audit,
         guarantees,
+        resolved,
+        source,
     )
     write_artifact(
         artifact_dir,
@@ -220,9 +221,18 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
             "quality_thresholds": asdict(config.preprocessing.thresholds),
             "radiomic_feature_names": list(train_table.radiomic_names),
             "augmentation": augmentation,
-            "metrics": {"test": asdict(test), **selection_dict, "ablation": ablation},
+            "metrics": {
+                "test": asdict(test),
+                **selection_dict,
+                "ablation": ablation,
+                "cv_out_of_fold": cv_out_of_fold,
+            },
             "shortcut_audit": shortcut_audit,
             "dataset": dataset,
+            # preprocessing, radiomics and augmentation are above; config.json in the
+            # report folder holds the whole resolved configuration in one piece.
+            "config": {key: resolved[key] for key in ("run", "model", "classifiers")},
+            "config_source": source,
         },
     )
     write_report(report_dir, report, folds)
