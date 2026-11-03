@@ -70,7 +70,17 @@ alembic downgrade base        # drop it (rollback)
 
 ### Tests
 
-Backend integration tests (`app/backend/tests/integration/`) run against the PostgreSQL at `DATABASE_URL` (never SQLite). They migrate it to head and truncate the tables between tests, so point them at a disposable database (the compose one or CI's), never at Supabase. Without a reachable database they are skipped with the reason shown in the pytest summary (`pytest -rs`).
+Run the backend suite in compose with the `test` profile, not in the running `backend` container:
+
+```bash
+docker compose run --rm --build backend-test
+```
+
+It builds the `test` stage of `app/backend/Dockerfile` (with the `dev` extra, so `pytest-asyncio` is there) and starts a throwaway `postgres-test` database kept in memory. `docker compose exec backend pytest` is not supported: that image has no dev tools.
+
+Backend integration tests (`app/backend/tests/integration/`) run against the PostgreSQL at `TEST_DATABASE_URL` (never SQLite, never `DATABASE_URL`). They migrate it to head and truncate the tables between tests, so they refuse a database whose name does not contain `test`: the compose `ether_db` and Supabase are never touched. Without `TEST_DATABASE_URL`, or without a reachable database, they are skipped with the reason shown in the pytest summary (`pytest -rs`). CI sets `TEST_DATABASE_URL` to its own `test_db`.
+
+The unit tests clear `LLM_PROVIDER`, `META_MODEL_API_KEY` and `MODEL_BUNDLE_PATH` before each test (`app/backend/tests/conftest.py`), so the compose settings do not change their results.
 
 ## What's simplified for the cloud demo vs local dev
 
