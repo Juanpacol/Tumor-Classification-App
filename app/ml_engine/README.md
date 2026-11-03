@@ -116,4 +116,14 @@ docker compose run --rm --entrypoint pytest trainer src/ -q                     
 - To time a round: `time docker compose run ...` (POSIX) or `Measure-Command { docker compose run ... }` (PowerShell).
 - On a Linux host the container writes files as root; add `--user "$(id -u):$(id -g)" -e HOME=/tmp` to `run`.
 
+### Pipeline notebook
+
+`notebooks/pipeline_walkthrough.ipynb` runs the pipeline cell by cell with matplotlib plots: dataset and leakage-free split, source geometry, one image through B3-B6, the quality gate over Train, augmentation, the CNN tensor and embedding, radiomics, folds, then selection, augmentation decision, ablation, out-of-fold metrics, the shortcut audit and a single Test evaluation. It only calls `src` functions and never writes an artifact. It runs in the `notebook` image (the training image plus JupyterLab and matplotlib, constrained by the lock):
+
+```bash
+docker compose --profile notebook up notebook   # open the printed http://127.0.0.1:8888/lab?token=... link
+```
+
+It reuses `artifacts/feature-cache`, so run a round first (or expect about 8 minutes in its feature section). Notebooks are committed without outputs.
+
 To try a round in the app, copy its artifact to the folder the backend mounts and restart it: `cp -r artifacts/model-v0.2.0 artifacts/current` (replace the folder if it exists), then `docker compose restart backend`.
