@@ -119,6 +119,13 @@ def test_a_manifest_without_training_images_is_an_error(
         train(config, now=NOW)
 
 
+def small_pca_round(folder: Path) -> Path:
+    """A round file with the PCA size of ``make_config``, for CLI runs."""
+    path = folder / "small-pca.toml"
+    path.write_text("[model]\npca_components = 16\n")
+    return path
+
+
 def test_the_cli_prints_where_the_results_went(
     workspace: dict[str, Path], tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -131,6 +138,7 @@ def test_the_cli_prints_where_the_results_went(
             "--n-splits", "3",
             "--version", "cli-test",
             "--cache-dir", str(workspace["root"] / "cache"),
+            "--config", str(small_pca_round(tmp_path)),
             "--final",
         ]
     )  # fmt: skip
@@ -342,6 +350,7 @@ def test_the_cli_runs_a_tuning_round_without_final(
             "--n-splits", "3",
             "--version", "cli-tuning",
             "--cache-dir", str(workspace["root"] / "cache"),
+            "--config", str(small_pca_round(tmp_path)),
         ]
     )  # fmt: skip
 
@@ -365,7 +374,10 @@ def test_a_missing_backbone_bundle_stops_the_run_before_any_image(
 ) -> None:
     calls = refuse_to_read_samples(monkeypatch)
     config = make_config(
-        workspace, tmp_path, final=False, model=ModelConfig(backbone="densenet121")
+        workspace,
+        tmp_path,
+        final=False,
+        model=ModelConfig(backbone="densenet121", pca_components=16),
     )
 
     with pytest.raises(BackboneBundleError, match="densenet121") as error:
@@ -386,7 +398,7 @@ def test_a_bundle_of_another_backbone_stops_the_run(
         tmp_path / "out",
         final=False,
         weights_dir=weights,
-        model=ModelConfig(backbone="resnet50"),
+        model=ModelConfig(backbone="resnet50", pca_components=16),
     )
 
     with pytest.raises(BackboneBundleError, match="efficientnet_b0.*resnet50"):
@@ -399,3 +411,53 @@ def test_the_resolved_configuration_records_the_backbone(
     result: TrainingResult,
 ) -> None:
     assert result.report["config"]["model"]["backbone"] == "efficientnet_b0"
+
+
+def test_the_report_has_calibrated_out_of_fold_metrics(
+    tuning: tuple[TrainingResult, Path], result: TrainingResult
+) -> None:
+    tuned, _ = tuning
+    calibrated = tuned.report["cv_calibrated"]
+
+    assert calibrated["method"] == "sigmoid"
+    assert 0 <= calibrated["macro_f1"] <= 1 and calibrated["log_loss"] > 0
+    assert calibrated == result.report["cv_calibrated"]
+    manifest = json.loads((result.artifact_dir / MANIFEST_FILE).read_text())
+    assert manifest["metrics"]["cv_calibrated"] == calibrated
+
+
+@pytest.fixture(scope="module")
+def cnn_only_isotonic(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> TrainingResult:
+    """A final run that drops the radiomic block and calibrates with isotonic."""
+    model = ModelConfig(blocks=("cnn",), calibration="isotonic", pca_components=16)
+    out = tmp_path_factory.mktemp("cnn-only")
+    return train(make_config(workspace, out, model=model, version="8.8.8"), now=NOW)
+
+
+def test_a_cnn_only_round_fits_every_model_on_the_cnn_block(
+    cnn_only_isotonic: TrainingResult,
+) -> None:
+    model = joblib.load(cnn_only_isotonic.artifact_dir / CLASSIFIER_FILE)
+
+    for calibrated in model.calibrated_classifiers_:
+        features = calibrated.estimator.named_steps["features"]
+        assert [name for name, _, _ in features.transformers] == ["cnn"]
+    ablation = cnn_only_isotonic.report["ablation_macro_f1"]
+    selected = cnn_only_isotonic.report["selection"]["best"]
+    score = cnn_only_isotonic.report["selection"]["scores"][selected]
+    assert ablation["cnn_only"] == score["mean_macro_f1"]
+    assert tuple(cnn_only_isotonic.report["config"]["model"]["blocks"]) == ("cnn",)
+
+
+def test_the_configured_calibration_reaches_the_artifact(
+    cnn_only_isotonic: TrainingResult,
+) -> None:
+    model = joblib.load(cnn_only_isotonic.artifact_dir / CLASSIFIER_FILE)
+    manifest = json.loads((cnn_only_isotonic.artifact_dir / MANIFEST_FILE).read_text())
+
+    assert {c.method for c in model.calibrated_classifiers_} == {"isotonic"}
+    assert manifest["calibration"]["method"] == "isotonic"
+    assert cnn_only_isotonic.report["calibration_method"] == "isotonic"
+    assert cnn_only_isotonic.report["cv_calibrated"]["method"] == "isotonic"

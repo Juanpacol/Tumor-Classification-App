@@ -253,3 +253,30 @@ def test_the_cli_takes_the_weights_folder() -> None:
     )
 
     assert configure(args).weights_dir == Path("bundles")
+
+
+def test_a_round_can_drop_the_radiomic_block(tmp_path: Path) -> None:
+    text = '[model]\nblocks = ["cnn"]\n'
+    config = apply_round(base(), round_file(tmp_path, text))
+
+    assert config.model.blocks == ("cnn",)
+    assert resolved_config(config)["model"]["blocks"] == ("cnn",)
+
+
+@pytest.mark.parametrize("blocks", ["[]", '["radiomic"]', '["cnn", "radiomic"]'])
+def test_other_blocks_are_rejected_naming_the_key(tmp_path: Path, blocks: str) -> None:
+    with pytest.raises(RoundFileError, match="model.blocks"):
+        apply_round(base(), round_file(tmp_path, f"[model]\nblocks = {blocks}\n"))
+
+
+def test_a_round_chooses_the_calibration_method(tmp_path: Path) -> None:
+    text = '[model]\ncalibration = "isotonic"\n'
+    config = apply_round(base(), round_file(tmp_path, text))
+
+    assert config.model.calibration == "isotonic"
+    assert base().model.calibration == "sigmoid"
+
+
+def test_an_unknown_calibration_method_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(RoundFileError, match="model.calibration"):
+        apply_round(base(), round_file(tmp_path, '[model]\ncalibration = "platt"\n'))

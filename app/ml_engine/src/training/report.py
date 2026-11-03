@@ -28,6 +28,7 @@ def build_report(
     ablation: dict[str, float],
     augmentation: dict[str, Any],
     cv_out_of_fold: dict[str, Any],
+    cv_calibrated: dict[str, Any],
     shortcut_audit: dict[str, Any],
     guarantees: list[dict[str, Any]],
     config: dict[str, Any],
@@ -48,6 +49,7 @@ def build_report(
         "ablation_macro_f1": ablation,
         "augmentation": augmentation,
         "cv_out_of_fold": cv_out_of_fold,
+        "cv_calibrated": cv_calibrated,
         "shortcut_audit": shortcut_audit,
         "leakage_guarantees": guarantees,
         "config": config,
@@ -105,6 +107,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         + (f", calibrated with {report['calibration_method']}." if final else "."),
         "",
         *_out_of_fold_lines(report["cv_out_of_fold"]),
+        *_calibrated_lines(report["cv_calibrated"]),
         *_augmentation_lines(report["augmentation"]),
         *_shortcut_lines(report["shortcut_audit"]),
         *_guarantee_lines(report["leakage_guarantees"]),
@@ -205,6 +208,30 @@ def _out_of_fold_lines(metrics: dict[str, Any]) -> list[str]:
         "Confusion matrix (rows are the truth):",
         "",
         *_confusion_lines(metrics),
+    ]
+
+
+def _calibrated_lines(metrics: dict[str, Any]) -> list[str]:
+    accuracy = metrics["confident_accuracy"]
+    return [
+        "## Calibrated (cross-validated on Train, out-of-fold)",
+        "",
+        (
+            f"Selected classifier calibrated with {metrics['method']}, as the final "
+            "model is, but fold k is calibrated on the other folds only. Compare "
+            "calibration methods on log loss."
+        ),
+        "",
+        "| Macro-F1 | Log loss | Top probability ≥ "
+        f"{metrics['triage_threshold']:.2f} | Accuracy of those |",
+        "|---|---|---|---|",
+        (
+            f"| {metrics['macro_f1']:.3f} | {metrics['log_loss']:.3f} "
+            f"| {metrics['confident_share']:.1%} | "
+            + ("n/a" if accuracy is None else f"{accuracy:.3f}")
+            + " |"
+        ),
+        "",
     ]
 
 

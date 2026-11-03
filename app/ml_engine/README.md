@@ -81,7 +81,7 @@ It first removes from Train every image whose `group_id` also appears in Test, a
 - `model-v<version>/` (final runs only): `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
 - `reports/<timestamp>/`: `report.json` and `report.md` (the run's mode; for final runs the test metrics including balanced accuracy and confusion matrix; images per fold and class, selection, the out-of-fold per-class metrics on Train, the augmentation decision, ablation, the shortcut audit, the status of each leakage guarantee, and, for final runs, whether the 0.90 macro-F1 target was met), `config.json` with every resolved parameter, and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
 
-The out-of-fold section gives per-class precision, recall, F1 and the confusion matrix of the selected classifier (uncalibrated), predicting every usable Train image once with the model of the fold that validates it. It never reads Test, so it is the section to tune on (D23).
+The out-of-fold section gives per-class precision, recall, F1 and the confusion matrix of the selected classifier (uncalibrated), predicting every usable Train image once with the model of the fold that validates it. It never reads Test, so it is the section to tune on (D23). The calibrated section next to it gives macro-F1, log loss and the share of confident predictions of the same classifier calibrated as the final model is, with fold k calibrated on the other folds only; compare calibration methods on its log loss (D25).
 
 The CLI prints the balanced accuracy of a classifier that sees only width, height and file size; at 0.70 or more it warns that the class can be told from the file alone, and that result goes to the team before a model is published.
 
@@ -97,7 +97,7 @@ Each round is a TOML file in `rounds/`, versioned in git, named after the round'
 | `[preprocessing]`, `[preprocessing.thresholds]` | `PreprocessingConfig` and `QualityThresholds` (not `metrics_version`) |
 | `[radiomics]` | `RadiomicsConfig` |
 | `[augmentation]` | `AugmentationConfig` |
-| `[model]` | `backbone` (`efficientnet_b0`, `resnet50` or `densenet121`), `pca_components` |
+| `[model]` | `backbone` (`efficientnet_b0`, `resnet50` or `densenet121`), `pca_components`, `blocks` (`["radiomic", "cnn"]` or `["cnn"]`), `calibration` (`sigmoid` or `isotonic`) |
 | `[classifiers.<name>]` | hyperparameters of `logistic_regression`, `svm_rbf` or `random_forest` (any `get_params()` key except `class_weight` and `random_state`) |
 
 An unknown or guarded key stops the run before any image is read, with an error naming it. `--seed` and `--n-splits` on the command line override the file. Rounds that change only `[model]` settings other than `backbone`, or `[classifiers.*]`, reuse every cached feature; a new backbone extracts its CNN features once, and returning to a backbone reuses them; changes to preprocessing, radiomics or augmentation recompute what they affect.

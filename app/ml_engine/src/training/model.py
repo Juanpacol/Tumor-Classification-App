@@ -26,6 +26,10 @@ PCA_COMPONENTS = 32
 
 
 BLOCKS = ("radiomic", "cnn")
+BLOCK_CHOICES = (BLOCKS, ("cnn",))
+"""Feature blocks a round may give the classifier. Radiomics alone scored 0.754 in
+the baseline ablation, so it is not offered."""
+CALIBRATION_METHODS = frozenset({"sigmoid", "isotonic"})
 
 GUARDED_PARAMS = frozenset({"class_weight", "random_state"})
 """Classifier parameters a training round may not change: classes stay balanced and
@@ -39,12 +43,24 @@ class ModelConfig:
 
     backbone: str = DEFAULT_BACKBONE
     pca_components: int = PCA_COMPONENTS
+    blocks: tuple[str, ...] = BLOCKS
+    calibration: str = "sigmoid"
     classifier_params: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         get_spec(self.backbone)
         if self.pca_components < 1:
             raise ValueError("pca_components must be at least 1")
+        if self.blocks not in BLOCK_CHOICES:
+            raise ValueError(
+                f"blocks must be one of {[list(c) for c in BLOCK_CHOICES]}, "
+                f"got {list(self.blocks)}"
+            )
+        if self.calibration not in CALIBRATION_METHODS:
+            raise ValueError(
+                f"calibration must be one of {sorted(CALIBRATION_METHODS)}, "
+                f"got {self.calibration!r}"
+            )
 
 
 def build_model(
@@ -157,11 +173,12 @@ def cross_validate_predictions(
     n_originals: int,
     seed: int = DEFAULT_SEED,
     pca_components: int = PCA_COMPONENTS,
+    blocks: tuple[str, ...] = BLOCKS,
 ) -> tuple[CandidateScore, np.ndarray]:
     """Scores as ``cross_validate_scores``, plus the out-of-fold predictions of the
     first ``n_originals`` rows made by the same fitted fold models."""
     n_cnn = matrix.shape[1] - n_radiomic
-    model = build_model(classifier, n_radiomic, n_cnn, seed, pca_components)
+    model = build_model(classifier, n_radiomic, n_cnn, seed, pca_components, blocks)
     folds = _cross_validate(model, matrix, y, splits, keep_models=True)
     predictions = out_of_fold_predictions(
         folds["estimator"], folds["indices"]["test"], matrix, y, n_originals
@@ -222,6 +239,7 @@ def compare_classifiers(
             len(y),
             seed,
             config.pca_components,
+            config.blocks,
         )
         for name, classifier in candidate_classifiers(
             seed, config.classifier_params

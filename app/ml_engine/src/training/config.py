@@ -19,7 +19,7 @@ from src.training.folds import N_SPLITS
 from src.training.model import DEFAULT_SEED, ModelConfig, candidate_classifiers
 
 GUARDED_KEYS = frozenset({"preprocessing.thresholds.metrics_version"})
-MODEL_KEYS = frozenset({"backbone", "pca_components"})
+MODEL_KEYS = frozenset({"backbone", "pca_components", "blocks", "calibration"})
 """Keys of the ``[model]`` section of a round file."""
 """Round-file keys that name an engine property rather than a tunable value."""
 

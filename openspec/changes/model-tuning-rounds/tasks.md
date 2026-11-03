@@ -17,11 +17,11 @@ Run tests in the trainer from the repository root with `docker compose run --rm 
 
 ## 3. Blocks and calibration keys
 
-- [ ] 3.1 Add `blocks` (`["radiomic","cnn"]` default or `["cnn"]`) to `ModelConfig` and thread it through `compare_classifiers`, `cross_validate_predictions`, the ablation reference score and the final `build_model` (design decision 3); verify tests that a CNN-only round fits every candidate on the CNN columns only and that `[]` and `["radiomic"]` are rejected naming `model.blocks`
-- [ ] 3.2 Verify serving of a CNN-only artifact: build a synthetic final artifact with `blocks = ["cnn"]` and check `BundleInferencePipeline.from_bundle(...).predict(bytes)` returns top radiomic features; test in `src/tests/`
-- [ ] 3.3 Add `calibration` (`sigmoid` default or `isotonic`) to `ModelConfig`, used by `calibrate()` instead of the constant, and record it in the report and the manifest; verify tests that the saved classifier's 5 calibrators use the configured method and `platt` is rejected
-- [ ] 3.4 Add calibrated out-of-fold metrics (design decision 4): per outer fold, `CalibratedClassifierCV` with the configured method on the 4 leave-one-fold-out inner splits of the fit folds, probabilities for the fold's originals, pooled macro-F1, log loss and triage share/accuracy at `TRIAGE_CONFIDENCE_THRESHOLD`; report as `cv_calibrated`; verify tests that fold k's predicting model never saw a fold-k row in fit or calibration, and that no Testing feature is read
-- [ ] 3.5 Record decisions D25 (modes, weights layout, model keys, calibrated out-of-fold metrics) in `docs/ml-engine/decisions.md`; verify the entry names the CLI and layout breaking changes
+- [x] 3.1 Add `blocks` (`["radiomic","cnn"]` default or `["cnn"]`) to `ModelConfig` and thread it through `compare_classifiers`, `cross_validate_predictions`, the ablation reference score and the final `build_model` (design decision 3); verify tests that a CNN-only round fits every candidate on the CNN columns only and that `[]` and `["radiomic"]` are rejected naming `model.blocks`
+- [x] 3.2 Verify serving of a CNN-only artifact: build a synthetic final artifact with `blocks = ["cnn"]` and check `BundleInferencePipeline.from_bundle(...).predict(bytes)` returns top radiomic features; test in `src/tests/`
+- [x] 3.3 Add `calibration` (`sigmoid` default or `isotonic`) to `ModelConfig`, used by `calibrate()` instead of the constant, and record it in the report and the manifest; verify tests that the saved classifier's 5 calibrators use the configured method and `platt` is rejected
+- [x] 3.4 Add calibrated out-of-fold metrics (design decision 4): per outer fold, `CalibratedClassifierCV` with the configured method on the 4 leave-one-fold-out inner splits of the fit folds, probabilities for the fold's originals, pooled macro-F1, log loss and triage share/accuracy at `TRIAGE_CONFIDENCE_THRESHOLD`; report as `cv_calibrated`; verify tests that fold k's predicting model never saw a fold-k row in fit or calibration, and that no Testing feature is read
+- [x] 3.5 Record decisions D25 (modes, weights layout, model keys, calibrated out-of-fold metrics) in `docs/ml-engine/decisions.md`; verify the entry names the CLI and layout breaking changes
 
 ## 4. Training error diagnosis
 
