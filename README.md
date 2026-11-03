@@ -47,8 +47,9 @@ Prerequisites: Docker, Python 3.11+ and Node.js 20+ (Node 18 also works).
 
 ```bash
 docker compose up -d --build                           # Postgres, backend, frontend
-docker compose exec backend alembic upgrade head       # create the schema (first run only)
 ```
+
+The backend applies the database migrations (`alembic upgrade head`) every time it starts; if they fail it does not start, and `docker compose logs backend` shows why.
 
 | Check | Expect |
 |---|---|
