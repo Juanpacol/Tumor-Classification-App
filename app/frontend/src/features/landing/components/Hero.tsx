@@ -29,8 +29,12 @@ export function Hero() {
       <div className={styles.fadeBottom} />
       <div className={styles.content}>
         <span className={styles.wordmark}>ETHER</span>
-        <p className={styles.tagline}>Built to see what others miss.</p>
-        <h1 className={styles.headline}>What the eye misses, Ether finds.</h1>
+        <p className={styles.tagline}>
+          Some MRIs wait weeks for a second set of eyes.
+        </p>
+        <h1 className={styles.headline}>
+          Ether doesn&apos;t replace the radiologist. It buys them time.
+        </h1>
         <Link href="/studies" className={styles.cta}>
           Open the portal
         </Link>

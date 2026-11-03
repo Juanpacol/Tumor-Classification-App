@@ -5,7 +5,9 @@ from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
-from application.clinical_report import ClinicalReportOutput
+from application.citation_verifier import VerifyCitations
+from application.evidence_bundle import BuildEvidenceBundle, EvidenceBundle
+from application.grounded_report import ClaimOutput, GroundedClinicalReportOutput
 from application.report_guardrails import find_violations
 from application.report_prompt import build_messages
 from domain.errors import DomainError
@@ -56,7 +58,8 @@ class GenerateClinicalReport:
 
         prediction = await self._require_prediction(study_id)
         image = self._load_image(study)
-        output, problems = await self._draft(study, prediction, image)
+        bundle = BuildEvidenceBundle().execute(prediction)
+        output, problems = await self._draft(study, prediction, bundle, image)
         if output is None:
             await self._store(study_id, ReportStatus.FAILED, error="; ".join(problems))
             raise DomainError(
@@ -64,8 +67,11 @@ class GenerateClinicalReport:
                 "The model did not produce a valid report. Try again.",
                 status_code=502,
             )
-        report = ClinicalReport(study_id=study_id, **output.model_dump())
-        return await self._store(study_id, ReportStatus.COMPLETED, content=report)
+        return await self._store(
+            study_id,
+            ReportStatus.COMPLETED,
+            content=_to_clinical_report(study_id, output, bundle),
+        )
 
     async def _require_study(self, study_id: str) -> Study:
         study = await self._repository.get(study_id)
@@ -98,15 +104,19 @@ class GenerateClinicalReport:
             ) from None
 
     async def _draft(
-        self, study: Study, prediction: Prediction, image: bytes
-    ) -> tuple[ClinicalReportOutput | None, list[str]]:
-        messages = build_messages(study, prediction)
+        self,
+        study: Study,
+        prediction: Prediction,
+        bundle: EvidenceBundle,
+        image: bytes,
+    ) -> tuple[GroundedClinicalReportOutput | None, list[str]]:
+        messages = build_messages(study, prediction, bundle)
         problems: list[str] = []
         for _ in range(MAX_ATTEMPTS):
-            output: ClinicalReportOutput | None = None
+            output: GroundedClinicalReportOutput | None = None
             try:
                 output = await self._llm.complete_json(
-                    messages, ClinicalReportOutput, image=image
+                    messages, GroundedClinicalReportOutput, image=image
                 )
                 problems = find_violations(output, prediction)
             except ValidationError as error:
@@ -116,7 +126,7 @@ class GenerateClinicalReport:
             if output is not None and not problems:
                 return output, []
             messages = [
-                *build_messages(study, prediction),
+                *build_messages(study, prediction, bundle),
                 {
                     "role": "user",
                     "content": "Your previous answer was rejected: "
@@ -143,3 +153,29 @@ class GenerateClinicalReport:
         )
         await self._repository.save_report(report)
         return report
+
+
+def _to_clinical_report(
+    study_id: str, output: GroundedClinicalReportOutput, bundle: EvidenceBundle
+) -> ClinicalReport:
+    """Narrative fields as text, plus every claim checked against the evidence."""
+    claims = [
+        *output.findings,
+        *output.visual_observations,
+        *output.impression,
+        *output.differential_considerations,
+    ]
+    return ClinicalReport(
+        study_id=study_id,
+        findings=_join(output.findings),
+        visual_observations=_join(output.visual_observations),
+        impression=_join(output.impression),
+        differential_considerations=_join(output.differential_considerations),
+        suggested_next_steps=output.suggested_next_steps,
+        ai_agreement=output.ai_agreement,
+        citations=VerifyCitations().execute(claims, bundle),
+    )
+
+
+def _join(claims: list[ClaimOutput]) -> str:
+    return " ".join(claim.text for claim in claims)

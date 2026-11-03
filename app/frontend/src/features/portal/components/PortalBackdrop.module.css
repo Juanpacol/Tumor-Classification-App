@@ -37,11 +37,10 @@
   width: 38%;
   height: 56vh;
   z-index: -1;
-  background-image: url("/portal-instrument.png");
+  background-image: url("/portal-scissors-hands.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: left bottom;
-  filter: grayscale(1) contrast(1.1);
   mix-blend-mode: multiply;
   opacity: 0.26;
   mask-image: radial-gradient(

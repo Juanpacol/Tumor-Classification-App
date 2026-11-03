@@ -37,6 +37,18 @@ export interface Prediction {
   model_version: string;
 }
 
+export interface EvidenceRef {
+  key: string;
+  description: string;
+}
+
+/** A report claim and the evidence it cites; `verified` only when every cited key resolves. */
+export interface Citation {
+  claim: string;
+  evidence: EvidenceRef[];
+  verified: boolean;
+}
+
 export interface ClinicalReport {
   findings: string;
   visual_observations: string;
@@ -44,6 +56,7 @@ export interface ClinicalReport {
   differential_considerations: string;
   suggested_next_steps: string[];
   ai_agreement: AiAgreement;
+  citations: Citation[];
 }
 
 export type ReportStatus = "pending" | "completed" | "failed";

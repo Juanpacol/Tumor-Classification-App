@@ -6,6 +6,7 @@ from src.tests.synthetic import grouped_splits, separable_features
 from src.training import model as model_module
 from src.training.model import (
     CandidateScore,
+    ModelConfig,
     build_model,
     candidate_classifiers,
     compare_classifiers,
@@ -82,9 +83,10 @@ def test_selection_uses_macro_f1_not_balanced_accuracy(
             "SVC": (0.90, 0.70),
             "RandomForestClassifier": (0.85, 0.80),
         }[name]
-        return CandidateScore(f1, 0.0, (f1,), balanced, 0.0, (balanced,))
+        score = CandidateScore(f1, 0.0, (f1,), balanced, 0.0, (balanced,))
+        return score, np.zeros(4)
 
-    monkeypatch.setattr(model_module, "cross_validate_scores", fake_scores)
+    monkeypatch.setattr(model_module, "cross_validate_predictions", fake_scores)
 
     result = compare_classifiers(np.zeros((4, 2)), np.zeros(4), 1, [])
 
@@ -115,3 +117,37 @@ def test_unbalanced_classes_still_score_per_class() -> None:
     )
 
     assert result.scores[result.best].mean_macro_f1 > 0.8
+
+
+def test_hyperparameter_overrides_reach_the_candidate() -> None:
+    candidates = candidate_classifiers(params={"svm_rbf": {"C": 3.0}})
+
+    assert candidates["svm_rbf"].get_params()["C"] == 3.0
+    assert candidates["svm_rbf"].get_params()["class_weight"] == "balanced"
+    assert candidates["logistic_regression"].get_params()["C"] == 1.0
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"svm_rbf": {"class_weight": None}},
+        {"random_forest": {"random_state": 1}},
+        {"xgboost": {"max_depth": 3}},
+    ],
+)
+def test_guarded_or_unknown_overrides_are_rejected(params: dict) -> None:
+    with pytest.raises(ValueError):
+        candidate_classifiers(params=params)
+
+
+def test_selection_uses_the_configured_pca_size() -> None:
+    matrix, labels, groups = separable_features()
+    config = ModelConfig(pca_components=4)
+
+    result = compare_classifiers(
+        matrix, labels, N_RADIOMIC, grouped_splits(labels, groups), config=config
+    )
+
+    assert result.scores[result.best].mean_macro_f1 > 0.9
+    with pytest.raises(ValueError):
+        ModelConfig(pca_components=0)

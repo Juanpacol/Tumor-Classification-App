@@ -1,0 +1,48 @@
+# Round 0.1.0: baseline on the real dataset (Azure #212).
+# Every value is today's default, written out so later rounds can diff against it.
+# A round file may leave keys out; they keep their defaults. Rounds are compared on
+# the out-of-fold section of the report (cross-validated on Train), never on Test.
+
+[run]
+seed = 42
+n_splits = 5
+
+[preprocessing]
+min_mask_fraction = 0.05
+crop_margin = 0.05
+cnn_size = 224
+
+[preprocessing.thresholds]
+min_snr = 2.74
+min_entropy = 3.2
+
+[radiomics]
+gray_levels = 32
+glcm_distances = [1]
+glcm_angles = [0.0, 0.7853981633974483, 1.5707963267948966, 2.356194490192345]
+lbp_points = 8
+lbp_radius = 1
+wavelet = "haar"
+wavelet_level = 2
+percentiles = [10, 25, 50, 75, 90]
+min_mask_pixels = 16
+
+[augmentation]
+copies = 1
+max_rotation_deg = 10.0
+flip_probability = 0.5
+scale_range = 0.1
+brightness_range = 0.1
+contrast_range = 0.1
+
+[model]
+pca_components = 32
+
+[classifiers.logistic_regression]
+max_iter = 2000
+
+[classifiers.svm_rbf]
+kernel = "rbf"
+
+[classifiers.random_forest]
+n_estimators = 300

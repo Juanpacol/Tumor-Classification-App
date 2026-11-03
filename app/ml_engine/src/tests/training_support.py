@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.training.run import TrainingConfig
+from src.training.config import TrainingConfig
 
 PER_CLASS = 20
 NOW = datetime(2026, 10, 29, 10, 0, 0, tzinfo=UTC)

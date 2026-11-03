@@ -1,7 +1,4 @@
-version: '3.9'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: ether-postgres
@@ -19,38 +16,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for task queue and caching
-  redis:
-    image: redis:7-alpine
-    container_name: ether-redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # MinIO (S3-compatible object storage)
-  minio:
-    image: minio/minio:latest
-    container_name: ether-minio
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/minio_data
-    command: server /minio_data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # FastAPI Backend
   backend:
     build:
       context: .
@@ -58,50 +23,21 @@ services:
     container_name: ether-backend
     environment:
       DATABASE_URL: postgresql://ether_user:ether_password@postgres:5432/ether_db
-      REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      ENVIRONMENT: development
       # Set MODEL_BUNDLE_PATH= (empty) to start without a model
       MODEL_BUNDLE_PATH: ${MODEL_BUNDLE_PATH-/models/current}
+      # fake: canned answers, no key needed. meta: real Muse Spark, needs the key.
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      META_MODEL_API_KEY: ${META_MODEL_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     volumes:
       - ./app/backend:/app
       - ${MODEL_BUNDLE_DIR:-./app/ml_engine/artifacts/current}:/models/current:ro
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Celery Worker
-  celery_worker:
-    build:
-      context: .
-      dockerfile: app/backend/Dockerfile
-    container_name: ether-celery-worker
-    environment:
-      DATABASE_URL: postgresql://ether_user:ether_password@postgres:5432/ether_db
-      REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      ENVIRONMENT: development
-    depends_on:
-      - postgres
-      - redis
-      - minio
-    volumes:
-      - ./app/backend:/app
-      - ./app/ml_engine:/ml_engine
-    command: celery -A app.tasks worker --loglevel=info
-
-  # Next.js Frontend
   frontend:
     build:
       context: ./app/frontend
@@ -113,14 +49,38 @@ services:
       - backend
     volumes:
       - ./app/frontend:/app
+      - /app/node_modules
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
-      NODE_ENV: development
     command: npm run dev
+
+  # Training rounds (app/ml_engine/README.md). Not started by `docker compose up`:
+  #   docker compose run --rm trainer src.training --config rounds/<v>.toml --version <v> ...
+  trainer:
+    build:
+      context: ./app/ml_engine
+      target: trainer
+    profiles: ["train"]
+    working_dir: /work
+    volumes:
+      - ./app/ml_engine:/work
+
+  # Step-by-step pipeline notebook (app/ml_engine/notebooks/). Not started by
+  # `docker compose up`: `docker compose up notebook`, then open the printed
+  # http://127.0.0.1:8888/lab?token=... link.
+  notebook:
+    build:
+      context: ./app/ml_engine
+      target: notebook
+    profiles: ["notebook"]
+    working_dir: /work
+    ports:
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - ./app/ml_engine:/work
 
 volumes:
   postgres_data:
-  minio_data:
 
 networks:
   default:

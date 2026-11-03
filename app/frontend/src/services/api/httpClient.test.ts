@@ -77,6 +77,36 @@ describe("http client", () => {
     expect(form.get("file")).toBeInstanceOf(Blob);
   });
 
+  it("returns the rejected study from a 422 rejection", async () => {
+    const study = { id: "s-1", status: "rejected", rejection_reason: "noisy" };
+    mockFetch(
+      Response.json(
+        {
+          code: "QUALITY_CHECK_FAILED",
+          message: "The image did not pass the quality check.",
+          details: { reason: "noisy" },
+          study,
+        },
+        { status: 422 },
+      ),
+    );
+    await expect(client.uploadStudy(new Blob(["x"]) as File)).resolves.toEqual(
+      study,
+    );
+  });
+
+  it("throws a validation 422 without a study", async () => {
+    mockFetch(
+      Response.json(
+        { detail: [{ loc: ["body", "clinical_notes"], msg: "too long" }] },
+        { status: 422 },
+      ),
+    );
+    await expect(
+      client.uploadStudy(new Blob(["x"]) as File, "x".repeat(2001)),
+    ).rejects.toMatchObject({ code: "UNKNOWN_ERROR", status: 422 });
+  });
+
   it("parses a streamed chat answer into events", async () => {
     mockFetch(
       sse(

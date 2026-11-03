@@ -6,14 +6,14 @@ A Clinical Decision Support System (CDSS) prototype that combines classical radi
 
 ## 📌 Project status
 
-Reviewed on 2026-10-29. This table says what exists today, not what is planned.
+Reviewed on 2026-11-02. This table says what exists today, not what is planned.
 
 | Area | Works today | Not built yet |
 |---|---|---|
-| **ML engine** | JPG/PNG loader, image quality gate, 45 radiomic features (GLCM, LBP, wavelet, intensity), frozen EfficientNet-B0 embeddings, a training pipeline (cross-validation, calibration, report) and a serving pipeline. All tested on **synthetic** data | A model trained on the real dataset (the dataset is not in this repository), so **there are no accuracy figures yet**. Grad-CAM explanations. DICOM input |
-| **Backend** | FastAPI service with a `/health` endpoint and API docs, hexagonal structure, PostgreSQL schema managed with Alembic, a client for the Meta Model API (Muse Spark) that is not yet connected to any endpoint | Study upload and classification endpoints, report and chat endpoints, de-identification. `/health` reports `model_loaded: true` because the service still uses a fake classifier |
-| **Frontend** | Landing page and the "how we built it" page, deployed on Vercel | The clinician portal, the MRI viewer (Cornerstone3D is installed but no viewer exists), the results panel and the chat |
-| **Infrastructure** | CI on GitHub Actions (tests, type checks, commit format). Frontend on Vercel, backend on Google Cloud Run, database on Supabase | Automatic database migrations on deploy |
+| **ML engine** | JPG/PNG loader, quality gate with calibrated thresholds, brain mask, 45 radiomic features, frozen EfficientNet-B0 embeddings, training pipeline (grouped cross-validation, calibration, shortcut audit) and serving pipeline | A published model that loads with the current engine, so **no accuracy figures yet**. Grad-CAM. DICOM input |
+| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), Alembic schema, end-to-end test | A published model (without one, classification answers 503). DICOM and its de-identification |
+| **Frontend** | Landing, "how we built it" and the clinician portal: study list, upload with checks, image viewer, clinical summary, report with citations, chat | DICOM viewing. Explanation heatmap |
+| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy | Backend deployed with a model. End-to-end demo checklist |
 
 Live frontend: https://ether-self-five.vercel.app
 
@@ -25,7 +25,7 @@ Three independent components:
 - **ML engine** (`app/ml_engine`): a standalone package with the hybrid pipeline (radiomics + CNN).
 - **Frontend** (`app/frontend`): Next.js web app.
 
-Planned request flow (the backend does not implement it yet):
+Request flow (needs a published model to classify):
 
 ```
 Clinician            Backend (FastAPI)            ML engine             Muse Spark API
@@ -41,40 +41,47 @@ See [CLAUDE.md](./CLAUDE.md) for the architecture rules and [docs/ml-engine/stat
 
 ## 🚀 Quick start
 
-Prerequisites: Python 3.11+, Node.js 18+ and Docker (only for the local database).
+Prerequisites: Docker, Python 3.11+ and Node.js 20+ (Node 18 also works).
 
-### Backend
+### Run the whole project
 
 ```bash
-docker compose up -d postgres        # PostgreSQL on localhost:5432
-cd app/backend
-pip install -e ".[dev]"
-cp .env.example .env
-alembic upgrade head                 # create the schema
-uvicorn main:app --reload            # http://localhost:8000, docs at /docs
-pytest                               # integration tests need a reachable PostgreSQL
+docker compose up -d --build                           # Postgres, backend, frontend
+docker compose exec backend alembic upgrade head       # create the schema (first run only)
 ```
 
-If port 5432 is already taken by a local PostgreSQL, change the host port in `docker-compose.yml` and in `DATABASE_URL`.
+| Check | Expect |
+|---|---|
+| http://localhost:8000/health | `database_reachable: true` |
+| http://localhost:8000/docs | API docs |
+| http://localhost:3000 | landing page; the portal is at `/studies` |
 
-Do not run the whole stack with `docker compose up` yet. The compose file still defines Redis, MinIO and a Celery worker that the backend no longer uses, and the worker points to a module that does not exist.
+By default it runs with no model and no key:
 
-### ML engine
+| To get | Do |
+|---|---|
+| Real reports and chat | `export LLM_PROVIDER=meta META_MODEL_API_KEY=<key>` before `docker compose up`. Send only public dataset images, never patient data |
+| Real classification | Put a trained bundle in `app/ml_engine/artifacts/current` (or set `MODEL_BUNDLE_DIR`). Without it `/health` says `model_loaded: false` and classification answers 503. Training: [app/ml_engine/README.md](./app/ml_engine/README.md) |
+| Portal with no backend | `NEXT_PUBLIC_API_MODE=mock` in `app/frontend/.env.local` serves sample data |
+
+Upgrading from the old compose file? `docker compose up -d --remove-orphans` removes the leftover Redis and MinIO containers.
+
+Port 5432 taken? Create `docker-compose.override.yml` (git-ignored) with `services: {postgres: {ports: !override ["5436:5432"]}}`, and use that port in `DATABASE_URL` when running the backend on the host.
+
+### Run each part on the host
 
 ```bash
-cd app/ml_engine
-pip install -r requirements.lock
-pytest src/tests
-```
+# Backend (needs Postgres: docker compose up -d postgres)
+cd app/backend && pip install -e ".[dev]" && cp .env.example .env
+alembic upgrade head && uvicorn main:app --reload     # :8000
+pytest                                                # integration tests need Postgres
 
-Exporting the backbone weights, training and serving are described in [app/ml_engine/README.md](./app/ml_engine/README.md).
+# Frontend
+cd app/frontend && npm install && cp .env.example .env.local
+npm run dev                                           # :3000
 
-### Frontend
-
-```bash
-cd app/frontend
-npm install
-npm run dev                          # http://localhost:3000
+# ML engine
+cd app/ml_engine && pip install -r requirements.lock && pytest src/tests
 ```
 
 ## 📁 Project structure
@@ -150,7 +157,7 @@ Pull requests target `develop` (QA). Changes reach `main` only through a promoti
 ## ⚠️ Important notes
 
 - Ether is a **Clinical Decision Support System** prototype: it is meant to augment a specialist's evaluation, never to replace it, and it is **not validated on clinical data**.
-- No real patient data is processed or stored today. Only JPG and PNG images are supported. De-identification and DICOM support are planned, not implemented.
+- No real patient data is processed or stored today. Only JPG and PNG images are supported, and their embedded metadata is removed on upload. DICOM support and its de-identification are planned, not implemented.
 - Explanations such as Grad-CAM heatmaps are planned, not implemented.
 
 ## 📜 Third-party assets and licenses
@@ -165,7 +172,8 @@ Ether is a hackathon prototype. These are the external assets it depends on and 
 | [Brain Tumor MRI Dataset](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset) (Masoud Nickparvar, Kaggle) | Training and evaluation | **License not confirmed.** A secondary source lists it as CC0, but we have not checked the Kaggle page, and the dataset combines three public datasets (figshare, SARTAJ and Br35H) whose own terms also matter. The team decided to commit it to `app/ml_engine` to track preprocessing steps, despite the license still being unconfirmed |
 | Meta Model API (Muse Spark) | Clinical report and chat | Used through the API with a key from an environment variable. Subject to Meta's terms. **While free credits are in use, Meta may use the content sent for product improvement**, so only public dataset images and invented notes are sent (see `app/backend/README.md`) |
 | Python and JavaScript dependencies | Everything | Open-source packages pinned in `app/ml_engine/requirements.lock` and the backend and frontend manifests. Their licenses were not audited |
-| Drawn skull and surgical instrument illustrations (`app/frontend/public/portal-skull.png`, `portal-instrument.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
+| Drawn skull illustration (`app/frontend/public/portal-skull.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
+| Drawn hands with vintage scissors illustration (`app/frontend/public/portal-scissors-hands.png`) | Fixed background behind the study list | Owned by the team; cleared for use in this repository |
 | Drawn skeletal hand, torso and bird illustrations (`app/frontend/public/portal-brain.png`, `portal-heart.png`, `portal-web.png`) | Fixed background behind each analysis tab | Owned by the team; cleared for use in this repository |
 | Drawn skeleton back and IV drip stand illustrations (`app/frontend/public/story-skeleton-back.png`, `story-iv-drip.png`) | Backdrop on the how-we-built-it hero | Owned by the team; cleared for use in this repository |
 

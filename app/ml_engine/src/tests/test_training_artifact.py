@@ -12,6 +12,7 @@ from src.deep_learning.bundle import MANIFEST_FILE as BACKBONE_MANIFEST
 from src.deep_learning.bundle import WEIGHTS_FILE as BACKBONE_WEIGHTS
 from src.deep_learning.bundle import sha256_of, write_bundle
 from src.errors import ModelUnavailableError
+from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import separable_features
 from src.training.artifact import (
     CLASSIFIER_FILE,
@@ -29,7 +30,9 @@ FIELDS = {"version": "1.2.3", "seed": 42}
 @pytest.fixture()
 def backbone(tmp_path: Path) -> Path:
     directory = tmp_path / "backbone"
-    write_bundle(directory, "efficientnet_b0", {"w": torch.ones(2)}, "TEST")
+    write_bundle(
+        directory, "efficientnet_b0", {"w": torch.ones(2)}, "TEST", **IMAGENET_INPUT
+    )
     return directory
 
 
@@ -156,6 +159,7 @@ def test_manifest_carries_the_backbone_provenance(
         "TEST_V1",
         source_url="https://example.org/weights.pth",
         license_note="a note",
+        **IMAGENET_INPUT,
     )
 
     manifest = write_artifact(tmp_path / "model", fitted[0], source, stats(), FIELDS)

@@ -6,7 +6,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.base import BaseEstimator
 from sklearn.metrics import (
     balanced_accuracy_score,
     classification_report,
@@ -35,10 +34,9 @@ class EvaluationMetrics:
 
 
 def evaluate(
-    model: BaseEstimator, matrix: np.ndarray, y: np.ndarray, labels: Sequence[str]
+    y: np.ndarray, predictions: np.ndarray, labels: Sequence[str]
 ) -> EvaluationMetrics:
-    """Score ``model`` on ``matrix``; ``labels`` fixes the order of the classes."""
-    predictions = model.predict(matrix)
+    """Score ``predictions`` against the truth ``y``; ``labels`` fixes the class order."""
     report = classification_report(
         y, predictions, labels=list(labels), output_dict=True, zero_division=0
     )

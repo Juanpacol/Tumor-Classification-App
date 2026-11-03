@@ -22,7 +22,7 @@ export function DemoProof() {
             <span className={styles.dot} />
           </div>
           <div className={`${styles.frameBody} halftone`}>
-            DICOM viewer with Grad-CAM overlay — demo recording goes here
+            DICOM viewer with the AI report — demo recording goes here
           </div>
         </div>
       </div>

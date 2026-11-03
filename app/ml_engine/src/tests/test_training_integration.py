@@ -9,6 +9,7 @@ from src.deep_learning.bundle import write_bundle
 from src.deep_learning.extractor import DeepFeatureExtractor
 from src.preprocessing.prepare import PreprocessingConfig
 from src.seed import set_seed
+from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import write_labeled_dataset
 from src.training.dataset import load_samples, split_samples
 from src.training.features import FeatureCache, make_featurizer
@@ -36,6 +37,7 @@ def test_synthetic_dataset_goes_through_features_and_selection(
         "efficientnet_b0",
         build_backbone("efficientnet_b0").state_dict(),
         "RANDOM",
+        **IMAGENET_INPUT,
     )
     extractor = DeepFeatureExtractor.from_bundle(bundle)
     featurize, fingerprint = make_featurizer(

@@ -62,16 +62,36 @@ Meta offers no hard spending cap (only an e-mail alert) and the backend is publi
 - **Limits of this design:** the counters live in memory. They reset when the process restarts (Cloud Run scales to zero) and each instance counts on its own, so with N instances the real cap is up to N times larger. A counter in the database would remove that, and has not been built.
 - The fake LLM is not capped: it costs nothing.
 
-## Clinical report (core of AB-122)
+## API
 
-`application/` holds the part of the report that needs no HTTP and no database:
+Everything is under `/api/studies`; interactive docs at `/docs`.
 
-- `report_prompt.py`: the system prompt, versioned as `PROMPT_VERSION` (`report-v1`), and the user message with the classifier output. The clinical notes are placed between `<notes>` markers as untrusted data, and the closing marker is stripped from them so they cannot break out.
-- `clinical_report.py`: `ClinicalReportOutput`, the Pydantic schema the model must fill (`extra="forbid"`, `ai_agreement` is `agrees`, `disagrees` or `uncertain`), and the disclaimer, which the backend adds and the model never writes.
-- `report_guardrails.py`: rejects definitive wording ("the patient has", "diagnosed with", ...), treatment or medication wording, and, when triage is flagged or the model does not agree, a report that does not state the uncertainty and recommend expert review.
-- `generate_report.py`: `GenerateClinicalReport`. Only COMPLETED studies (404 for an unknown one, 409 for the rest), returns the stored report unless `regenerate` is set or the last one failed, and retries once with the reasons when the output is invalid. If it is still invalid the failure is stored and the answer is 502.
+| Endpoint | What it does |
+|---|---|
+| `GET /` | List studies, newest first (`page`, `page_size` up to 100) |
+| `POST /` | Upload a study (see *Study upload*) |
+| `GET /{id}` | Study with its prediction and report, if any |
+| `GET /{id}/image` | The stored, metadata-free image |
+| `POST /{id}/report` | Generate the clinical report, or return the stored one |
+| `GET /{id}/chat` | The study's conversation, oldest first |
+| `POST /{id}/chat` | Ask a question (1 to 2000 characters); the answer streams as Server-Sent Events |
 
-Still missing: the `POST /api/studies/{id}/report` endpoint (it needs the study upload of AB-118), the check with the live API (AB-161) and the manual review of 10 reports from the public Test images.
+## Clinical report
+
+In `application/`, with no HTTP or database:
+
+- `report_prompt.py`: system prompt (`PROMPT_VERSION = "report-v2"`) and user message. Clinical notes go between `<notes>` markers as untrusted data.
+- `grounded_report.py`: the schema the model must fill. Findings, visual observations, impression and differentials are claims, each a `text` plus the `evidence_keys` it rests on. The backend adds the disclaimer; the model never writes it.
+- `evidence_bundle.py`: what a claim can cite: `prediction.label`, `.confidence`, `.needs_expert_triage`, `.probabilities.<class>` and `.top_features.<name>`.
+- `citation_verifier.py`: a claim is verified only if it cites at least one key, every key exists, every number it states matches a cited value (a probability may be written as a percentage), a claim citing the label names it, and it names another class only when it cites that class's probability. The check is textual, not semantic. Remarks about the image carry no keys and stay unverified by design.
+- `report_guardrails.py`: rejects definitive or treatment wording and, when triage is flagged or the model does not agree, a report that does not state the uncertainty.
+- `generate_report.py`: only COMPLETED studies (404 unknown, 409 otherwise). Returns the stored report unless the last one failed, and retries once with the reasons if the output is invalid; still invalid means a stored failure and 502.
+
+## Chat
+
+`application/study_chat.py` answers with the classifier output, the evidence bundle, the stored report, the earlier messages and the image. SSE events: `token` (`text`), then `done` (the stored message), or `error` (`code`, `message`). The exchange is stored only when the answer completes. 404 unknown study, 409 without prediction or image.
+
+Live check with the Meta API (2026-11-02, public images, invented classifier output): reports for the four classes, including a wrong prediction, had no guardrail violations and every claim that cited evidence was verified. Missing (AB-161): manual review of 10 reports, a fixed `max_tokens` (reasoning can use it all and leave `content` empty) and measured token usage.
 
 ## Data sent to Meta while free credits are in use
 
@@ -81,6 +101,26 @@ The Billing page of the Meta console says: "While using free credits your conten
 - Do not use the `-contributor` model variants either: they are cheaper in exchange for training on the content.
 - Before any use with real data, either stop using the free credits (the "Stop using free credits" link in Billing, which moves the usage to the card) or do not send that data to this service.
 
+
+## Study upload (AB-118)
+
+`POST /api/studies` takes a multipart `file` and optional `clinical_notes` (at most 2000 characters) and classifies the image in the same request (`application/upload_study.py`, `application/image_upload.py`).
+
+- **Checked before anything is stored**, in this order: a model is loaded, the file is at most 20 MB, its content (never its name or content type) is a JPEG or PNG, and its pixels decode fully. DICOM, other formats and corrupt files are 415.
+- **Stored without metadata**: EXIF, XMP, IPTC, comments and PNG text chunks are removed without re-encoding, so the stored and classified pixels are the uploaded ones. The key is `studies/<study uuid>`; the original filename is not kept anywhere. Removing EXIF also removes its orientation tag, so an image is classified as stored, not rotated.
+- **No PHI in the logs**: an unexpected classifier error is logged as the study id, the error type and the raising file and line, never its message, the notes or the filename.
+
+| Outcome | Stored | HTTP status | Body |
+|---|---|---|---|
+| Classified | `completed` + prediction | 201 | the study |
+| Classifier rejects the image | `rejected` + reason | 422 | `code` (`QUALITY_CHECK_FAILED` or `UNSUPPORTED_IMAGE`), `message`, `details`, `study` |
+| Unexpected classifier error | `failed` | 500 | `INTERNAL_ERROR`, generic message |
+| Missing file or notes too long | nothing | 422 | FastAPI validation `detail` |
+| Over 20 MB | nothing | 413 | `FILE_TOO_LARGE` |
+| Not a decodable JPEG/PNG | nothing | 415 | `UNSUPPORTED_MEDIA_TYPE` |
+| No model loaded | nothing | 503 | `MODEL_UNAVAILABLE` |
+
+Any other unhandled error in the API answers 500 with a generic `INTERNAL_ERROR` body.
 
 ## MRI classifier (ml_engine)
 
@@ -94,25 +134,25 @@ The Billing page of the Meta console says: "While using free credits your conten
 | Condition | code | HTTP status | `details` |
 |---|---|---|---|
 | No model loaded | `MODEL_UNAVAILABLE` | 503 | — |
-| File is not a supported image | `UNSUPPORTED_IMAGE` | 422 | `reason` |
+| Decodable image the model cannot use (e.g. under 64 px) | `UNSUPPORTED_IMAGE` | 422 | `reason` |
 | Image fails the quality gate | `QUALITY_CHECK_FAILED` | 422 | `reason`, `snr`, `entropy`, `skull_stripped` |
 
 ### Docker
 
-The image installs ml_engine from a second build context named `ml_engine`. docker-compose passes it. A plain build needs it too:
+The image is built with the repository root as context, so it can install ml_engine from the sibling folder (docker-compose does it). A plain build:
 
 ```bash
-docker build --build-context ml_engine=app/ml_engine -t ether-backend app/backend
+docker build -f app/backend/Dockerfile -t ether-backend .
 ```
 
 In docker-compose the bundle is mounted read-only at `/models/current` from `MODEL_BUNDLE_DIR` (default `./app/ml_engine/artifacts/current`):
 
 ```bash
-docker compose up --build --no-deps backend postgres              # bundle from the default folder
-MODEL_BUNDLE_DIR=./app/ml_engine/artifacts/model-v0.1.0 docker compose up --no-deps backend postgres
-MODEL_BUNDLE_PATH= docker compose up --no-deps backend postgres   # start without a model
+docker compose up -d --build backend postgres                      # bundle from the default folder
+MODEL_BUNDLE_DIR=./app/ml_engine/artifacts/model-v0.1.0 docker compose up -d backend postgres
+MODEL_BUNDLE_PATH= docker compose up -d backend postgres           # start without a model
 ```
 
-`--no-deps` skips Redis and MinIO, which the backend does not use yet (the `minio/minio` image can no longer be pulled from Docker Hub). If the default folder does not exist, Docker creates it empty and the app starts without a model.
+If the default folder does not exist, Docker creates it empty and the app starts without a model. The full start-up guide is in the root `README.md`.
 
 The integration test `tests/integration/test_ml_engine_bundle.py` runs only when `MODEL_BUNDLE_PATH` points to a bundle folder, and classifies `ML_SAMPLE_IMAGE` when that file exists.

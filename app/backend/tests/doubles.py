@@ -14,11 +14,12 @@ class ScriptedClassifier:
     """ClassifierPort test double that answers with a queue of prepared responses.
 
     A response is a ``Prediction`` (returned for the requested study) or an
-    exception to raise.
+    exception to raise. ``ready=False`` makes it report that no model is loaded.
     """
 
-    def __init__(self, *responses: Any) -> None:
+    def __init__(self, *responses: Any, ready: bool = True) -> None:
         self._responses = list(responses)
+        self._ready = ready
 
     async def classify(self, study_id: str, image: bytes) -> Prediction:
         response = self._responses.pop(0)
@@ -27,7 +28,7 @@ class ScriptedClassifier:
         return dataclasses.replace(response, study_id=study_id)
 
     def is_ready(self) -> bool:
-        return True
+        return self._ready
 
 
 class ScriptedLLM:

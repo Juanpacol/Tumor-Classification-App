@@ -1,21 +1,40 @@
+from typing import Any
+
 import pytest
 
-from application.clinical_report import ClinicalReportOutput
+from application.grounded_report import ClaimOutput, GroundedClinicalReportOutput
 from application.report_guardrails import find_violations
 from tests.factories import make_prediction
 
 
-def report(**overrides: object) -> ClinicalReportOutput:
-    fields: dict[str, object] = {
+def _claims(*texts: str) -> list[ClaimOutput]:
+    return [ClaimOutput(text=text, evidence_keys=[]) for text in texts]
+
+
+NARRATIVE_FIELDS = (
+    "findings",
+    "visual_observations",
+    "impression",
+    "differential_considerations",
+)
+
+
+def report(**overrides: Any) -> GroundedClinicalReportOutput:
+    narrative = {
         "findings": "A lesion is consistent with a glioma.",
         "visual_observations": "Heterogeneous signal in the left frontal lobe.",
         "impression": "Suggestive of a glioma. Radiologist confirmation is required.",
         "differential_considerations": "Meningioma cannot be excluded.",
+    }
+    other = {
         "suggested_next_steps": ["Contrast-enhanced MRI", "Neurosurgery referral"],
         "ai_agreement": "agrees",
     }
-    fields.update(overrides)
-    return ClinicalReportOutput(**fields)  # type: ignore[arg-type]
+    for key, value in overrides.items():
+        (narrative if key in NARRATIVE_FIELDS else other)[key] = value
+    return GroundedClinicalReportOutput(
+        **{key: _claims(text) for key, text in narrative.items()}, **other
+    )
 
 
 def confident_prediction() -> object:

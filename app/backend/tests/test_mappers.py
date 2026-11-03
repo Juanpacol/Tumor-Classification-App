@@ -34,6 +34,14 @@ def test_completed_report_content_serialized_as_json_object():
     assert mappers.report_to_domain(row) == report
 
 
+def test_a_report_stored_before_citations_existed_still_loads():
+    report = make_report(make_study().id)
+    row = mappers.report_to_row(report)
+    del row.content["citations"]
+
+    assert mappers.report_to_domain(row).content.citations == []
+
+
 def test_failed_report_round_trip_with_null_content():
     report = make_report(
         make_study().id, status=ReportStatus.FAILED, content=None, error="LLM timeout"

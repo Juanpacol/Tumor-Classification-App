@@ -23,8 +23,8 @@ def test_outputs_have_the_expected_shape_and_type() -> None:
 
     assert result.radiomics_image.shape == (256, 256)
     assert result.radiomics_image.dtype == np.float32
-    assert result.cnn_input.shape == (3, 224, 224)
-    assert result.cnn_input.dtype == np.float32
+    assert result.cnn_image.shape == (224, 224)
+    assert result.cnn_image.dtype == np.float32
 
 
 def test_mask_is_the_brain_mask_of_the_image() -> None:
@@ -66,25 +66,63 @@ def test_training_and_inference_paths_give_the_same_region(tmp_path: Path) -> No
 
     assert np.array_equal(training.mask, inference.mask)
     assert np.array_equal(training.radiomics_image, inference.radiomics_image)
+    assert np.array_equal(training.cnn_image, inference.cnn_image)
 
 
-def test_cnn_input_is_normalized_per_channel() -> None:
-    config = PreprocessingConfig(cnn_mean=(0.5, 0.5, 0.5), cnn_std=(0.25, 0.25, 0.25))
-    gray = slice_array()
+def test_cnn_image_is_the_unnormalized_gray_crop() -> None:
+    config = PreprocessingConfig(crop_margin=0.0, thresholds=QualityThresholds(0, 0))
+    gray = 0.4 + 0.5 * np.random.default_rng(2).random((224, 224), dtype=np.float32)
 
     result = prepare_image(gray, config)
 
-    channels = result.cnn_input
-    assert np.allclose(channels[0], channels[1]) and np.allclose(
-        channels[1], channels[2]
-    )
-    assert channels.mean() == pytest.approx((gray.mean() - 0.5) / 0.25, abs=0.1)
+    assert result.mask.all()
+    assert result.cnn_image.shape == (224, 224)
+    assert result.cnn_image.dtype == np.float32
+    assert np.allclose(result.cnn_image, gray, atol=1e-6)
+
+
+@pytest.mark.parametrize("margin", [-0.1, 1.5])
+def test_crop_margin_outside_zero_to_one_is_refused(margin: float) -> None:
+    with pytest.raises(ValueError, match="crop_margin"):
+        PreprocessingConfig(crop_margin=margin)
 
 
 def test_cnn_size_is_configurable_and_small_images_are_upscaled() -> None:
     result = prepare_image(slice_array(size=100), PreprocessingConfig(cnn_size=128))
 
-    assert result.cnn_input.shape == (3, 128, 128)
+    assert result.cnn_image.shape == (128, 128)
+
+
+@pytest.mark.parametrize("shape", [(512, 512), (300, 400), (200, 630)])
+def test_cnn_image_has_a_fixed_size_for_any_source_shape(
+    shape: tuple[int, int],
+) -> None:
+    rng = np.random.default_rng(4)
+    gray = np.zeros(shape, dtype=np.float32)
+    height, width = shape
+    head = gray[height // 4 : 3 * height // 4, width // 4 : 3 * width // 4]
+    head[:] = 0.4 + 0.5 * rng.random(head.shape)
+
+    result = prepare_image(
+        gray, PreprocessingConfig(thresholds=QualityThresholds(0, 0))
+    )
+
+    assert result.cnn_image.shape == (224, 224)
+    assert 0.0 <= result.cnn_image.min() <= result.cnn_image.max() <= 1.0
+    assert result.radiomics_image.shape == shape
+
+
+def test_small_head_on_a_large_frame_fills_the_cnn_image() -> None:
+    frame = np.zeros((500, 500), dtype=np.float32)
+    frame[150:350, 150:350] = np.asarray(synthetic_slice(5, size=200)) / 255.0
+
+    result = prepare_image(
+        frame, PreprocessingConfig(thresholds=QualityThresholds(0, 0))
+    )
+
+    rows = np.flatnonzero((result.cnn_image > 0.05).any(axis=1))
+    border = rows[0] / 224
+    assert 0.03 < border < 0.12
 
 
 def test_radiomics_image_is_the_loaded_image_and_not_stripped() -> None:

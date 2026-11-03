@@ -164,21 +164,21 @@ Each block has one purpose, a defined input and output, and testable rules.
 ### B6. Geometry
 
 - **Input:** image and mask. **Output:** 224x224 image.
-- **Rule:** crop to the bounding box of the mask plus a small margin, pad to a square with black, resize (`INTER_AREA` to shrink, `INTER_LINEAR` to enlarge). The aspect ratio of the crop is preserved.
-- **Tools:** OpenCV. **Cost:** very low.
+- **Rule:** a square centered on the bounding box of the B5 region (after its fallback), its side the longer side of the box plus `crop_margin` (default 0.05) of that side at each end; parts outside the image are black. This is the crop to the box plus a margin, padded to a square, with the margin kept even where the head touches the border (71-87% of Training images per class). Pixels outside the mask inside the square are kept. Resize to 224 (`INTER_AREA` to shrink, `INTER_LINEAR` to enlarge). The aspect ratio of the crop is preserved. Decision D19.
+- **Tools:** OpenCV, NumPy (`preprocessing/geometry.py`). **Cost:** very low.
 - **Evidence:** cropping is common practice [5], [8]. The square padding fixes the class-dependent distortion measured in section 2. **Boards:** #166.
 
 ### B7. Train-only augmentation
 
 - **Input:** a Training image after B6. **Output:** k augmented copies (default k = 1).
-- **Rule:** fixed seed. Rotation +/-10 degrees, horizontal flip, scale +/-10%, brightness/contrast +/-10%. Each copy inherits the label, `group_id` and fold of its original. Copies are used only as fit rows of a fold and in the final fit; never in validation folds, Testing or inference. The feature cache key includes the transform parameters.
+- **Rule:** fixed seed. Rotation +/-10 degrees, horizontal flip, scale +/-10%, brightness/contrast +/-10%, applied to the B6 output, so copies vary the CNN block only (their radiomics are the original's). Each copy inherits the label, `group_id` and fold of its original. Copies are used only as fit rows of the folds other than their own, so they reach the saved per-fold models (D16) but never validation folds, Testing or inference. The feature cache key includes the transform parameters. The run keeps augmentation only if it raises CV macro-F1 by at least the std across folds (D21).
 - **Tools:** OpenCV, NumPy (no new dependency). **Cost:** about 3 extra minutes of CPU feature extraction (1,830 images at about 90 ms).
-- **Evidence:** train-only augmentation is a strong rule [4], [2]. Its gain with a frozen CNN is weak evidence [9], [5], so a +/-augmentation ablation decides whether it stays enabled. **Boards:** #167.
+- **Evidence:** train-only augmentation is a strong rule [4], [2]. Its gain with a frozen CNN is weak evidence [9], [5], so a +/-augmentation comparison on CV decides whether it stays enabled. **Boards:** #167.
 
 ### B8. CNN tensor
 
 - **Input:** 224x224 image. **Output:** `(3, 224, 224)` `float32`.
-- **Rule:** gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone, read from its configuration and checked against the backbone bundle. Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 [11].
+- **Rule:** gray channel replicated to 3 channels, normalized with the mean and std of the selected backbone. They are read from the backbone bundle, which the export fills from the metadata published with the weights; no code holds a default. Runs in the CNN extractor (`DeepFeatureExtractor.to_tensor`). Torchvision ImageNet backbones use the ImageNet values. A timm ResNet50V2 would use 0.5 / 0.5 [11]. Decision D20.
 - **Tools:** NumPy. **Cost:** very low.
 - **Evidence:** [5], [10], [11]. **Boards:** #166, #111.
 
@@ -218,11 +218,12 @@ Each guarantee is a unit test or a report entry.
 |---|---|---|---|
 | G1 | No `group_id` is present in both Training and Testing | B2 | #165 |
 | G2 | Quality thresholds are computed from Training images only | B4 | #165 |
-| G3 | No augmented copy reaches a validation fold, Testing or inference | B7 | #167 |
-| G4 | An augmented copy is always in the same fold as its original | B7 | #167 |
+| G3 | No augmented copy reaches a validation fold, Testing or inference (unit test) | B7 | #167 |
+| G4 | An augmented copy is always in the same fold as its original (unit test) | B7 | #167 |
 | G5 | B3-B6 and B8 give the same tensor at training and at inference for the same image | B3-B8 | #166, #113 |
 | G6 | The output of B6 is always 224x224 and keeps the aspect ratio of the crop | B6 | #166 |
 | G7 | Testing is scored exactly once per run (unit test) | B9 | #112 |
+| G8 | Scaler and PCA are fitted inside each fold, never on validation rows (unit test) | B9 | #112, #168 |
 
 ---
 
@@ -246,10 +247,10 @@ Each guarantee is a unit test or a report entry.
 
 - **No patient IDs.** `group_id` is a proxy. Distant slices of one patient can still fall in different groups, so metrics can be optimistic [3].
 - **B4 is not fitted per fold.** Thresholds use the whole purged Training split, so validation rows of the CV take part in a reject-only filter whose thresholds sit below every Training image. With today's values it rejects none, and Testing is not involved. Accepted to keep the pipeline simple.
-- **Resolution shortcut remains.** B6 removes the aspect-ratio cue, but not the differences in source resolution and compression. B10 measures what is left; only an external dataset can rule it out.
-- **Feature cache invalidation.** The cache key is built from the configuration. #166 and #167 must add configuration fields (such as the crop margin and the transform parameters) so that new code never reuses stale features.
+- **Resolution shortcut remains.** B6 removes the aspect-ratio cue, but not the differences in source resolution and compression: the median no_tumor head is 250 px against 441-495 px for tumor classes, and 15.8% of no_tumor crops are enlarged against at most 1.1% per tumor class (D19). B10 measures what is left; only an external dataset can rule it out.
+- **Feature cache invalidation.** The cache key covers every setting that changes the features: the preprocessing and radiomics configurations and the backbone (weights sha256, input size, mean and std). Augmented copies have their own key, from the transform parameters, k and the seed (#167, D21). Code is not in the key: a change to a hard-coded step (interpolation, mask, augmentation or radiomics code) reuses stale features until the cache is cleared.
 - **`skull_stripped` in the contract.** `QualityMetrics.skull_stripped` (#107) stays in the contract and is always `false` (D18). Removing it is a backend and frontend API change left for its own issue.
-- **Thresholds chosen by us:** the 0.70 shortcut warning (B10), k = 1 augmented copy (B7) and the crop margin (B6) have no external source.
+- **Thresholds chosen by us:** the 0.70 shortcut warning (B10), k = 1 augmented copy (B7) and the crop margin `crop_margin = 0.05` (B6) have no external source.
 
 ---
 
@@ -262,11 +263,11 @@ Each guarantee is a unit test or a report entry.
 | B3 | #108 | `preprocessing/loading.py` | Done |
 | B4 | #109, #165, #175 | `preprocessing/quality.py`, `training/thresholds.py` | Done: metrics redefined, Training-only calibration applied (decision D17) |
 | B5 | #166 | `preprocessing/brain_mask.py` | Done: half-Otsu mask shared with B4, full-image fallback under 5% coverage, skull stripping removed (decision D18) |
-| B6 | #166 | `preprocessing/prepare.py` | To do |
-| B7 | #167 | `training/` (new) | To do |
-| B8 | #166, #111 | `preprocessing/prepare.py`, `deep_learning/` | Mostly done |
+| B6 | #166 | `preprocessing/geometry.py`, `preprocessing/prepare.py` | Done: square centered on the B5 region, 5% margin, black beyond the border, resize to 224 (decision D19) |
+| B7 | #167 | `training/augmentation.py`, `training/features.py`, `training/folds.py` | Done on synthetic data: copies of the B6 output, CNN block only, kept only if CV improves (decision D21). Real-data run to do |
+| B8 | #166, #111 | `deep_learning/extractor.py`, `deep_learning/bundle.py` | Done: tensor built in the extractor with the bundle's mean and std, filled from the weights' metadata (decision D20) |
 | B9 | #112 | `training/folds.py`, `training/` | Done on synthetic data: folds assigned once and shared, `folds.csv`, balanced accuracy (decision D16). Real-data run to do |
-| B10 | #168 | `training/report.py` | To do |
+| B10 | #168 | `training/shortcut.py`, `training/guarantees.py`, `training/report.py` | Done on synthetic data: metadata-only baseline on the shared folds, no_tumor recall by source size, guarantee status, CLI warning at 0.70 (decision D22). Real-data run to do |
 
 Implementation order, from the Boards dependencies: #165 and #166, then #112 (run on the real dataset), then #167, then #168.
 

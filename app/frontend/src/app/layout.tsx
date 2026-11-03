@@ -1,34 +1,54 @@
 import type { Metadata } from "next";
-import {
-  Barlow_Condensed,
-  Inter,
-  JetBrains_Mono,
-  Playfair_Display,
-} from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SmoothScrollProvider } from "./SmoothScrollProvider";
 
-const barlowCondensed = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["300", "500", "600"],
+const barlowCondensed = localFont({
+  src: [
+    {
+      path: "../../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-300-normal.woff2",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-500-normal.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2",
+      weight: "600",
+      style: "normal",
+    },
+  ],
   variable: "--font-barlow-condensed",
 });
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  weight: "100 900",
   variable: "--font-inter",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const jetbrainsMono = localFont({
+  src: "../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2",
+  weight: "100 800",
   variable: "--font-jetbrains-mono",
 });
 
-const playfairDisplay = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+const playfairDisplay = localFont({
+  src: [
+    {
+      path: "../../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2",
+      weight: "400 900",
+      style: "normal",
+    },
+    {
+      path: "../../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-italic.woff2",
+      weight: "400 900",
+      style: "italic",
+    },
+  ],
   variable: "--font-playfair-display",
 });
 

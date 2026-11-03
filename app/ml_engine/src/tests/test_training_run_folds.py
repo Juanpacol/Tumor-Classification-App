@@ -65,12 +65,17 @@ def test_a_group_of_near_duplicates_stays_in_one_fold(
     assert all(len(folds) == 1 for folds in folds_of_group.values())
 
 
-def test_the_hybrid_ablation_is_the_selection_score(result: TrainingResult) -> None:
+def test_the_hybrid_ablation_reuses_the_score_of_the_chosen_setting(
+    result: TrainingResult,
+) -> None:
+    augmentation = result.report["augmentation"]
     selection = result.report["selection"]
+    chosen = augmentation["cv_with" if augmentation["on"] else "cv_without"]
 
-    assert result.report["ablation_macro_f1"]["hybrid"] == (
+    assert augmentation["cv_without"]["mean"] == (
         selection["scores"][selection["best"]]["mean_macro_f1"]
     )
+    assert result.report["ablation_macro_f1"]["hybrid"] == chosen["mean"]
 
 
 def test_the_report_counts_used_images_per_fold_and_class(
@@ -105,7 +110,7 @@ def test_balanced_accuracy_is_reported_and_stored(result: TrainingResult) -> Non
     assert manifest["calibration"]["ensemble"] is True
 
 
-def test_selection_ablation_and_calibration_share_the_recorded_folds(
+def test_every_cross_validated_step_shares_the_recorded_folds(
     workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     seen: dict[str, Any] = {}
@@ -120,12 +125,18 @@ def test_selection_ablation_and_calibration_share_the_recorded_folds(
 
         monkeypatch.setattr(run, name, wrapper)
 
-    for name in ("compare_classifiers", "ablate_blocks", "calibrate"):
+    for name in (
+        "compare_classifiers",
+        "cross_validate_predictions",
+        "ablate_blocks",
+        "calibrate",
+    ):
         recording(name)
 
     trained = train(make_config(workspace, tmp_path), now=NOW)
 
     expected = validation_rows(read_folds(trained.report_dir))
+    assert len(seen) == 4
     for name, splits in seen.items():
         assert [v.tolist() for _, v in splits] == expected, name
 

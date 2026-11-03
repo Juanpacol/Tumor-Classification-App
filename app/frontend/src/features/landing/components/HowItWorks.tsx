@@ -6,23 +6,23 @@ import styles from "./HowItWorks.module.css";
 const STEPS = [
   {
     number: "01",
-    title: "Texture Analysis",
-    text: "Extracts texture and structural features from the scan.",
+    title: "Reads the scan twice",
+    text: "One model checks structure and texture, another checks visual patterns — two independent readings, not one guess.",
   },
   {
     number: "02",
-    title: "Visual Patterns",
-    text: "Analyzes visual patterns with a deep learning model.",
+    title: "Agrees with itself, or says so",
+    text: "Combines both readings into one finding, and flags the case when they disagree.",
   },
   {
     number: "03",
-    title: "Single Finding",
-    text: "Combines both signals into a single finding.",
+    title: "Shows its work",
+    text: "The radiologist sees why, not only what: class probabilities, the unusual measurements, and the claims of the report traced to their source.",
   },
   {
     number: "04",
-    title: "Show the Why",
-    text: "Shows exactly which part of the brain drove the conclusion.",
+    title: "Hands off cleanly",
+    text: "Packages the finding, the confidence, and the report with its cited evidence into one case file — ready for the radiologist to review.",
   },
 ];
 

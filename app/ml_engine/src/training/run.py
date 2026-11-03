@@ -3,59 +3,61 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from src.classical.config import RadiomicsConfig
 from src.contracts import TumorLabel
+from src.deep_learning.bundle import sha256_of
 from src.deep_learning.extractor import DeepFeatureExtractor
-from src.preprocessing.prepare import PreprocessingConfig
 from src.seed import set_seed
 from src.training.ablation import ablate_blocks
 from src.training.artifact import write_artifact
+from src.training.augmentation import AugmentationConfig, keeps_augmentation
 from src.training.calibration import (
     CALIBRATION_ENSEMBLE,
     CALIBRATION_METHOD,
     calibrate,
 )
+from src.training.config import TrainingConfig, resolved_config
 from src.training.dataset import Split, load_samples, split_samples
 from src.training.evaluation import evaluate
-from src.training.features import FeatureCache, FeatureTable, make_featurizer
+from src.training.features import (
+    CopyCache,
+    FeatureCache,
+    FeatureTable,
+    config_fingerprint,
+    copy_rows,
+    make_cnn_input,
+    make_copy_featurizer,
+    make_featurizer,
+)
 from src.training.folds import (
-    N_SPLITS,
+    Splits,
     assign_folds,
     fold_record,
     fold_splits,
     used_per_fold_and_class,
 )
+from src.training.guarantees import leakage_guarantees
 from src.training.model import (
-    DEFAULT_SEED,
+    CandidateScore,
     build_model,
     candidate_classifiers,
     compare_classifiers,
+    cross_validate_predictions,
 )
+from src.training.out_of_fold import out_of_fold_metrics
 from src.training.report import build_report, write_report
+from src.training.shortcut import metadata_baseline, recall_by_source_size
 from src.training.stats import feature_stats
 
 LABELS = [label.value for label in TumorLabel]
-
-
-@dataclass(frozen=True)
-class TrainingConfig:
-    data_dir: Path
-    manifest: Path
-    backbone_bundle: Path
-    out_dir: Path
-    seed: int = DEFAULT_SEED
-    n_splits: int = N_SPLITS
-    version: str = "0.0.0-dev"
-    cache_dir: Path | None = None
-    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
-    radiomics: RadiomicsConfig = field(default_factory=RadiomicsConfig)
+NO_TUMOR = TumorLabel.NO_TUMOR.value
 
 
 @dataclass(frozen=True)
@@ -82,13 +84,13 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
     if not split.train:
         raise ValueError("no usable training images")
     fold_of = assign_folds(split.train, config.n_splits, config.seed)
-    train_table, test_table, skipped = _feature_tables(config, split)
+    features = _features(config, split)
+    train_table, test_table = features.train, features.test
     if not train_table.samples:
         raise ValueError("no usable training images")
     x_train, y_train = _training_arrays(train_table)
-    splits = fold_splits(
-        np.array([fold_of[s.path] for s in train_table.samples]), config.n_splits
-    )
+    fold_of_row = np.array([fold_of[s.path] for s in train_table.samples])
+    splits = fold_splits(fold_of_row, config.n_splits)
     folds = fold_record(
         split.train,
         fold_of,
@@ -96,34 +98,76 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         config.data_dir,
     )
     n_radiomic = train_table.radiomics.shape[1]
+    plain = _Rows(x_train, y_train, splits)
+    augmented_rows = _with_copies(
+        plain,
+        fold_of_row,
+        copy_rows(train_table, features.copy_cnn, config.augmentation.copies),
+        config.augmentation.copies,
+        config.n_splits,
+    )
 
-    selection = compare_classifiers(x_train, y_train, n_radiomic, splits, config.seed)
-    ablation = ablate_blocks(
-        x_train,
-        y_train,
+    selection = compare_classifiers(
+        x_train, y_train, n_radiomic, splits, config.seed, config.model
+    )
+    pca_components = config.model.pca_components
+    classifier = candidate_classifiers(config.seed, config.model.classifier_params)[
+        selection.best
+    ]
+    without = selection.scores[selection.best]
+    with_copies, copies_predictions = cross_validate_predictions(
+        classifier,
+        augmented_rows.x,
+        augmented_rows.y,
         n_radiomic,
-        selection.best,
-        splits,
-        selection.scores[selection.best].mean_macro_f1,
+        augmented_rows.splits,
+        len(y_train),
         config.seed,
+        pca_components,
+    )
+    augmented = keeps_augmentation(
+        without.mean_macro_f1, without.std_macro_f1, with_copies.mean_macro_f1
+    )
+    rows, chosen = (augmented_rows, with_copies) if augmented else (plain, without)
+    predictions = (
+        copies_predictions if augmented else selection.predictions[selection.best]
+    )
+    cv_out_of_fold = {
+        "augmented": augmented,
+        **asdict(out_of_fold_metrics(y_train, predictions, LABELS)),
+    }
+    ablation = ablate_blocks(
+        rows.x,
+        rows.y,
+        n_radiomic,
+        classifier,
+        rows.splits,
+        chosen.mean_macro_f1,
+        config.seed,
+        pca_components,
     )
     model = build_model(
-        candidate_classifiers(config.seed)[selection.best],
-        n_radiomic,
-        train_table.cnn.shape[1],
-        config.seed,
+        classifier, n_radiomic, train_table.cnn.shape[1], config.seed, pca_components
     )
-    calibrated = calibrate(model, x_train, y_train, splits)
-    test = evaluate(
-        calibrated,
-        test_table.matrix,
-        np.array([s.label.value for s in test_table.samples]),
-        LABELS,
-    )
+    guarantees = leakage_guarantees(split, rows.splits, len(y_train))
+    baseline = metadata_baseline(train_table.samples, y_train, splits, config.seed)
+    calibrated = calibrate(model, rows.x, rows.y, rows.splits)
+    y_test = np.array([s.label.value for s in test_table.samples])
+    test_predictions = calibrated.predict(test_table.matrix)
+    test = evaluate(y_test, test_predictions, LABELS)
+    shortcut_audit = {
+        "metadata_baseline": baseline,
+        "no_tumor_test_recall_by_source_size": recall_by_source_size(
+            test_table.samples, y_test, test_predictions, NO_TUMOR
+        ),
+    }
 
     created_at = now.isoformat()
     dataset = _dataset_summary(
-        train_table, test_table, skipped, split.removed_per_class
+        train_table, test_table, features.skipped, split.removed_per_class
+    )
+    augmentation = _augmentation_summary(
+        config.augmentation, augmented, without, with_copies
     )
     selection_dict = {
         "scores": {name: asdict(score) for name, score in selection.scores.items()},
@@ -138,6 +182,8 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
             folds, config.n_splits, LABELS
         ),
     }
+    resolved = resolved_config(config)
+    source = asdict(config.round_source) if config.round_source else None
     report = build_report(
         created_at,
         config.version,
@@ -146,8 +192,14 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         validation,
         selection_dict,
         ablation,
+        augmentation,
+        cv_out_of_fold,
         asdict(test),
         CALIBRATION_METHOD,
+        shortcut_audit,
+        guarantees,
+        resolved,
+        source,
     )
     write_artifact(
         artifact_dir,
@@ -168,36 +220,102 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
             "radiomics": asdict(config.radiomics),
             "quality_thresholds": asdict(config.preprocessing.thresholds),
             "radiomic_feature_names": list(train_table.radiomic_names),
-            "metrics": {"test": asdict(test), **selection_dict, "ablation": ablation},
+            "augmentation": augmentation,
+            "metrics": {
+                "test": asdict(test),
+                **selection_dict,
+                "ablation": ablation,
+                "cv_out_of_fold": cv_out_of_fold,
+            },
+            "shortcut_audit": shortcut_audit,
             "dataset": dataset,
+            # preprocessing, radiomics and augmentation are above; config.json in the
+            # report folder holds the whole resolved configuration in one piece.
+            "config": {key: resolved[key] for key in ("run", "model", "classifiers")},
+            "config_source": source,
         },
     )
     write_report(report_dir, report, folds)
     return TrainingResult(artifact_dir, report_dir, report)
 
 
-def _feature_tables(
-    config: TrainingConfig, split: Split
-) -> tuple[FeatureTable, FeatureTable, dict[str, list[str]]]:
+@dataclass(frozen=True)
+class _Rows:
+    """Feature matrix, labels and the shared splits over its rows."""
+
+    x: np.ndarray
+    y: np.ndarray
+    splits: Splits
+
+
+def _with_copies(
+    plain: _Rows,
+    fold_of_row: np.ndarray,
+    copy_x: np.ndarray,
+    copies: int,
+    n_splits: int,
+) -> _Rows:
+    """The original rows followed by their copies, each copy in its original's fold.
+
+    Originals come first, so every fold keeps the same validation rows.
+    """
+    folds = np.concatenate([fold_of_row, np.repeat(fold_of_row, copies)])
+    is_copy = np.arange(len(folds)) >= len(fold_of_row)
+    return _Rows(
+        np.vstack([plain.x, copy_x]),
+        np.concatenate([plain.y, np.repeat(plain.y, copies)]),
+        fold_splits(folds, n_splits, is_copy),
+    )
+
+
+@dataclass(frozen=True)
+class _Features:
+    train: FeatureTable
+    test: FeatureTable
+    skipped: dict[str, list[str]]
+    copy_cnn: np.ndarray
+
+
+def _features(config: TrainingConfig, split: Split) -> _Features:
+    """Feature tables of both splits and the CNN features of the Training copies.
+
+    Copies are made only of the Training images the gate keeps, never of Testing.
+    """
     extractor = DeepFeatureExtractor.from_bundle(
         config.backbone_bundle, config.preprocessing
     )
-    featurize, fingerprint = make_featurizer(
+    fingerprint = config_fingerprint(
+        config.preprocessing, config.radiomics, extractor.manifest
+    )
+    cache_dir = config.cache_dir or config.out_dir / "feature-cache"
+    digest = cache(sha256_of)
+    copy_cache = CopyCache(
+        cache_dir / fingerprint,
+        config.augmentation,
+        config.seed,
+        make_copy_featurizer(extractor),
+        make_cnn_input(config.preprocessing),
+        digest,
+    )
+    featurize_train, _ = make_featurizer(
+        extractor, config.preprocessing, config.radiomics, copy_cache.add
+    )
+    featurize_test, _ = make_featurizer(
         extractor, config.preprocessing, config.radiomics
     )
-    cache = FeatureCache(
-        config.cache_dir or config.out_dir / "feature-cache",
-        fingerprint,
-        featurize,
-        config.radiomics,
-    )
-    train_table, train_skipped = cache.table(split.train)
-    test_table, test_skipped = cache.table(split.test)
+    train_table, train_skipped = FeatureCache(
+        cache_dir, fingerprint, featurize_train, config.radiomics, digest
+    ).table(split.train)
+    test_table, test_skipped = FeatureCache(
+        cache_dir, fingerprint, featurize_test, config.radiomics, digest
+    ).table(split.test)
     skipped = {
         "Train": [f"{s.path.name}: {s.reason}" for s in train_skipped],
         "Test": [f"{s.path.name}: {s.reason}" for s in test_skipped],
     }
-    return train_table, test_table, skipped
+    return _Features(
+        train_table, test_table, skipped, copy_cache.cnn(train_table.samples)
+    )
 
 
 def _training_arrays(table: FeatureTable) -> tuple[np.ndarray, np.ndarray]:
@@ -220,4 +338,21 @@ def _dataset_summary(
         "skipped_train": len(skipped["Train"]),
         "skipped_test": len(skipped["Test"]),
         "skipped_reasons": skipped,
+    }
+
+
+def _augmentation_summary(
+    config: AugmentationConfig,
+    on: bool,
+    without: CandidateScore,
+    with_copies: CandidateScore,
+) -> dict[str, Any]:
+    ranges = {k: v for k, v in asdict(config).items() if k != "copies"}
+    return {
+        "on": on,
+        "copies": config.copies,
+        "ranges": ranges,
+        "cv_without": {"mean": without.mean_macro_f1, "std": without.std_macro_f1},
+        "cv_with": {"mean": with_copies.mean_macro_f1, "std": with_copies.std_macro_f1},
+        "margin": without.std_macro_f1,
     }

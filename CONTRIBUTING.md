@@ -163,6 +163,16 @@ git push -u origin AB-{ID}-{description}
 # 7. Once merged, close the matching Azure Boards work item manually
 ```
 
+### After the merge
+
+GitHub deletes a pull request's branch when it merges (`delete_branch_on_merge`), so do not delete it by hand. `main` and `develop` are protected and are never deleted, including when `develop` is the source of a promotion PR. A deleted branch can be restored from the closed PR with "Restore branch". Prune the stale references on your machine from time to time:
+
+```bash
+git fetch --prune
+```
+
+Delete local branches whose PR is merged with `git branch -d <name>`. Use `-D` only after checking the PR is merged: Rebase and merge rewrites commits, so Git cannot tell the branch was merged. Push any unpushed work first.
+
 ## Code Standards
 
 ### Backend (Python)

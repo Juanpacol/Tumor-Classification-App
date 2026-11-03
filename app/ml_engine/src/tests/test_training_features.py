@@ -1,15 +1,25 @@
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
 from src.classical.config import RadiomicsConfig
 from src.contracts import QualityMetrics, TumorLabel
+from src.deep_learning.bundle import BackboneManifest
 from src.errors import QualityCheckError, UnsupportedImageError
 from src.preprocessing.prepare import PreprocessingConfig
 from src.preprocessing.quality import QualityThresholds
+from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import save, synthetic_slice
+from src.training.augmentation import AugmentationConfig, AugmentationParams
 from src.training.dataset import Sample
-from src.training.features import FeatureCache, config_fingerprint
+from src.training.features import (
+    CopyCache,
+    FeatureCache,
+    config_fingerprint,
+    copy_rows,
+)
 
 RADIOMICS = RadiomicsConfig()
 
@@ -120,22 +130,175 @@ def test_empty_input_gives_an_empty_table(tmp_path: Path) -> None:
     assert table.matrix.shape[0] == 0 and skipped == []
 
 
-def test_fingerprint_changes_with_any_input() -> None:
-    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, "sha")
+BACKBONE = BackboneManifest(
+    backbone="efficientnet_b0",
+    embedding_dim=1280,
+    sha256="sha",
+    torchvision_version="test",
+    weights_version="TEST",
+    **IMAGENET_INPUT,
+)
 
-    assert base == config_fingerprint(PreprocessingConfig(), RADIOMICS, "sha")
+
+def test_fingerprint_changes_with_any_input() -> None:
+    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+
+    assert base == config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
     assert base != config_fingerprint(
-        PreprocessingConfig(cnn_size=256), RADIOMICS, "sha"
+        PreprocessingConfig(cnn_size=256), RADIOMICS, BACKBONE
     )
     assert base != config_fingerprint(
-        PreprocessingConfig(), RadiomicsConfig(lbp_points=16), "sha"
+        PreprocessingConfig(), RadiomicsConfig(lbp_points=16), BACKBONE
     )
-    assert base != config_fingerprint(PreprocessingConfig(), RADIOMICS, "other")
     assert base != config_fingerprint(
-        PreprocessingConfig(min_mask_fraction=0.1), RADIOMICS, "sha"
+        PreprocessingConfig(), RADIOMICS, replace(BACKBONE, sha256="other")
+    )
+    assert base != config_fingerprint(
+        PreprocessingConfig(min_mask_fraction=0.1), RADIOMICS, BACKBONE
+    )
+    assert base != config_fingerprint(
+        PreprocessingConfig(crop_margin=0.1), RADIOMICS, BACKBONE
     )
     assert base != config_fingerprint(
         PreprocessingConfig(thresholds=QualityThresholds(metrics_version=1)),
         RADIOMICS,
-        "sha",
+        BACKBONE,
     )
+
+
+def test_fingerprint_changes_with_the_backbone_input_statistics() -> None:
+    base = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+
+    for change in (
+        {"mean": (0.5, 0.5, 0.5)},
+        {"std": (0.5, 0.5, 0.5)},
+        {"input_size": 256},
+    ):
+        assert base != config_fingerprint(
+            PreprocessingConfig(), RADIOMICS, replace(BACKBONE, **change)
+        )
+
+
+DEFAULT_AUGMENTATION = AugmentationConfig()
+
+
+def marker(path: Path) -> float:
+    """A value that tells which original a CNN image came from."""
+    return float(ord(path.name[0]))
+
+
+class CountingCnnInput:
+    def __init__(self) -> None:
+        self.calls: list[Path] = []
+
+    def __call__(self, path: Path) -> np.ndarray:
+        self.calls.append(path)
+        return np.full((4, 4), marker(path), np.float32)
+
+
+class CountingCopyFeaturizer:
+    def __init__(self) -> None:
+        self.calls: list[tuple[float, list[AugmentationParams]]] = []
+
+    def __call__(
+        self, cnn_image: np.ndarray, params: Sequence[AugmentationParams]
+    ) -> np.ndarray:
+        self.calls.append((float(cnn_image[0, 0]), list(params)))
+        return np.array([[p.rotation_deg, p.scale] for p in params], np.float32)
+
+
+def copy_cache(
+    tmp_path: Path,
+    featurize: CountingCopyFeaturizer,
+    config: AugmentationConfig = DEFAULT_AUGMENTATION,
+    seed: int = 42,
+    cnn_input: CountingCnnInput | None = None,
+) -> CopyCache:
+    return CopyCache(
+        tmp_path / "cache" / "fp1",
+        config,
+        seed,
+        featurize,
+        cnn_input or CountingCnnInput(),
+    )
+
+
+def test_copies_follow_the_samples_with_k_rows_each(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png"])
+    featurizer = CountingCopyFeaturizer()
+
+    cnn = copy_cache(tmp_path, featurizer, AugmentationConfig(copies=2)).cnn(samples)
+
+    assert cnn.shape == (4, 2)
+    assert [key for key, _ in featurizer.calls] == [marker(s.path) for s in samples]
+    assert all(len(params) == 2 for _, params in featurizer.calls)
+
+
+def test_copies_added_from_a_prepared_image_are_not_prepared_again(
+    tmp_path: Path,
+) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png"])
+    featurizer, cnn_input = CountingCopyFeaturizer(), CountingCnnInput()
+    copies = copy_cache(tmp_path, featurizer, cnn_input=cnn_input)
+    for sample in samples:
+        copies.add(sample.path, np.full((4, 4), marker(sample.path), np.float32))
+        copies.add(sample.path, np.full((4, 4), marker(sample.path), np.float32))
+
+    cnn = copies.cnn(samples)
+
+    assert cnn_input.calls == []
+    assert [key for key, _ in featurizer.calls] == [marker(s.path) for s in samples]
+    assert cnn.shape == (2, 2)
+
+
+def test_a_repeated_run_recomputes_no_copy(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png"])
+    featurizer = CountingCopyFeaturizer()
+    first = copy_cache(tmp_path, featurizer).cnn(samples)
+
+    second = copy_cache(tmp_path, featurizer).cnn(samples)
+
+    assert len(featurizer.calls) == 2
+    assert np.array_equal(first, second)
+
+
+def test_changing_a_range_k_or_the_seed_recomputes_every_copy(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png"])
+    originals = CountingFeaturizer()
+    cache(tmp_path, originals).table(samples)
+    featurizer = CountingCopyFeaturizer()
+    copy_cache(tmp_path, featurizer).cnn(samples)
+
+    for config, seed in (
+        (AugmentationConfig(max_rotation_deg=15.0), 42),
+        (AugmentationConfig(copies=2), 42),
+        (AugmentationConfig(), 7),
+    ):
+        before = len(featurizer.calls)
+        copy_cache(tmp_path, featurizer, config, seed).cnn(samples)
+        assert len(featurizer.calls) == before + 2
+
+    cache(tmp_path, originals).table(samples)
+    assert len(originals.calls) == 2
+
+
+def test_the_draw_does_not_depend_on_processing_order(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png", "c.png"])
+    forward = CountingCopyFeaturizer()
+    copy_cache(tmp_path / "one", forward).cnn(samples)
+    backward = CountingCopyFeaturizer()
+    copy_cache(tmp_path / "two", backward).cnn(samples[::-1])
+
+    assert dict(forward.calls) == dict(backward.calls)
+
+
+def test_a_copy_row_has_its_originals_radiomics(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "bbbb.png"])
+    table, _ = cache(tmp_path, CountingFeaturizer()).table(samples)
+    copy_cnn = np.arange(2 * 2 * 8, dtype=np.float32).reshape(4, 8)
+
+    rows = copy_rows(table, copy_cnn, copies=2)
+
+    assert rows.shape == (4, 53)
+    assert np.array_equal(rows[:, :45], np.repeat(table.radiomics, 2, axis=0))
+    assert np.array_equal(rows[:, 45:], copy_cnn)

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from domain.models import ClinicalReport, Report, ReportStatus
+from domain.models import Citation, ClinicalReport, EvidenceRef, Report, ReportStatus
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -49,3 +49,26 @@ def test_failed_report_keeps_error_without_content():
 
     assert report.content is None
     assert report.error == "LLM timeout"
+
+
+def test_citation_is_unverified_by_default():
+    citation = Citation(
+        claim="The confidence is 93%.",
+        evidence=[EvidenceRef(key="prediction.confidence", description="0.93")],
+    )
+
+    assert citation.verified is False
+
+
+def test_citation_can_carry_more_than_one_evidence_ref():
+    citation = Citation(
+        claim="The finding is consistent with glioma at high confidence.",
+        evidence=[
+            EvidenceRef(key="prediction.label", description="glioma"),
+            EvidenceRef(key="prediction.confidence", description="0.93"),
+        ],
+        verified=True,
+    )
+
+    assert len(citation.evidence) == 2
+    assert citation.verified is True

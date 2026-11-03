@@ -21,12 +21,20 @@ Threshold calibration SHALL measure only the images in the training set produced
 - **WHEN** calibration is started without a cleaning manifest
 - **THEN** it refuses to run instead of scanning the dataset folders
 
-### Requirement: Thresholds are the 1st percentile of training measurements
-Calibration SHALL set the minimum SNR and the minimum entropy each to the 1st percentile of that measurement over the readable calibration images, so at least 99% of them pass the gate. Unreadable images SHALL be skipped and SHALL NOT count as used.
+### Requirement: Thresholds sit between unusable references and training measurements
+Calibration SHALL set each minimum inside the gap between the highest value of that metric over a fixed set of unusable reference images and the lowest value over the readable calibration images: the geometric midpoint for SNR, the arithmetic midpoint for entropy. References for SNR are a blank image, uniform noise and heavy Gaussian noise; for entropy, a blank image and a 4-level posterized image. Unreadable images SHALL be skipped and SHALL NOT count as used.
 
 #### Scenario: Calibration images pass the gate
-- **WHEN** thresholds are calibrated at the 0th percentile on a set of images
+- **WHEN** thresholds are calibrated on a set of images
 - **THEN** every one of those images passes the quality gate with those thresholds
+
+#### Scenario: References fail the gate
+- **WHEN** thresholds are calibrated
+- **THEN** every SNR reference falls below the minimum SNR and every entropy reference falls below the minimum entropy
+
+#### Scenario: No gap
+- **WHEN** the lowest calibration value of a metric is not above the highest reference value of that metric
+- **THEN** calibration fails with an error naming the metric and both values
 
 #### Scenario: Unreadable image
 - **WHEN** one calibration image cannot be read
@@ -37,18 +45,18 @@ Calibration SHALL set the minimum SNR and the minimum entropy each to the 1st pe
 - **THEN** calibration fails with an error
 
 ### Requirement: Calibration output states its provenance
-Calibration SHALL output the minimum SNR, the minimum entropy, the percentile used and the number of images used.
+Calibration SHALL output the minimum SNR, the minimum entropy, the number of images used, and for each metric the lowest calibration value and the highest reference value.
 
 #### Scenario: Command-line output
 - **WHEN** calibration is run from the command line
-- **THEN** it prints the minimum SNR, minimum entropy, percentile and number of images used
+- **THEN** it prints the minimum SNR, minimum entropy, number of images used, and the lowest calibration value and highest reference value of each metric
 
 ### Requirement: Calibrated values are recorded with their effect on each class
-The project decision log SHALL record the values calibrated on the versioned dataset, the calibration date, the percentile, the number of images used, and how many images per class those values reject in the purged training set and in the test set.
+The project decision log SHALL record the values calibrated on the versioned dataset, the calibration date, the number of images used, the lowest calibration value and highest reference value of each metric, and how many images per class those values reject in the purged training set and in the test set.
 
 #### Scenario: Decision log entry
 - **WHEN** the change is complete
-- **THEN** the decision log states the calibrated minimum SNR and entropy, the date, the percentile, the number of images used and the per-class rejections for training and test
+- **THEN** the decision log states the calibrated minimum SNR and entropy, the date, the number of images used, the gap of each metric and the per-class rejections for training and test
 
 ### Requirement: Calibrated values become defaults only after review
 The quality gate's default thresholds SHALL change to calibrated values only when a review of the images those values reject finds that they reject unusable scans and do not concentrate in one class. Until then the defaults SHALL remain unchanged, and the decision log SHALL state why.

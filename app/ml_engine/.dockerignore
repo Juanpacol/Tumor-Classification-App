@@ -1,0 +1,3 @@
+# The training image needs only the lock; everything else is mounted.
+*
+!requirements.lock

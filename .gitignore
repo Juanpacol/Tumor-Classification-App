@@ -66,13 +66,9 @@ coverage/
 .vercel
 
 # ML Models & Weights (too large for git)
-app/ml_engine/weights/*.pt
-app/ml_engine/weights/*.pth
-app/ml_engine/weights/*.onnx
-app/ml_engine/weights/*.pkl
-app/ml_engine/weights/*.json
+app/ml_engine/weights/
+.ipynb_checkpoints/
 app/ml_engine/artifacts/
-!app/ml_engine/weights/.gitkeep
 
 # Data
 #data/
@@ -118,3 +114,6 @@ secrets/
 # Windows
 Thumbs.db
 ehthumbs.db
+
+# Local compose overrides (e.g. a different Postgres port)
+docker-compose.override.yml

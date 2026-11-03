@@ -74,14 +74,9 @@ Backend integration tests (`app/backend/tests/integration/`) run against the Pos
 
 ## What's simplified for the cloud demo vs local dev
 
-`docker-compose.yml` stays as the full local dev stack (Postgres + Redis + MinIO + backend + Celery worker + frontend) — unchanged.
+`docker-compose.yml` is the local dev stack: Postgres + backend + frontend. The cloud demo runs two services (frontend on Vercel, backend on Cloud Run) plus Supabase.
 
-For the cloud demo, these are dropped to keep the deployment to two services:
-
-- **Celery + Redis**: inference runs synchronously inside the request instead of through an async task queue. A hackathon demo doesn't need to handle concurrent background jobs.
-- **MinIO / S3 object storage**: uploaded scans are kept in the Cloud Run container's filesystem instead of a separate object store. Not persistent across container restarts/scale-to-zero — acceptable for a demo, not for production.
-
-This means local dev and the cloud demo are not identical environments. If the backend code assumes Celery/Redis or S3 are always present, that assumption needs a feature flag or environment check so the same codebase runs both ways.
+Neither environment uses Celery, Redis or S3/MinIO: inference runs synchronously inside the request, and uploaded scans are kept on the backend's filesystem (`STORAGE_DIR`). On Cloud Run that is not persistent across restarts or scale-to-zero, which is acceptable for a demo, not for production.
 
 ## Environment variables (cloud demo)
 
