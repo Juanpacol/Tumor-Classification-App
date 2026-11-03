@@ -45,6 +45,9 @@ class TrainingConfig:
     augmentation: AugmentationConfig = field(default_factory=AugmentationConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     round_source: RoundSource | None = None
+    final: bool = False
+    """A final run scores Testing once and writes the artifact; a tuning run does
+    neither. It is a property of the run, not of the round, so it is not resolved."""
 
 
 class RoundFileError(ValueError):

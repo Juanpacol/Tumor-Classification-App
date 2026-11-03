@@ -12,6 +12,7 @@ from src.training.report import (
     TARGET_MACRO_F1,
     build_report,
     render_markdown,
+    with_test,
     write_report,
 )
 
@@ -31,8 +32,9 @@ def metrics_dict(macro_f1: float) -> dict[str, Any]:
     }
 
 
-def make_report(macro_f1: float) -> dict[str, Any]:
+def tuning_report() -> dict[str, Any]:
     return build_report(
+        mode="tuning",
         created_at="2026-10-29T10:00:00+00:00",
         version="1.0.0",
         seed=42,
@@ -68,9 +70,7 @@ def make_report(macro_f1: float) -> dict[str, Any]:
             "margin": 0.02,
         },
         cv_out_of_fold={"augmented": False, **metrics_dict(0.88)},
-        test=metrics_dict(macro_f1),
-        calibration_method="sigmoid",
-        shortcut_audit=shortcut_audit(0.55),
+        shortcut_audit={"metadata_baseline": shortcut_audit(0.55)["metadata_baseline"]},
         guarantees=[
             {
                 "id": "G1",
@@ -81,6 +81,13 @@ def make_report(macro_f1: float) -> dict[str, Any]:
         config={"run": {"seed": 42}},
         config_source=None,
     )
+
+
+def make_report(macro_f1: float) -> dict[str, Any]:
+    """A final run's report: the tuning part plus Testing."""
+    report = tuning_report()
+    report = {**report, "mode": "final", "shortcut_audit": shortcut_audit(0.55)}
+    return with_test(report, metrics_dict(macro_f1), "sigmoid")
 
 
 def shortcut_audit(balanced_accuracy: float) -> dict[str, Any]:
@@ -242,3 +249,25 @@ def test_the_resolved_config_is_written_next_to_the_report(tmp_path: Path) -> No
     assert json.loads((tmp_path / "r" / CONFIG_FILE).read_text()) == {
         "run": {"seed": 42}
     }
+
+
+def test_a_tuning_report_has_no_testing_and_no_verdict() -> None:
+    report = tuning_report()
+
+    assert report["mode"] == "tuning" and report["target_met"] is None
+    assert "test" not in report and "calibration_method" not in report
+
+
+def test_tuning_markdown_names_the_mode_and_never_shows_testing() -> None:
+    markdown = render_markdown(tuning_report())
+
+    assert "tuning run." in markdown
+    assert "**Tuning run: Testing was not read.** Selected svm_rbf" in markdown
+    assert "CV macro-F1 0.900 ± 0.020" in markdown
+    assert "(test" not in markdown and "in Test |" not in markdown
+    assert "calibrated with" not in markdown
+    assert "Per-class metrics (cross-validated on Train" in markdown
+
+
+def test_final_markdown_names_the_mode() -> None:
+    assert "final run." in render_markdown(make_report(0.95))
