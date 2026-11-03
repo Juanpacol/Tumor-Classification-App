@@ -28,6 +28,7 @@ from src.training.calibration import (
 )
 from src.training.config import TrainingConfig, resolved_config
 from src.training.dataset import Split, load_samples, split_samples
+from src.training.diagnosis import error_breakdown, predictions_table
 from src.training.evaluation import evaluate
 from src.training.features import (
     CopyCache,
@@ -103,7 +104,7 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         final = _finalize(config, tuning, test_table)
         report = _with_final(config, report, tuning, test_table, skipped, final)
         _write_artifact(config, artifact_dir, report, tuning, final)
-    write_report(report_dir, report, tuning.folds)
+    write_report(report_dir, report, tuning.folds, tuning.oof_rows)
     return TrainingResult(artifact_dir if config.final else None, report_dir, report)
 
 
@@ -129,6 +130,8 @@ class _Tuning:
     augmentation: dict[str, Any]
     cv_out_of_fold: dict[str, Any]
     cv_calibrated: dict[str, Any]
+    oof_rows: list[dict[str, Any]]
+    cv_error_breakdown: dict[str, Any]
     ablation: dict[str, float]
     metadata_baseline: dict[str, Any]
     guarantees: list[dict[str, Any]]
@@ -211,6 +214,9 @@ def _tune(
     predictions = (
         copies_predictions if augmented else selection.predictions[selection.best]
     )
+    oof_rows = predictions_table(
+        table.samples, config.data_dir, fold_of_row, table.quality, predictions
+    )
     model = build_model(
         classifier,
         n_radiomic,
@@ -233,6 +239,8 @@ def _tune(
             "augmented": augmented,
             **asdict(out_of_fold_metrics(y_train, predictions, LABELS)),
         },
+        oof_rows=oof_rows,
+        cv_error_breakdown=error_breakdown(oof_rows, LABELS, NO_TUMOR),
         cv_calibrated=asdict(
             calibrated_out_of_fold(
                 model,
@@ -313,6 +321,7 @@ def _report(
         augmentation=tuning.augmentation,
         cv_out_of_fold=tuning.cv_out_of_fold,
         cv_calibrated=tuning.cv_calibrated,
+        cv_error_breakdown=tuning.cv_error_breakdown,
         shortcut_audit={"metadata_baseline": tuning.metadata_baseline},
         guarantees=tuning.guarantees,
         config=resolved_config(config),

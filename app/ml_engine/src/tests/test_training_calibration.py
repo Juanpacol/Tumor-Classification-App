@@ -121,7 +121,7 @@ def test_fold_k_never_fits_or_calibrates_the_model_that_predicts_it(
 
 
 def test_inner_splits_use_each_other_fold_once_as_calibration_rows() -> None:
-    matrix, labels, groups = separable_features()
+    _, labels, groups = separable_features()
     splits = grouped_splits(labels, groups, 3)
     fit_rows, validation_rows = splits[0]
 

@@ -1,3 +1,4 @@
+import csv
 import json
 import shutil
 from pathlib import Path
@@ -13,8 +14,8 @@ from src.training import __main__ as cli
 from src.training import run
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE
 from src.training.config import apply_round
-from src.training.model import ModelConfig
-from src.training.model import candidate_classifiers
+from src.training.diagnosis import PREDICTIONS_FILE
+from src.training.model import ModelConfig, candidate_classifiers
 from src.training.report import CONFIG_FILE
 from src.training.run import BackboneBundleError, TrainingResult, train
 from src.training.shortcut import WARNING_BALANCED_ACCURACY
@@ -461,3 +462,38 @@ def test_the_configured_calibration_reaches_the_artifact(
     assert manifest["calibration"]["method"] == "isotonic"
     assert cnn_only_isotonic.report["calibration_method"] == "isotonic"
     assert cnn_only_isotonic.report["cv_calibrated"]["method"] == "isotonic"
+
+
+def test_the_predictions_file_matches_the_out_of_fold_metrics(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+    with (result.report_dir / PREDICTIONS_FILE).open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    labels = list(result.report["cv_out_of_fold"]["per_class"])
+
+    matrix = [[0] * len(labels) for _ in labels]
+    for row in rows:
+        matrix[labels.index(row["label"])][labels.index(row["predicted"])] += 1
+    assert matrix == result.report["cv_out_of_fold"]["confusion_matrix"]
+    assert len(rows) == result.report["dataset"]["train_images"]
+    assert all(row["path"].startswith("Train/") for row in rows)
+    assert len({row["path"] for row in rows}) == len(rows)
+
+
+def test_the_breakdown_adds_up_to_the_out_of_fold_errors(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+    report = result.report
+    labels = list(report["cv_out_of_fold"]["per_class"])
+    confusion = report["cv_out_of_fold"]["confusion_matrix"]
+    no_tumor = labels.index("no_tumor")
+    errors = sum(confusion[i][no_tumor] for i in range(len(labels)) if i != no_tumor)
+
+    for cells in report["cv_error_breakdown"]["splits"].values():
+        assert (
+            sum(c["images"] for c in cells.values())
+            == len(report["cv_out_of_fold"]["per_class"]) * PER_CLASS
+        )
+        assert sum(c["tumor_as_no_tumor"] for c in cells.values()) == errors

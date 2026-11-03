@@ -82,7 +82,7 @@ def test_serving_matches_training_for_the_same_image(
     classifier = joblib.load(result.artifact_dir / CLASSIFIER_FILE)
     extractor = DeepFeatureExtractor.from_bundle(result.artifact_dir)
     featurize, _ = make_featurizer(extractor, PreprocessingConfig(), RadiomicsConfig())
-    radiomics, cnn = featurize(workspace["data"] / relative)
+    radiomics, cnn, _ = featurize(workspace["data"] / relative)
     expected = classifier.predict_proba(np.hstack([radiomics, cnn])[None])[0]
 
     served = pipeline.predict(image_bytes(workspace, relative))

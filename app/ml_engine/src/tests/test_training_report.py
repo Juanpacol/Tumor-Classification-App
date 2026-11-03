@@ -70,6 +70,30 @@ def tuning_report() -> dict[str, Any]:
             "margin": 0.02,
         },
         cv_out_of_fold={"augmented": False, **metrics_dict(0.88)},
+        cv_error_breakdown={
+            "tercile_edges": {"snr": [2.0, 4.0], "entropy": [5.0, 6.0]},
+            "splits": {
+                "source_size": {
+                    "512x512": {
+                        "images": 3,
+                        "recall": {"glioma": 0.5, "no_tumor": None},
+                        "tumor_as_no_tumor": 1,
+                    },
+                    "other": {
+                        "images": 5,
+                        "recall": {"glioma": 1.0, "no_tumor": 1.0},
+                        "tumor_as_no_tumor": 0,
+                    },
+                },
+                "snr_tercile": {
+                    "low": {
+                        "images": 8,
+                        "recall": {"glioma": 0.75, "no_tumor": 1.0},
+                        "tumor_as_no_tumor": 1,
+                    }
+                },
+            },
+        },
         cv_calibrated={
             "method": "sigmoid",
             "macro_f1": 0.87,
@@ -238,7 +262,7 @@ def test_markdown_shows_out_of_fold_metrics_apart_from_test() -> None:
     assert "not on Test" in section
     assert "| glioma | 0.900 | 0.800 | 0.850 | 10 |" in section
     assert "Confusion matrix (rows are the truth):" in section
-    assert markdown.index("## Per class (test)") < markdown.index(heading)
+    assert markdown.index(heading) < markdown.index("## Per class (test)")
 
 
 def test_markdown_names_the_configuration_source() -> None:
@@ -289,3 +313,25 @@ def test_markdown_shows_the_calibrated_out_of_fold_section() -> None:
     section = markdown.split(heading)[1].split("\n## ")[0]
     assert "calibrated with sigmoid" in section
     assert "| 0.870 | 0.345 | 80.0% | 0.950 |" in section
+
+
+def test_markdown_shows_the_error_breakdown_before_any_testing_section() -> None:
+    markdown = render_markdown(make_report(0.95))
+    heading = "## Out-of-fold errors by subgroup (cross-validated on Train)"
+
+    assert heading in markdown
+    section = markdown.split(heading)[1].split("\n## ")[0]
+    assert "| source_size | Images | glioma | no_tumor | Tumor → no_tumor |" in section
+    assert "| 512x512 | 3 | 0.500 | n/a | 1 |" in section
+    assert "snr_tercile: edges 2.000 and 4.000." in section
+    assert markdown.index(heading) < markdown.index("## Per class (test)")
+    assert markdown.index(heading) < markdown.index("## Confusion matrix (test")
+
+
+def test_the_predictions_file_is_written_next_to_the_report(tmp_path: Path) -> None:
+    rows = [{"path": "Train/a.png", "label": "glioma", "predicted": "glioma"}]
+
+    write_report(tmp_path / "r", make_report(0.95), FOLDS, rows)
+
+    with (tmp_path / "r" / "oof_predictions.csv").open(newline="") as handle:
+        assert list(csv.DictReader(handle)) == rows
