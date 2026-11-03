@@ -116,6 +116,21 @@ docker compose run --rm --entrypoint pytest trainer src/ -q                     
 - To time a round: `time docker compose run ...` (POSIX) or `Measure-Command { docker compose run ... }` (PowerShell).
 - On a Linux host the container writes files as root; add `--user "$(id -u):$(id -g)" -e HOME=/tmp` to `run`.
 
+### Publish a model
+
+A trained bundle is published outside git, as one asset of a GitHub Release tagged `model-v<version>`. Publishing is gated: per the training rules, a model that misses the 0.90 macro-F1 target goes to the team for review first and nobody publishes it until they have read the report.
+
+```bash
+python -m src.release package artifacts/model-v0.2.0 --out release   # archive, .sha256 and release notes
+gh release create model-v0.2.0 release/model-v0.2.0.tar.gz release/model-v0.2.0.tar.gz.sha256 \
+  --title model-v0.2.0 --notes-file release/release-notes-model-v0.2.0.md
+python -m src.release fetch 0.2.0 --dest artifacts                  # download, verify, extract
+```
+
+`package` refuses a folder whose name does not match the manifest version and never overwrites an archive; its release notes carry the Test metrics from `manifest.json`. `fetch` compares the SHA-256 of the download with the published one and extracts nothing on a mismatch. Only regular files under `model-v<version>/` are extracted. `release/` is ignored by git.
+
+The flow is: train (`src.training`) → `package` → `gh release create` → deploy: `fetch` the version and point the backend at the folder (`MODEL_BUNDLE_DIR` in `docker-compose.yml`, or the mounted path on Cloud Run).
+
 ### Pipeline notebook
 
 `notebooks/pipeline_walkthrough.ipynb` runs the pipeline cell by cell with matplotlib plots: dataset and leakage-free split, source geometry, one image through B3-B6, the quality gate over Train, augmentation, the CNN tensor and embedding, radiomics, folds, then selection, augmentation decision, ablation, out-of-fold metrics, the shortcut audit and a single Test evaluation. It only calls `src` functions and never writes an artifact. It runs in the `notebook` image (the training image plus JupyterLab and matplotlib, constrained by the lock):
