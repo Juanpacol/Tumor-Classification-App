@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pathlib
 from collections.abc import AsyncIterator, Iterator
 
@@ -16,7 +17,11 @@ from adapters.outbound.persistence.sqlalchemy.engine import (
 from adapters.outbound.persistence.sqlalchemy.repository import (
     SqlAlchemyStudyRepository,
 )
-from settings import Settings
+from settings import Settings, get_settings
+from tests.integration.database_guard import (
+    TEST_DATABASE_URL,
+    disposable_database_url,
+)
 
 ALEMBIC_INI = pathlib.Path(__file__).resolve().parents[2] / "alembic.ini"
 TABLES = "chat_messages, reports, predictions, studies"
@@ -48,12 +53,19 @@ def alembic_config() -> Config:
 
 @pytest.fixture(scope="session")
 def migrated_database(alembic_config: Config) -> Iterator[Settings]:
-    settings = Settings()
-    if not asyncio.run(_is_reachable(settings)):
-        url = make_url(settings.database_url).render_as_string(hide_password=True)
-        pytest.skip(f"PostgreSQL not reachable at DATABASE_URL ({url})")
-    command.upgrade(alembic_config, "head")
-    yield settings
+    url = disposable_database_url(os.environ)
+    if url is None:
+        pytest.skip(f"{TEST_DATABASE_URL} not set (DATABASE_URL is never used)")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("DATABASE_URL", url)
+        get_settings.cache_clear()
+        settings = Settings()
+        if not asyncio.run(_is_reachable(settings)):
+            shown = make_url(url).render_as_string(hide_password=True)
+            pytest.skip(f"PostgreSQL not reachable at {TEST_DATABASE_URL} ({shown})")
+        command.upgrade(alembic_config, "head")
+        yield settings
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")
