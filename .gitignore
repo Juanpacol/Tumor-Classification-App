@@ -67,6 +67,7 @@ coverage/
 
 # ML Models & Weights (too large for git)
 app/ml_engine/weights/
+.ipynb_checkpoints/
 app/ml_engine/artifacts/
 
 # Data
