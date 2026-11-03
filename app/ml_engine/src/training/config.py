@@ -19,6 +19,8 @@ from src.training.folds import N_SPLITS
 from src.training.model import DEFAULT_SEED, ModelConfig, candidate_classifiers
 
 GUARDED_KEYS = frozenset({"preprocessing.thresholds.metrics_version"})
+MODEL_KEYS = frozenset({"backbone", "pca_components"})
+"""Keys of the ``[model]`` section of a round file."""
 """Round-file keys that name an engine property rather than a tunable value."""
 
 
@@ -34,8 +36,8 @@ class RoundSource:
 class TrainingConfig:
     data_dir: Path
     manifest: Path
-    backbone_bundle: Path
     out_dir: Path
+    weights_dir: Path = Path("weights")
     seed: int = DEFAULT_SEED
     n_splits: int = N_SPLITS
     version: str = "0.0.0-dev"
@@ -48,6 +50,11 @@ class TrainingConfig:
     final: bool = False
     """A final run scores Testing once and writes the artifact; a tuning run does
     neither. It is a property of the run, not of the round, so it is not resolved."""
+
+    @property
+    def backbone_bundle(self) -> Path:
+        """Folder of the configured backbone's bundle: one folder per backbone."""
+        return self.weights_dir / self.model.backbone
 
 
 class RoundFileError(ValueError):
@@ -96,7 +103,7 @@ def resolved_config(config: TrainingConfig) -> dict[str, Any]:
         "preprocessing": asdict(config.preprocessing),
         "radiomics": asdict(config.radiomics),
         "augmentation": asdict(config.augmentation),
-        "model": {"pca_components": config.model.pca_components},
+        "model": {key: getattr(config.model, key) for key in sorted(MODEL_KEYS)},
         "classifiers": {
             name: classifier.get_params(deep=False)
             for name, classifier in candidates.items()
@@ -121,16 +128,17 @@ def _run(config: TrainingConfig, table: dict[str, Any]) -> dict[str, Any]:
 
 
 def _model(model: ModelConfig, table: dict[str, Any]) -> ModelConfig:
-    if unknown := set(table) - {"pca_components"}:
+    if unknown := set(table) - MODEL_KEYS:
         raise RoundFileError(f"unknown key: model.{min(unknown)}")
-    values = {
-        key: _coerce(value, getattr(model, key), f"model.{key}")
-        for key, value in table.items()
-    }
-    try:
-        return replace(model, **values)
-    except ValueError as error:
-        raise RoundFileError(f"model: {error}") from error
+    for key, value in table.items():
+        dotted = f"model.{key}"
+        try:
+            model = replace(model, **{key: _coerce(value, getattr(model, key), dotted)})
+        except ValueError as error:
+            if isinstance(error, RoundFileError):
+                raise
+            raise RoundFileError(f"{dotted}: {error}") from error
+    return model
 
 
 def _classifiers(model: ModelConfig, table: dict[str, Any], seed: int) -> ModelConfig:

@@ -22,7 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--manifest", type=Path, required=True, help="cleaning manifest.csv"
     )
-    parser.add_argument("--backbone-bundle", type=Path, default=Path("weights"))
+    parser.add_argument(
+        "--weights-dir",
+        type=Path,
+        default=Path("weights"),
+        help="folder with one backbone bundle per subfolder, named after the backbone",
+    )
     parser.add_argument("--out", type=Path, default=Path("artifacts"))
     parser.add_argument(
         "--config", type=Path, default=None, help="round file (TOML) with overrides"
@@ -100,7 +105,7 @@ def configure(args: argparse.Namespace) -> TrainingConfig:
     config = TrainingConfig(
         data_dir=args.data_dir,
         manifest=args.manifest,
-        backbone_bundle=args.backbone_bundle,
+        weights_dir=args.weights_dir,
         out_dir=args.out,
         version=args.version,
         cache_dir=args.cache_dir,

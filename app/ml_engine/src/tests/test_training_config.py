@@ -19,7 +19,9 @@ ROUNDS = Path(__file__).resolve().parents[2] / "rounds"
 
 
 def base() -> TrainingConfig:
-    return TrainingConfig(Path("d"), Path("m"), Path("w"), Path("o"))
+    return TrainingConfig(
+        data_dir=Path("d"), manifest=Path("m"), out_dir=Path("o"), weights_dir=Path("w")
+    )
 
 
 def round_file(tmp_path: Path, text: str) -> Path:
@@ -224,3 +226,30 @@ def test_without_a_round_file_the_cli_uses_the_defaults() -> None:
 
     assert resolved_config(config) == resolved_config(base())
     assert config.round_source is None
+
+
+def test_a_round_chooses_the_backbone_and_its_bundle_folder(tmp_path: Path) -> None:
+    text = '[model]\nbackbone = "resnet50"\n'
+    config = apply_round(base(), round_file(tmp_path, text))
+
+    assert config.model.backbone == "resnet50"
+    assert config.backbone_bundle == Path("w") / "resnet50"
+    assert resolved_config(config)["model"]["backbone"] == "resnet50"
+
+
+def test_the_default_backbone_is_efficientnet_b0() -> None:
+    assert base().model.backbone == "efficientnet_b0"
+    assert base().backbone_bundle == Path("w") / "efficientnet_b0"
+
+
+def test_an_unknown_backbone_is_rejected_naming_the_key(tmp_path: Path) -> None:
+    with pytest.raises(RoundFileError, match="model.backbone"):
+        apply_round(base(), round_file(tmp_path, '[model]\nbackbone = "vgg16"\n'))
+
+
+def test_the_cli_takes_the_weights_folder() -> None:
+    args = build_parser().parse_args(
+        ["--data-dir", "d", "--manifest", "m", "--weights-dir", "bundles"]
+    )
+
+    assert configure(args).weights_dir == Path("bundles")

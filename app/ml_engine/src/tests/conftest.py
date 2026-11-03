@@ -73,10 +73,17 @@ def workspace(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     set_seed(0)
     root = tmp_path_factory.mktemp("training-workspace")
     data_dir, manifest = write_labeled_dataset(root, PER_CLASS)
-    backbone = root / "backbone"
+    weights = root / "weights"
+    backbone = weights / "efficientnet_b0"
     state = build_backbone("efficientnet_b0").state_dict()
     write_bundle(backbone, "efficientnet_b0", state, "RANDOM", **IMAGENET_INPUT)
-    return {"data": data_dir, "manifest": manifest, "backbone": backbone, "root": root}
+    return {
+        "data": data_dir,
+        "manifest": manifest,
+        "weights": weights,
+        "backbone": backbone,
+        "root": root,
+    }
 
 
 @pytest.fixture(scope="session")

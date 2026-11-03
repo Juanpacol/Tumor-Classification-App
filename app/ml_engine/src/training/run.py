@@ -79,7 +79,9 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
 
     A tuning run (``config.final`` false) never reads a Testing feature. A final
     run then calibrates, scores Testing once and writes the artifact. Raises
-    ``FileExistsError`` before any work if a final run's artifact exists.
+    ``FileExistsError`` before any work if a final run's artifact exists, and
+    ``BackboneBundleError`` before any image is read if the backbone bundle is
+    missing or declares another backbone.
     """
     now = now or datetime.now(UTC)
     artifact_dir = config.out_dir / f"model-v{config.version}"
@@ -88,11 +90,11 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
         raise FileExistsError(f"artifact already exists: {artifact_dir}")
     set_seed(config.seed)
 
+    extraction = _extraction(config)
     split = split_samples(load_samples(config.data_dir, config.manifest))
     if not split.train:
         raise ValueError("no usable training images")
     fold_of = assign_folds(split.train, config.n_splits, config.seed)
-    extraction = _extraction(config)
     tuning = _tune(config, split, fold_of, _train_features(config, extraction, split))
     report = _report(config, now, split, tuning)
     if config.final:
@@ -390,10 +392,24 @@ def _with_copies(
     )
 
 
+class BackboneBundleError(ValueError):
+    """The weights directory has no usable bundle for the configured backbone."""
+
+
 def _extraction(config: TrainingConfig) -> _Extraction:
-    extractor = DeepFeatureExtractor.from_bundle(
-        config.backbone_bundle, config.preprocessing
-    )
+    """The extractor of the configured backbone, checked before any image is read."""
+    backbone, folder = config.model.backbone, config.backbone_bundle
+    if not folder.is_dir():
+        raise BackboneBundleError(
+            f"no {backbone} bundle in {folder}: export it with "
+            f"src.deep_learning.export_backbone --backbone {backbone} --out {folder}"
+        )
+    extractor = DeepFeatureExtractor.from_bundle(folder, config.preprocessing)
+    if extractor.manifest.backbone != backbone:
+        raise BackboneBundleError(
+            f"{folder} holds a {extractor.manifest.backbone} bundle, "
+            f"but the round uses {backbone}"
+        )
     return _Extraction(
         extractor,
         config_fingerprint(config.preprocessing, config.radiomics, extractor.manifest),

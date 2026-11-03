@@ -51,13 +51,15 @@ The radiomics region of interest is the brain mask above (`src/preprocessing/bra
 
 ## Deep features
 
-`DeepFeatureExtractor.from_bundle(folder)` loads a frozen ImageNet backbone (EfficientNet-B0 by default) and `extract` / `extract_batch` turn the `cnn_image` of `prepare_image` into 1280-d embeddings, normalizing it with the mean and std stored in the bundle (D20). Weights are never downloaded at runtime. Create the bundle once on a development machine:
+`DeepFeatureExtractor.from_bundle(folder)` loads a frozen ImageNet backbone (EfficientNet-B0 by default) and `extract` / `extract_batch` turn the `cnn_image` of `prepare_image` into 1280-d embeddings, normalizing it with the mean and std stored in the bundle (D20). Weights are never downloaded at runtime. Create one bundle per backbone once on a development machine, each in a folder named after it:
 
 ```bash
-python -m src.deep_learning.export_backbone --out weights
+python -m src.deep_learning.export_backbone --backbone efficientnet_b0 --out weights/efficientnet_b0
+python -m src.deep_learning.export_backbone --backbone resnet50 --out weights/resnet50
+python -m src.deep_learning.export_backbone --backbone densenet121 --out weights/densenet121
 ```
 
-The `weights/` folder is ignored by git. The export writes the input size, mean and std that torchvision publishes for the weights. Details are in `docs/ml-engine/decisions.md` (D9, D20).
+A training run loads `<weights-dir>/<model.backbone>/` (`--weights-dir` defaults to `weights`) and stops before reading any image if that folder is missing or holds another backbone. The `weights/` folder is ignored by git. The export writes the input size, mean and std that torchvision publishes for the weights. Details are in `docs/ml-engine/decisions.md` (D9, D20).
 
 ## Training data and model selection
 
@@ -95,10 +97,10 @@ Each round is a TOML file in `rounds/`, versioned in git, named after the round'
 | `[preprocessing]`, `[preprocessing.thresholds]` | `PreprocessingConfig` and `QualityThresholds` (not `metrics_version`) |
 | `[radiomics]` | `RadiomicsConfig` |
 | `[augmentation]` | `AugmentationConfig` |
-| `[model]` | `pca_components` |
+| `[model]` | `backbone` (`efficientnet_b0`, `resnet50` or `densenet121`), `pca_components` |
 | `[classifiers.<name>]` | hyperparameters of `logistic_regression`, `svm_rbf` or `random_forest` (any `get_params()` key except `class_weight` and `random_state`) |
 
-An unknown or guarded key stops the run before any image is read, with an error naming it. `--seed` and `--n-splits` on the command line override the file. Rounds that change only `[model]` or `[classifiers.*]` reuse every cached feature; changes to preprocessing, radiomics or augmentation recompute what they affect.
+An unknown or guarded key stops the run before any image is read, with an error naming it. `--seed` and `--n-splits` on the command line override the file. Rounds that change only `[model]` settings other than `backbone`, or `[classifiers.*]`, reuse every cached feature; a new backbone extracts its CNN features once, and returning to a backbone reuses them; changes to preprocessing, radiomics or augmentation recompute what they affect.
 
 Compare rounds on the out-of-fold section and the cross-validated scores only. Rounds run without `--final`, so they never read Test; choosing values by Test would make the final Test score optimistic. Rerun only the kept round with `--final`. Many rounds on the same 5 folds also overfit the CV estimate, so change one family of parameters per round and keep the number of rounds small.
 
@@ -108,7 +110,7 @@ The `trainer` service of the root `docker-compose.yml` is an image with `require
 
 ```bash
 docker compose build trainer
-docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
+docker compose run --rm trainer src.deep_learning.export_backbone --backbone efficientnet_b0 --out weights/efficientnet_b0   # once per backbone
 docker compose run --rm trainer src.training --data-dir src/data \
   --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
   --config rounds/0.2.0.toml --version 0.2.0                                    # add --final for the kept round
