@@ -13,6 +13,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
+MIGRATION_LOCK_ID = 218_000_001
 
 
 def run_migrations_offline() -> None:
@@ -29,6 +30,9 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        # Serializes concurrent upgrades (e.g. compose up plus a one-off run);
+        # the lock is released when the transaction ends.
+        connection.exec_driver_sql(f"SELECT pg_advisory_xact_lock({MIGRATION_LOCK_ID})")
         context.run_migrations()
 
 
