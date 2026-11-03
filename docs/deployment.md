@@ -57,7 +57,7 @@ Supabase offers three connection strings (Project → Connect):
 
 ### Migrations
 
-The schema is created by Alembic (`app/backend/migrations/`); it is **not** created on app startup.
+The schema is created by Alembic (`app/backend/migrations/`); the application code never creates it. Only the local compose `backend` service runs the migration on start (below); Cloud Run instances do not, and rely on the `Migrate` step of `cloudbuild.yaml` and the manual Supabase step.
 
 ```bash
 cd app/backend
@@ -65,7 +65,8 @@ alembic upgrade head          # create/upgrade the schema
 alembic downgrade base        # drop it (rollback)
 ```
 
-- **Local**: `docker-compose up -d postgres`, then run `alembic upgrade head` from `app/backend` (the default `DATABASE_URL` points to the compose database).
+- **Local (compose)**: the `backend` service runs `alembic upgrade head` before uvicorn on every start (`up`, `restart`, recreate). It is a no-op at head; if the migration fails the container exits before serving and `docker compose logs backend` shows the error.
+- **Local (backend on the host)**: `docker compose up -d postgres`, then run `alembic upgrade head` from `app/backend` (the default `DATABASE_URL` points to the compose database).
 - **Supabase**: Cloud Run redeploys on every push to `main`, so run the migration **before** merging a change that adds one: `DATABASE_URL=<Supabase session pooler URL> alembic upgrade head` from a local checkout. The Cloud Run service's own `DATABASE_URL` env var must point at the same session pooler connection string, or `/health` reports `database_reachable: false`. Ran for the first time 2026-10-30 (AB-186), after the Cloud Run build was fixed in AB-184.
 
 ### Tests
