@@ -9,6 +9,7 @@ from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
+from src.training.diagnosis import PREDICTIONS_FILE
 from src.training.folds import FoldRow
 
 TARGET_MACRO_F1 = 0.90
@@ -29,6 +30,7 @@ def build_report(
     augmentation: dict[str, Any],
     cv_out_of_fold: dict[str, Any],
     cv_calibrated: dict[str, Any],
+    cv_error_breakdown: dict[str, Any],
     shortcut_audit: dict[str, Any],
     guarantees: list[dict[str, Any]],
     config: dict[str, Any],
@@ -50,6 +52,7 @@ def build_report(
         "augmentation": augmentation,
         "cv_out_of_fold": cv_out_of_fold,
         "cv_calibrated": cv_calibrated,
+        "cv_error_breakdown": cv_error_breakdown,
         "shortcut_audit": shortcut_audit,
         "leakage_guarantees": guarantees,
         "config": config,
@@ -70,10 +73,14 @@ def with_test(
 
 
 def write_report(
-    directory: Path, report: dict[str, Any], folds: Sequence[FoldRow]
+    directory: Path,
+    report: dict[str, Any],
+    folds: Sequence[FoldRow],
+    oof_rows: Sequence[dict[str, Any]] = (),
 ) -> None:
-    """Write ``report.json``, ``report.md``, the resolved ``config.json`` and the fold
-    record ``folds.csv`` to a new folder (never overwrites)."""
+    """Write ``report.json``, ``report.md``, the resolved ``config.json``, the fold
+    record ``folds.csv`` and the out-of-fold predictions to a new folder (never
+    overwrites)."""
     directory.mkdir(parents=True)
     (directory / "report.json").write_text(json.dumps(report, indent=2))
     (directory / CONFIG_FILE).write_text(json.dumps(report["config"], indent=2))
@@ -82,6 +89,13 @@ def write_report(
         writer = csv.DictWriter(handle, [f.name for f in fields(FoldRow)])
         writer.writeheader()
         writer.writerows({**asdict(row), "used": int(row.used)} for row in folds)
+    if oof_rows:
+        with (directory / PREDICTIONS_FILE).open(
+            "w", newline="", encoding="utf-8"
+        ) as handle:
+            writer = csv.DictWriter(handle, list(oof_rows[0]))
+            writer.writeheader()
+            writer.writerows(oof_rows)
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -91,7 +105,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"Created {report['created_at']}, seed {report['seed']}, {report['mode']} run.",
         "",
-        *(_test_lines(report) if final else _tuning_lines(report)),
+        *(_test_headline(report) if final else _tuning_lines(report)),
         *_validation_lines(report["validation"]),
         "## Classifier selection (cross-validated on Train, chosen by macro-F1)",
         "",
@@ -108,6 +122,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         *_out_of_fold_lines(report["cv_out_of_fold"]),
         *_calibrated_lines(report["cv_calibrated"]),
+        *_breakdown_lines(report["cv_error_breakdown"]),
         *_augmentation_lines(report["augmentation"]),
         *_shortcut_lines(report["shortcut_audit"]),
         *_guarantee_lines(report["leakage_guarantees"]),
@@ -120,6 +135,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             for name, value in report["ablation_macro_f1"].items()
         ),
         "",
+        *(_test_detail_lines(report["test"]) if final else []),
         "## Data",
         "",
         *(
@@ -135,16 +151,22 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _test_lines(report: dict[str, Any]) -> list[str]:
+def _test_headline(report: dict[str, Any]) -> list[str]:
     test = report["test"]
     verdict = "met" if report["target_met"] else "NOT met"
     return [
         (
             f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
             f"balanced accuracy {test['balanced_accuracy']:.3f}. "
-            f"Target {report['target_macro_f1']:.2f}: {verdict}."
+            f"Target {report['target_macro_f1']:.2f}: {verdict}. Per-class Test "
+            "results are after every Train section."
         ),
         "",
+    ]
+
+
+def _test_detail_lines(test: dict[str, Any]) -> list[str]:
+    return [
         "## Per class (test)",
         "",
         *_per_class_lines(test),
@@ -222,8 +244,10 @@ def _calibrated_lines(metrics: dict[str, Any]) -> list[str]:
             "calibration methods on log loss."
         ),
         "",
-        "| Macro-F1 | Log loss | Top probability ≥ "
-        f"{metrics['triage_threshold']:.2f} | Accuracy of those |",
+        (
+            "| Macro-F1 | Log loss | Top probability ≥ "
+            f"{metrics['triage_threshold']:.2f} | Accuracy of those |"
+        ),
         "|---|---|---|---|",
         (
             f"| {metrics['macro_f1']:.3f} | {metrics['log_loss']:.3f} "
@@ -233,6 +257,36 @@ def _calibrated_lines(metrics: dict[str, Any]) -> list[str]:
         ),
         "",
     ]
+
+
+def _breakdown_lines(breakdown: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Out-of-fold errors by subgroup (cross-validated on Train)",
+        "",
+        (
+            "Recall per class of the same out-of-fold predictions, and the tumor "
+            "images predicted no_tumor, split by source size, by group size and by "
+            f"tercile of each quality metric. Every image is in `{PREDICTIONS_FILE}`."
+        ),
+        "",
+    ]
+    for name, cells in breakdown["splits"].items():
+        labels = list(next(iter(cells.values()))["recall"])
+        edges = breakdown["tercile_edges"].get(name.removesuffix("_tercile"))
+        if edges is not None:
+            lines += [f"{name}: edges {edges[0]:.3f} and {edges[1]:.3f}.", ""]
+        lines += [
+            f"| {name} | Images | " + " | ".join(labels) + " | Tumor → no_tumor |",
+            "|---|---|" + "---|" * len(labels) + "---|",
+            *(
+                f"| {cell} | {values['images']} | "
+                + " | ".join(_recall(values["recall"][label]) for label in labels)
+                + f" | {values['tumor_as_no_tumor']} |"
+                for cell, values in cells.items()
+            ),
+            "",
+        ]
+    return lines
 
 
 def _config_lines(source: dict[str, str] | None) -> list[str]:

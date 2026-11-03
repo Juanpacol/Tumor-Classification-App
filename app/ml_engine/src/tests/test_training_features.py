@@ -3,6 +3,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
+from pytest import MonkeyPatch
 
 from src.classical.config import RadiomicsConfig
 from src.contracts import QualityMetrics, TumorLabel
@@ -12,6 +13,7 @@ from src.preprocessing.prepare import PreprocessingConfig
 from src.preprocessing.quality import QualityThresholds
 from src.tests.bundles import IMAGENET_INPUT
 from src.tests.synthetic import save, synthetic_slice
+from src.training import features
 from src.training.augmentation import AugmentationConfig, AugmentationParams
 from src.training.dataset import Sample
 from src.training.features import (
@@ -28,14 +30,18 @@ class CountingFeaturizer:
     def __init__(self) -> None:
         self.calls: list[Path] = []
 
-    def __call__(self, path: Path) -> tuple[np.ndarray, np.ndarray]:
+    def __call__(self, path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         self.calls.append(path)
         if path.name.startswith("bad"):
             raise QualityCheckError("too noisy", QualityMetrics(1.0, 1.0, False))
         if path.name.startswith("odd"):
             raise UnsupportedImageError("not an image")
         value = float(len(path.name))
-        return np.full(45, value, np.float32), np.full(8, value * 2, np.float32)
+        return (
+            np.full(45, value, np.float32),
+            np.full(8, value * 2, np.float32),
+            np.array([value, value / 10], np.float32),
+        )
 
 
 def make_samples(tmp_path: Path, names: list[str]) -> list[Sample]:
@@ -321,3 +327,25 @@ def test_returning_to_a_backbone_reuses_its_cached_features(tmp_path: Path) -> N
 
     assert first != other and again == first
     assert computed == 4 and len(featurizer.calls) == 4
+
+
+def test_cache_entries_hold_the_quality_metrics(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "bb.png"])
+    featurizer = CountingFeaturizer()
+    cache(tmp_path, featurizer).table(samples)
+
+    table, _ = cache(tmp_path, featurizer).table(samples)
+
+    assert len(featurizer.calls) == 2
+    assert table.quality.tolist() == [[5.0, 0.5], [6.0, 0.6000000238418579]]
+    for entry in (tmp_path / "cache").rglob("*.npz"):
+        with np.load(entry) as data:
+            assert set(data.files) == {"radiomics", "cnn", "quality"}
+
+
+def test_the_entry_schema_is_part_of_the_fingerprint(monkeypatch: MonkeyPatch) -> None:
+    current = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+    monkeypatch.setattr(features, "ENTRY_SCHEMA", 1)
+
+    assert features.ENTRY_SCHEMA != 2
+    assert config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE) != current

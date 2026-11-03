@@ -25,10 +25,10 @@ Run tests in the trainer from the repository root with `docker compose run --rm 
 
 ## 4. Training error diagnosis
 
-- [ ] 4.1 Store `quality` (snr, entropy) in each cache entry and add `entry_schema: 2` to the fingerprint (design decision 5); verify `test_training_features.py`: entries hold `quality`, and the fingerprint differs from the schema-1 one
-- [ ] 4.2 Add `src/training/diagnosis.py`: the out-of-fold predictions table and the breakdown by source size, group size and snr/entropy terciles (design decision 6); write `oof_predictions.csv` and `cv_error_breakdown` from `tune`; verify tests that the CSV's confusion matrix equals `cv_out_of_fold`, cells sum to the usable originals and to the tumor→no_tumor count, and no copy or Testing row appears
-- [ ] 4.3 Render the breakdown in `report.md`; verify `test_training_report.py` checks the section and its placement before any Testing section
-- [ ] 4.4 Run the full suite and black/ml-validation checks in the trainer; verify all pass
+- [x] 4.1 Store `quality` (snr, entropy) in each cache entry and add `entry_schema: 2` to the fingerprint (design decision 5); verify `test_training_features.py`: entries hold `quality`, and the fingerprint differs from the schema-1 one
+- [x] 4.2 Add `src/training/diagnosis.py`: the out-of-fold predictions table and the breakdown by source size, group size and snr/entropy terciles (design decision 6); write `oof_predictions.csv` and `cv_error_breakdown` from `tune`; verify tests that the CSV's confusion matrix equals `cv_out_of_fold`, cells sum to the usable originals and to the tumor→no_tumor count, and no copy or Testing row appears
+- [x] 4.3 Render the breakdown in `report.md`; verify `test_training_report.py` checks the section and its placement before any Testing section
+- [x] 4.4 Run the full suite and black/ml-validation checks in the trainer; verify all pass
 
 ## 5. Reference and rounds
 
