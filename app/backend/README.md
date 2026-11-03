@@ -4,31 +4,22 @@ FastAPI backend, hexagonal architecture (see root `CLAUDE.md`).
 
 ## Muse Spark / Meta Model API
 
-Verified against Meta's official docs (`dev.meta.ai/docs`) on 2026-10-28, implemented in
-`app/adapters/outbound/llm/meta_model_llm.py`.
+Written against Meta's docs (`dev.meta.ai/docs`, 2026-10-28) and **checked with live calls on 2026-11-03** (AB-161, see *Live validation*). Implemented in `adapters/outbound/llm/meta_model_llm.py`.
 
 - **Base URL**: `https://api.meta.ai/v1`
-- **Chat completions endpoint**: `POST /chat/completions`
-- **Model ID**: `muse-spark-1.3` (latest; also available: `muse-spark-1.2`, `muse-spark-1.1`,
-  and `-contributor` variants that trade a lower price for Meta training on your data — not used)
+- **Chat completions endpoint**: `POST /chat/completions`. `/v1/responses` also exists and is not used.
+- **Model ID**: `muse-spark-1.3`. `GET /v1/models` also lists `muse-spark-1.2` and `muse-spark-1.1`. It also lists `-contributor` variants, which are cheaper because Meta trains on the content; those are not used.
 - **Auth**: `Authorization: Bearer $META_MODEL_API_KEY`
-- **Streaming**: `"stream": true` returns Server-Sent Events; each chunk is
-  `choices[0].delta.content`, terminated by a `data: [DONE]` line.
-- **Structured JSON output**: `response_format: {"type": "json_schema", "json_schema": {"name",
-  "schema", "strict": true}}`. With `strict: true` every object in the schema needs
-  `additionalProperties: false` and a complete `required` list.
-- **Images**: sent inline as `image_url: {"url": "data:image/png;base64,<...>"}` on the last
-  message. Supported formats: jpeg/png/gif/webp/ico. Max 50 MB per inline image, 50 images per
-  request. The adapter only ever sends PNG, longest side ≤1024 px (rendered by the caller from
-  the stored de-identified file, never the raw DICOM).
-- **Rate limits**: Meta has not published authoritative numeric limits for the preview; the
-  adapter does not assume a specific number and instead retries once with a fixed backoff on
-  HTTP 429 or 5xx (and on a connect/read timeout), with no retry on 401/403.
+- **Token bound**: every request sends `max_completion_tokens` (`META_MODEL_MAX_COMPLETION_TOKENS`, default 4096). It counts reasoning *and* visible tokens, and `max_tokens` is deprecated.
+- **Reasoning effort**: the report (`complete_json`) sends `META_MODEL_REPORT_REASONING_EFFORT` (default `low`). The chat (`stream`) sends `META_MODEL_CHAT_REASONING_EFFORT` (default `minimal`). Accepted values are `minimal`, `low`, `medium`, `high`, `xhigh` and `max`; `muse-spark-1.3` answers 400 to `none`. The two differ because a stream sends nothing while the model reasons (see the table).
+- **Streaming**: `"stream": true` plus `stream_options: {"include_usage": true}` returns Server-Sent Events. Each `data: {...}` line is followed by a blank line, and the text is in `choices[0].delta.content`. Live, `usage` arrives on the **final content chunk** (the one with `finish_reason: "stop"`), followed by `data: [DONE]`. Meta's schema says it can instead come on a chunk with `choices: []`; the adapter accepts both.
+- **Structured JSON output**: `response_format: {"type": "json_schema", "json_schema": {"name", "schema", "strict": true}}`. With `strict: true` every object needs `additionalProperties: false` and a complete `required` list. Pydantic's `$defs`/`$ref` were accepted live as sent.
+- **Images**: sent inline on the last message as `image_url: {"url": "data:<type>;base64,<...>"}`. The type is detected from the bytes: `image/jpeg` or `image/png`, which are the only formats an upload can have. The image is the stored upload itself, without metadata and not re-encoded or resized. Meta also accepted JPEG data labelled `image/png`, but the adapter no longer relies on that. A 354x442 dataset image cost about 184 prompt tokens.
+- **Rate limits** (pricing page, 2026-11-03): 3,000 requests and 4,000,000 tokens a minute, **per team, not per key**. The adapter retries once with a fixed backoff on HTTP 429 or 5xx, and on a connect/read timeout. It never retries on 401/403.
 
 ### Error mapping
 
-`MetaModelLLM` raises `DomainError` (`app/domain/errors.py`), which the FastAPI handler in
-`app/adapters/inbound/http/error_handlers.py` turns into `{code, message}`:
+`MetaModelLLM` raises `DomainError` (`domain/errors.py`), which the FastAPI handler in `adapters/inbound/http/error_handlers.py` turns into `{code, message}`:
 
 | Condition | code | HTTP status |
 |---|---|---|
@@ -37,11 +28,46 @@ Verified against Meta's official docs (`dev.meta.ai/docs`) on 2026-10-28, implem
 | Other 4xx/5xx after the retry | `LLM_REQUEST_FAILED` | 502 |
 | Timeout after the retry | `LLM_TIMEOUT` | 504 |
 
+An image that is neither JPEG nor PNG raises `ValueError` before anything is sent. It cannot happen through the upload endpoint.
+
 ### Token usage
 
-Usage (`usage` field of the response) is logged per call via the standard `logging` module
-under the `app.adapters.outbound.llm.meta_model` logger, to track spend against the hackathon's
-USD 150 credit budget. The API key itself is never logged.
+The `usage` of every call is logged under the `adapters.outbound.llm.meta_model` logger and handed to the spend cap. A stream reports it exactly once: Meta's own figure, or an estimate when the stream ended without one (see *Spend cap*). `completion_tokens` includes `completion_tokens_details.reasoning_tokens`. The API key is never logged.
+
+### Live validation (2026-11-03)
+
+Run with `scripts/probe_muse_spark.py`, from `app/backend` with the key in `.env`:
+- `raw` builds each request by hand, so Meta's own error body is visible;
+- `adapter` goes through `build_llm(Settings())`.
+
+The inputs were the public dataset image `ml_engine/src/data/Test/glioma/Te-gl_1.jpg` and an invented case: notes, classifier output and question. The probe refuses `-contributor` models and never prints the key. The test suite never calls Meta; `tests/fixtures/meta_model/` holds a report response and a stream captured in this run.
+
+Prices from Meta's pricing page, read 2026-11-03, `muse-spark-1.3` standard mode, per 1M tokens: **USD 1.25 input, 0.15 cached input, 4.25 output**. Cost = (prompt - cached) x input + cached x cached input + completion x output.
+
+| Capability | Path | Effort | HTTP | Latency (s) | First token (s) | Prompt | Cached | Completion | Reasoning | USD |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Text | raw | not set | 200 | 12.02 | - | 20 | 0 | 924 | 866 | 0.00395 |
+| Image (JPEG, `image/jpeg`) | raw | not set | 200 | 24.55 | - | 204 | 99 | 1,991 | 1,940 | 0.00861 |
+| Image (JPEG labelled `image/png`) | raw | not set | 200 | 20.07 | - | 204 | 0 | 1,621 | 1,558 | 0.00714 |
+| Structured JSON (report + image) | raw | `low` | 200 | 16.39 | - | 1,282 | 0 | 1,659 | 1,139 | 0.00865 |
+| Structured JSON (report + image) | raw | `medium` | 200 | 21.70 | - | 1,282 | 0 | 2,165 | 1,648 | 0.01080 |
+| Streaming (chat + image) | raw | `none` | 400 | 0.14 | - | - | - | - | - | 0 |
+| Streaming (chat + image) | raw | `minimal` | 200 | 3.63 | 2.69 | 764 | 0 | 242 | 163 | 0.00198 |
+| Streaming (chat + image) | raw | `low` | 200 | 8.39 | 7.84 | 764 | 0 | 744 | 679 | 0.00412 |
+| Structured JSON (report + image) | adapter | `low` | 200 | 15.57 | - | 1,282 | 0 | 1,485 | 865 | 0.00791 |
+| Streaming (chat + image) | adapter | `minimal` | 200 | 3.78 | 3.07 | 764 | 0 | 224 | 143 | 0.00191 |
+
+- Both reports matched `GroundedClinicalReportOutput`, at `low` and at `medium`. `medium` cost about 25 % more and took about 5 s longer, with no gain the schema check can see.
+- An earlier run, before the probe used the real chat prompt, streamed with no effort set: 4,231 reasoning tokens and **46.6 s to the first token**. That is why the chat runs at `minimal`.
+- The whole validation, two raw runs plus the adapter run, cost about USD 0.11 of the free credits.
+- **One run on one day, not a benchmark.** Latency varied by up to 4 s between the two raw runs.
+- **Unconfirmed**: that reasoning tokens bill at the output price. The pricing page does not say, and the cost column assumes they do. Check the Billing page after a run to confirm.
+
+Adapter fixes from this validation:
+- the real image type;
+- `max_completion_tokens` and a reasoning effort for each of report and chat;
+- `stream_options.include_usage`, with usage read from whichever chunk carries it;
+- measured stream usage reaches the spend cap.
 
 ## Choosing the LLM
 
@@ -57,7 +83,7 @@ The startup log says which one is in use and whether a key is set, never the key
 Meta offers no hard spending cap (only an e-mail alert) and the backend is public, so the backend enforces its own, behind the real LLM adapter (`adapters/outbound/llm/spend_cap.py`):
 
 - `LLM_DAILY_TOKEN_BUDGET` (default 1,000,000 tokens a day, UTC) and `LLM_MAX_REQUESTS_PER_MINUTE` (default 30). When either is reached the call answers **429**, `LLM_BUDGET_EXCEEDED` or `LLM_RATE_LIMITED`, and never reaches Meta. Both limits are logged at startup and when they are hit.
-- The tokens come from the `usage` Meta returns. A call that reports none counts a default of 4,000. Streamed answers carry no usage, so they are **estimated** (4 characters a token, plus 1,500 for an image), and what was sent counts even if the reader stops early. These two numbers are guesses until the live validation (AB-161) measures them.
+- The tokens come from the `usage` Meta returns, streams included. A non-streamed call that reports none counts a default of 4,000. A stream that ends without usage, because the reader stopped early or the connection dropped, is **estimated** by the adapter: 4 characters a token, plus 200 for an image (184 measured on 2026-11-03). What was sent counts even if the reader stops early. Each stream is counted once.
 - The limits are checked before a call and the tokens are added after it, so one call can overshoot. A stream is checked when iteration starts, not when it is created.
 - **Limits of this design:** the counters live in memory. They reset when the process restarts (Cloud Run scales to zero) and each instance counts on its own, so with N instances the real cap is up to N times larger. A counter in the database would remove that, and has not been built.
 - The fake LLM is not capped: it costs nothing.
@@ -91,7 +117,7 @@ In `application/`, with no HTTP or database:
 
 `application/study_chat.py` answers with the classifier output, the evidence bundle, the stored report, the earlier messages and the image. SSE events: `token` (`text`), then `done` (the stored message), or `error` (`code`, `message`). The exchange is stored only when the answer completes. 404 unknown study, 409 without prediction or image.
 
-Live check with the Meta API (2026-11-02, public images, invented classifier output): reports for the four classes, including a wrong prediction, had no guardrail violations and every claim that cited evidence was verified. Missing (AB-161): manual review of 10 reports, a fixed `max_tokens` (reasoning can use it all and leave `content` empty) and measured token usage.
+Live check with the Meta API (2026-11-02, public images, invented classifier output): reports for the four classes, including a wrong prediction, had no guardrail violations and every claim that cited evidence was verified. The token bound, the reasoning efforts and measured usage were added by AB-161 (see *Live validation*). Still missing: a manual review of 10 reports.
 
 ## Data sent to Meta while free credits are in use
 
