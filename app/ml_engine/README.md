@@ -68,13 +68,16 @@ The cleaned dataset is described by the `manifest.csv` that the deduplication st
 With the backbone bundle exported (see *Deep features*) and the cleaning `manifest.csv`:
 
 ```bash
-python -m src.training --data-dir src/data --manifest <path>/manifest.csv --config rounds/0.1.0.toml --version 0.1.0
+python -m src.training --data-dir src/data --manifest <path>/manifest.csv --config rounds/0.2.0.toml --version 0.2.0          # tuning round
+python -m src.training --data-dir src/data --manifest <path>/manifest.csv --config rounds/0.4.0.toml --version 0.4.0 --final  # kept round
 ```
 
-It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then assigns every Train image to one of 5 grouped folds (`StratifiedGroupKFold` on `group_id`), selects a classifier by cross-validated macro-F1 on those folds (balanced accuracy is reported too), cross-validates it again with one augmented copy of each usable Train image (made from its CNN input, used only as fit rows) and keeps augmentation only if macro-F1 rises by at least the std across folds, runs an ablation (CNN-only, radiomics-only, hybrid), calibrates the model, scores the official Test split once and writes, under `artifacts/` (override with `--out`):
+A run without `--final` is a **tuning run**: it never reads a Testing image and writes only the report. `--final` is for the round you keep, once: it adds calibration, the single Testing score and the artifact (D25).
 
-- `model-v<version>/`: `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
-- `reports/<timestamp>/`: `report.json` and `report.md` (test metrics including balanced accuracy, confusion matrix, images per fold and class, selection, the out-of-fold per-class metrics on Train, the augmentation decision, ablation, the shortcut audit, the status of each leakage guarantee, and whether the 0.90 macro-F1 target was met), `config.json` with every resolved parameter, and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
+It first removes from Train every image whose `group_id` also appears in Test, and prints the removed count per class (also stored as `split_removed_per_class` in the report and the artifact manifest). It then assigns every Train image to one of 5 grouped folds (`StratifiedGroupKFold` on `group_id`), selects a classifier by cross-validated macro-F1 on those folds (balanced accuracy is reported too), cross-validates it again with one augmented copy of each usable Train image (made from its CNN input, used only as fit rows) and keeps augmentation only if macro-F1 rises by at least the std across folds, runs an ablation (CNN-only, radiomics-only, hybrid) and the shortcut audit. A `--final` run then calibrates the model, scores the official Test split once and writes the artifact. Under `artifacts/` (override with `--out`):
+
+- `model-v<version>/` (final runs only): `classifier.joblib`, the backbone files, `feature_stats.json` and `manifest.json` with the configs, versions, metrics and sha256 of every file.
+- `reports/<timestamp>/`: `report.json` and `report.md` (the run's mode; for final runs the test metrics including balanced accuracy and confusion matrix; images per fold and class, selection, the out-of-fold per-class metrics on Train, the augmentation decision, ablation, the shortcut audit, the status of each leakage guarantee, and, for final runs, whether the 0.90 macro-F1 target was met), `config.json` with every resolved parameter, and `folds.csv` with the fold of every Train image left after the leak removal and whether the quality gate let it through.
 
 The out-of-fold section gives per-class precision, recall, F1 and the confusion matrix of the selected classifier (uncalibrated), predicting every usable Train image once with the model of the fold that validates it. It never reads Test, so it is the section to tune on (D23).
 
@@ -97,7 +100,7 @@ Each round is a TOML file in `rounds/`, versioned in git, named after the round'
 
 An unknown or guarded key stops the run before any image is read, with an error naming it. `--seed` and `--n-splits` on the command line override the file. Rounds that change only `[model]` or `[classifiers.*]` reuse every cached feature; changes to preprocessing, radiomics or augmentation recompute what they affect.
 
-Compare rounds on the out-of-fold section and the cross-validated scores only. Each round reports Test too, but choosing values by Test makes the final Test score optimistic; read it for the version you keep. Many rounds on the same 5 folds also overfit the CV estimate, so change one family of parameters per round and keep the number of rounds small.
+Compare rounds on the out-of-fold section and the cross-validated scores only. Rounds run without `--final`, so they never read Test; choosing values by Test would make the final Test score optimistic. Rerun only the kept round with `--final`. Many rounds on the same 5 folds also overfit the CV estimate, so change one family of parameters per round and keep the number of rounds small.
 
 ### Training in Docker
 
@@ -108,7 +111,7 @@ docker compose build trainer
 docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
 docker compose run --rm trainer src.training --data-dir src/data \
   --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
-  --config rounds/0.2.0.toml --version 0.2.0
+  --config rounds/0.2.0.toml --version 0.2.0                                    # add --final for the kept round
 docker compose run --rm --entrypoint pytest trainer src/ -q                       # tests
 ```
 
@@ -141,4 +144,4 @@ docker compose --profile notebook up notebook   # open the printed http://127.0.
 
 It reuses `artifacts/feature-cache`, so run a round first (or expect about 8 minutes in its feature section). Notebooks are committed without outputs.
 
-To try a round in the app, copy its artifact to the folder the backend mounts and restart it: `cp -r artifacts/model-v0.2.0 artifacts/current` (replace the folder if it exists), then `docker compose restart backend`.
+To try the kept round in the app, copy the artifact of its `--final` run to the folder the backend mounts and restart it: `cp -r artifacts/model-v0.2.0 artifacts/current` (replace the folder if it exists), then `docker compose restart backend`.

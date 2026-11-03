@@ -15,13 +15,18 @@ NOW = datetime(2026, 10, 29, 10, 0, 0, tzinfo=UTC)
 def make_config(
     workspace: dict[str, Path], out: Path, **overrides: Any
 ) -> TrainingConfig:
+    """A final run on the synthetic workspace unless ``final=False`` is passed."""
+    values = {
+        "n_splits": 3,
+        "version": "9.9.9",
+        "cache_dir": workspace["root"] / "cache",
+        "final": True,
+        **overrides,
+    }
     return TrainingConfig(
         data_dir=workspace["data"],
         manifest=workspace["manifest"],
         backbone_bundle=workspace["backbone"],
         out_dir=out,
-        n_splits=3,
-        version="9.9.9",
-        cache_dir=workspace["root"] / "cache",
-        **overrides,
+        **values,
     )

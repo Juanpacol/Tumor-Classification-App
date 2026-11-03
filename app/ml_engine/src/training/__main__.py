@@ -1,4 +1,8 @@
-"""Train the classifier: ``python -m src.training --data-dir src/data --manifest ...``."""
+"""Train the classifier: ``python -m src.training --data-dir src/data --manifest ...``.
+
+Without ``--final`` the run is a tuning round: it never reads Testing and writes no
+artifact. ``--final`` scores Testing once and writes the artifact of the kept round.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +10,7 @@ import argparse
 import sys
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from src.training.config import TrainingConfig, apply_round
 from src.training.run import train
@@ -30,21 +35,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", default="0.0.0-dev")
     parser.add_argument("--cache-dir", type=Path, default=None)
+    parser.add_argument(
+        "--final",
+        action="store_true",
+        help="score Testing once and write the artifact (only for the kept round)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     result = train(configure(build_parser().parse_args(argv)))
-    test = result.report["test"]
-    removed = result.report["dataset"]["split_removed_per_class"]
+    report = result.report
+    removed = report["dataset"]["split_removed_per_class"]
     print(
         "removed from Train (group in Test): "
         + ", ".join(f"{label} {count}" for label, count in removed.items())
     )
-    print(f"artifact: {result.artifact_dir}")
     print(f"report:   {result.report_dir}")
-    print(f"test macro-F1 {test['macro_f1']:.3f}, accuracy {test['accuracy']:.3f}")
-    baseline = result.report["shortcut_audit"]["metadata_baseline"]
+    if result.artifact_dir is None:
+        _print_tuning(report)
+    else:
+        test = report["test"]
+        print(f"artifact: {result.artifact_dir}")
+        print(f"test macro-F1 {test['macro_f1']:.3f}, accuracy {test['accuracy']:.3f}")
+    baseline = report["shortcut_audit"]["metadata_baseline"]
     print(
         f"metadata-only baseline balanced accuracy {baseline['mean_balanced_accuracy']:.3f}"
     )
@@ -55,12 +69,29 @@ def main(argv: list[str] | None = None) -> None:
             "Present the result to the team before publishing a model.",
             file=sys.stderr,
         )
-    if not result.report["target_met"]:
+    if report["target_met"] is False:
         print(
-            f"Target macro-F1 {result.report['target_macro_f1']:.2f} not met: "
+            f"Target macro-F1 {report['target_macro_f1']:.2f} not met: "
             "present the results to the team before continuing.",
             file=sys.stderr,
         )
+
+
+def _print_tuning(report: dict[str, Any]) -> None:
+    best = report["selection"]["best"]
+    score = report["selection"]["scores"][best]
+    print(
+        f"tuning run (Testing not read): {best}, CV macro-F1 "
+        f"{score['mean_macro_f1']:.3f} +/- {score['std_macro_f1']:.3f}"
+    )
+    recall = {
+        label: metrics["recall"]
+        for label, metrics in report["cv_out_of_fold"]["per_class"].items()
+    }
+    print(
+        "out-of-fold recall: "
+        + ", ".join(f"{label} {value:.3f}" for label, value in recall.items())
+    )
 
 
 def configure(args: argparse.Namespace) -> TrainingConfig:
@@ -73,6 +104,7 @@ def configure(args: argparse.Namespace) -> TrainingConfig:
         out_dir=args.out,
         version=args.version,
         cache_dir=args.cache_dir,
+        final=args.final,
     )
     if args.config is not None:
         config = apply_round(config, args.config)

@@ -51,7 +51,7 @@ docker compose run --rm --entrypoint pytest trainer src/ -q
 docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
 docker compose run --rm trainer src.training --data-dir src/data \
   --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
-  --config rounds/<version>.toml --version <version>
+  --config rounds/<version>.toml --version <version>      # tuning; add --final once for the kept round
 ```
 
 A local `python3.11` venv with `pip install -r requirements.lock` still works for the same commands from `app/ml_engine`.

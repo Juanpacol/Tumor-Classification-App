@@ -17,6 +17,8 @@ CONFIG_FILE = "config.json"
 
 
 def build_report(
+    *,
+    mode: str,
     created_at: str,
     version: str,
     seed: int,
@@ -26,32 +28,42 @@ def build_report(
     ablation: dict[str, float],
     augmentation: dict[str, Any],
     cv_out_of_fold: dict[str, Any],
-    test: dict[str, Any],
-    calibration_method: str,
     shortcut_audit: dict[str, Any],
     guarantees: list[dict[str, Any]],
     config: dict[str, Any],
     config_source: dict[str, str] | None,
 ) -> dict[str, Any]:
-    """Collect the results of one training run and whether the target was met."""
+    """Collect what a run learned from Training. ``mode`` is ``"tuning"`` or
+    ``"final"``; a final run adds its Testing results with ``with_test``."""
     return {
+        "mode": mode,
         "created_at": created_at,
         "version": version,
         "seed": seed,
         "target_macro_f1": TARGET_MACRO_F1,
-        "target_met": test["macro_f1"] >= TARGET_MACRO_F1,
+        "target_met": None,
         "dataset": dataset,
         "validation": validation,
         "selection": selection,
         "ablation_macro_f1": ablation,
         "augmentation": augmentation,
         "cv_out_of_fold": cv_out_of_fold,
-        "calibration_method": calibration_method,
-        "test": test,
         "shortcut_audit": shortcut_audit,
         "leakage_guarantees": guarantees,
         "config": config,
         "config_source": config_source,
+    }
+
+
+def with_test(
+    report: dict[str, Any], test: dict[str, Any], calibration_method: str
+) -> dict[str, Any]:
+    """``report`` with the Testing metrics of the calibrated model and the verdict."""
+    return {
+        **report,
+        "calibration_method": calibration_method,
+        "test": test,
+        "target_met": test["macro_f1"] >= TARGET_MACRO_F1,
     }
 
 
@@ -71,25 +83,13 @@ def write_report(
 
 
 def render_markdown(report: dict[str, Any]) -> str:
-    test = report["test"]
-    verdict = "met" if report["target_met"] else "NOT met"
+    final = "test" in report
     lines = [
         f"# Training report {report['version']}",
         "",
-        f"Created {report['created_at']}, seed {report['seed']}.",
+        f"Created {report['created_at']}, seed {report['seed']}, {report['mode']} run.",
         "",
-        (
-            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
-            f"balanced accuracy {test['balanced_accuracy']:.3f}. "
-            f"Target {report['target_macro_f1']:.2f}: {verdict}."
-        ),
-        "",
-        "## Per class (test)",
-        "",
-        *_per_class_lines(test),
-        "## Confusion matrix (test, rows are the truth)",
-        "",
-        *_confusion_lines(test),
+        *(_test_lines(report) if final else _tuning_lines(report)),
         *_validation_lines(report["validation"]),
         "## Classifier selection (cross-validated on Train, chosen by macro-F1)",
         "",
@@ -101,10 +101,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             for name, s in report["selection"]["scores"].items()
         ),
         "",
-        (
-            f"Selected: **{report['selection']['best']}**, calibrated with "
-            f"{report['calibration_method']}."
-        ),
+        f"Selected: **{report['selection']['best']}**"
+        + (f", calibrated with {report['calibration_method']}." if final else "."),
         "",
         *_out_of_fold_lines(report["cv_out_of_fold"]),
         *_augmentation_lines(report["augmentation"]),
@@ -132,6 +130,39 @@ def render_markdown(report: dict[str, Any]) -> str:
         *_config_lines(report["config_source"]),
     ]
     return "\n".join(lines)
+
+
+def _test_lines(report: dict[str, Any]) -> list[str]:
+    test = report["test"]
+    verdict = "met" if report["target_met"] else "NOT met"
+    return [
+        (
+            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
+            f"balanced accuracy {test['balanced_accuracy']:.3f}. "
+            f"Target {report['target_macro_f1']:.2f}: {verdict}."
+        ),
+        "",
+        "## Per class (test)",
+        "",
+        *_per_class_lines(test),
+        "## Confusion matrix (test, rows are the truth)",
+        "",
+        *_confusion_lines(test),
+    ]
+
+
+def _tuning_lines(report: dict[str, Any]) -> list[str]:
+    best = report["selection"]["best"]
+    score = report["selection"]["scores"][best]
+    return [
+        (
+            f"**Tuning run: Testing was not read.** Selected {best}, CV macro-F1 "
+            f"{score['mean_macro_f1']:.3f} ± {score['std_macro_f1']:.3f}. Compare "
+            "rounds on the cross-validated sections below; score Testing only with "
+            "`--final`, once, for the kept round."
+        ),
+        "",
+    ]
 
 
 def _per_class_lines(metrics: dict[str, Any]) -> list[str]:
@@ -260,11 +291,19 @@ def _shortcut_lines(audit: dict[str, Any]) -> list[str]:
             f"model. Warning level {baseline['warning_level']:.2f}. {verdict}"
         ),
         "",
+        *_no_tumor_test_lines(audit.get("no_tumor_test_recall_by_source_size")),
+    ]
+
+
+def _no_tumor_test_lines(by_size: dict[str, Any] | None) -> list[str]:
+    if by_size is None:
+        return []
+    return [
         "| no_tumor images in Test | Recall | Support |",
         "|---|---|---|",
         *(
             f"| {name} | {_recall(group['recall'])} | {group['support']} |"
-            for name, group in audit["no_tumor_test_recall_by_source_size"].items()
+            for name, group in by_size.items()
         ),
         "",
     ]

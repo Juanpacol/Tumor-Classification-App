@@ -129,6 +129,7 @@ def test_the_cli_prints_where_the_results_went(
             "--n-splits", "3",
             "--version", "cli-test",
             "--cache-dir", str(workspace["root"] / "cache"),
+            "--final",
         ]
     )  # fmt: skip
 
@@ -264,3 +265,87 @@ def test_a_preprocessing_round_recomputes_features(
     train(config, now=NOW)
 
     assert set(npz_files(workspace["root"] / "cache")) > set(before)
+
+
+def image_entries(cache: Path) -> list[Path]:
+    """Cached original-image entries; copies live in ``aug-*`` folders."""
+    return [
+        p for p in cache.rglob("*.npz") if not p.parent.parent.name.startswith("aug-")
+    ]
+
+
+@pytest.fixture(scope="module")
+def tuning(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> tuple[TrainingResult, Path]:
+    """A tuning run on its own cache, so nothing a final run cached is in it."""
+    cache = tmp_path_factory.mktemp("tuning-cache")
+    out = tmp_path_factory.mktemp("tuning-out")
+    config = make_config(workspace, out, final=False, cache_dir=cache)
+    return train(config, now=NOW), cache
+
+
+def test_a_tuning_run_writes_a_report_but_no_artifact(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+
+    assert result.artifact_dir is None
+    assert not list(result.report_dir.parent.parent.glob("model-v*"))
+    assert result.report["mode"] == "tuning" and result.report["target_met"] is None
+    assert "test" not in result.report
+    assert "no_tumor_test_recall_by_source_size" not in result.report["shortcut_audit"]
+    assert (result.report_dir / "report.md").is_file()
+
+
+def test_a_tuning_run_never_reads_testing(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, cache = tuning
+
+    assert len(image_entries(cache)) == result.report["dataset"]["train_images"]
+
+
+def test_a_tuning_run_scores_nothing_on_testing(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = []
+    monkeypatch.setattr(run, "evaluate", lambda *a, **k: calls.append(1))
+    monkeypatch.setattr(run, "calibrate", lambda *a, **k: calls.append(1))
+
+    train(make_config(workspace, tmp_path, final=False), now=NOW)
+
+    assert calls == []
+
+
+def test_tuning_and_final_runs_give_the_same_cv_results(
+    tuning: tuple[TrainingResult, Path], result: TrainingResult
+) -> None:
+    tuned, _ = tuning
+
+    for key in ("selection", "cv_out_of_fold", "ablation_macro_f1", "augmentation"):
+        assert tuned.report[key] == result.report[key]
+    assert result.report["mode"] == "final"
+
+
+def test_the_cli_runs_a_tuning_round_without_final(
+    workspace: dict[str, Path], tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    cli.main(
+        [
+            "--data-dir", str(workspace["data"]),
+            "--manifest", str(workspace["manifest"]),
+            "--backbone-bundle", str(workspace["backbone"]),
+            "--out", str(tmp_path),
+            "--n-splits", "3",
+            "--version", "cli-tuning",
+            "--cache-dir", str(workspace["root"] / "cache"),
+        ]
+    )  # fmt: skip
+
+    output = capsys.readouterr()
+    assert "tuning run (Testing not read)" in output.out
+    assert "out-of-fold recall: glioma" in output.out
+    assert "artifact" not in output.out and "test macro-F1" not in output.out
+    assert "not met" not in output.err
+    assert not (tmp_path / "model-vcli-tuning").exists()
