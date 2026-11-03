@@ -347,6 +347,16 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 | 9 | Users get clear, essential information | Partial: landing safety rubric exists, a model card is missing |
 | 10 | Deployed models are monitored | Out of scope for the hackathon |
 
+## D25. Versioned model releases (AB-114)
+
+`src/release/{package,fetch,__main__}.py`, `src/tests/test_release.py`.
+
+- **Why.** Deployments need an exact, verifiable model without putting binaries in git.
+- **Format.** One `model-v<version>.tar.gz` per bundle, a `.sha256` file next to it and release notes generated from `manifest.json` (Test metrics per class), uploaded as assets of a GitHub Release tagged `model-v<version>`.
+- **Checks.** `package` requires the folder name to match the manifest version and never overwrites an archive. `fetch` verifies the SHA-256 before extracting and extracts only regular files under `model-v<version>/`, so a tampered or mismatched archive is rejected.
+- **Publishing stays manual.** The CLI prints the `gh release create` command instead of running it: the release is public and, per D24, a model under the 0.90 target is not published before the team has reviewed it.
+- **Status:** **Verified** by 9 unit tests (trainer image) and by packaging the local `0.1.1` bundle (20 MB). No release has been published.
+
 ## Open verifications
 
 - [x] **Redefine the quality-gate metrics, then recalibrate (D7, D15).** Done in AB-175 (D17).
