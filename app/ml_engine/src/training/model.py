@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from src.deep_learning.backbones import DEFAULT_BACKBONE, get_spec
 from src.training.folds import Splits
 from src.training.out_of_fold import out_of_fold_predictions
 
@@ -33,13 +34,15 @@ randomness comes from the run seed."""
 
 @dataclass(frozen=True)
 class ModelConfig:
-    """Tunable model settings: PCA size of the radiomic block and hyperparameter
-    overrides per candidate classifier, keyed by candidate name."""
+    """Tunable model settings: the CNN backbone, PCA size of the radiomic block and
+    hyperparameter overrides per candidate classifier, keyed by candidate name."""
 
+    backbone: str = DEFAULT_BACKBONE
     pca_components: int = PCA_COMPONENTS
     classifier_params: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        get_spec(self.backbone)
         if self.pca_components < 1:
             raise ValueError("pca_components must be at least 1")
 

@@ -48,7 +48,7 @@ From the repository root (Git Bash: prefix with `MSYS_NO_PATHCONV=1`):
 ```bash
 docker compose build trainer
 docker compose run --rm --entrypoint pytest trainer src/ -q
-docker compose run --rm trainer src.deep_learning.export_backbone --out weights   # once
+docker compose run --rm trainer src.deep_learning.export_backbone --backbone efficientnet_b0 --out weights/efficientnet_b0   # once per backbone
 docker compose run --rm trainer src.training --data-dir src/data \
   --manifest src/data/processed/dedup_20261028T234450903626Z/manifest.csv \
   --config rounds/<version>.toml --version <version>      # tuning; add --final once for the kept round

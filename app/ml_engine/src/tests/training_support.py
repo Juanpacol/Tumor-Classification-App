@@ -20,13 +20,13 @@ def make_config(
         "n_splits": 3,
         "version": "9.9.9",
         "cache_dir": workspace["root"] / "cache",
+        "weights_dir": workspace["weights"],
         "final": True,
         **overrides,
     }
     return TrainingConfig(
         data_dir=workspace["data"],
         manifest=workspace["manifest"],
-        backbone_bundle=workspace["backbone"],
         out_dir=out,
         **values,
     )

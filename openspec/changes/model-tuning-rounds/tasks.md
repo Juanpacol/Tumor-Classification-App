@@ -10,10 +10,10 @@ Run tests in the trainer from the repository root with `docker compose run --rm 
 
 ## 2. Backbone key and weights layout
 
-- [ ] 2.1 Add `backbone` (default `efficientnet_b0`, validated against `BACKBONES`) to `ModelConfig` and the round loader's `model` section; verify `test_training_config.py`: override resolves, `vgg16` is rejected naming `model.backbone`
-- [ ] 2.2 Replace `--backbone-bundle` with `--weights-dir` (default `weights`); resolve `<weights-dir>/<backbone>/` and stop before any image is read when the bundle is missing or its manifest declares another backbone (design decision 2); verify tests for missing and mismatched bundles that assert no featurizer call happened
-- [ ] 2.3 Add a cache test: a round on `resnet50` then a round back on `efficientnet_b0` with otherwise equal settings recomputes nothing on the second; verify in `test_training_features.py` with a fake extractor
-- [ ] 2.4 Move `weights/backbone.{json,pt}` to `weights/efficientnet_b0/` and export `resnet50` and `densenet121` with `docker compose run --rm trainer src.deep_learning.export_backbone --backbone <name> --out weights/<name>`; update the export commands in the README and `status.md`; verify each folder passes `read_bundle` and `git status` lists nothing under `weights/`
+- [x] 2.1 Add `backbone` (default `efficientnet_b0`, validated against `BACKBONES`) to `ModelConfig` and the round loader's `model` section; verify `test_training_config.py`: override resolves, `vgg16` is rejected naming `model.backbone`
+- [x] 2.2 Replace `--backbone-bundle` with `--weights-dir` (default `weights`); resolve `<weights-dir>/<backbone>/` and stop before any image is read when the bundle is missing or its manifest declares another backbone (design decision 2); verify tests for missing and mismatched bundles that assert no featurizer call happened
+- [x] 2.3 Add a cache test: a round on `resnet50` then a round back on `efficientnet_b0` with otherwise equal settings recomputes nothing on the second; verify in `test_training_features.py` with a fake extractor
+- [x] 2.4 Move `weights/backbone.{json,pt}` to `weights/efficientnet_b0/` and export `resnet50` and `densenet121` with `docker compose run --rm trainer src.deep_learning.export_backbone --backbone <name> --out weights/<name>`; update the export commands in the README and `status.md`; verify each folder passes `read_bundle` and `git status` lists nothing under `weights/`
 
 ## 3. Blocks and calibration keys
 

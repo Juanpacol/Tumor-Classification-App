@@ -302,3 +302,22 @@ def test_a_copy_row_has_its_originals_radiomics(tmp_path: Path) -> None:
     assert rows.shape == (4, 53)
     assert np.array_equal(rows[:, :45], np.repeat(table.radiomics, 2, axis=0))
     assert np.array_equal(rows[:, 45:], copy_cnn)
+
+
+RESNET = replace(BACKBONE, backbone="resnet50", embedding_dim=2048, sha256="other")
+
+
+def test_returning_to_a_backbone_reuses_its_cached_features(tmp_path: Path) -> None:
+    samples = make_samples(tmp_path, ["a.png", "b.png"])
+    featurizer = CountingFeaturizer()
+    first = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+    other = config_fingerprint(PreprocessingConfig(), RADIOMICS, RESNET)
+
+    cache(tmp_path, featurizer, first).table(samples)
+    cache(tmp_path, featurizer, other).table(samples)
+    computed = len(featurizer.calls)
+    again = config_fingerprint(PreprocessingConfig(), RADIOMICS, BACKBONE)
+    cache(tmp_path, featurizer, again).table(samples)
+
+    assert first != other and again == first
+    assert computed == 4 and len(featurizer.calls) == 4

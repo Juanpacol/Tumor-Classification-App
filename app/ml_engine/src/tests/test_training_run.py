@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +13,10 @@ from src.training import __main__ as cli
 from src.training import run
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE
 from src.training.config import apply_round
+from src.training.model import ModelConfig
 from src.training.model import candidate_classifiers
 from src.training.report import CONFIG_FILE
-from src.training.run import TrainingResult, train
+from src.training.run import BackboneBundleError, TrainingResult, train
 from src.training.shortcut import WARNING_BALANCED_ACCURACY
 
 
@@ -124,7 +126,7 @@ def test_the_cli_prints_where_the_results_went(
         [
             "--data-dir", str(workspace["data"]),
             "--manifest", str(workspace["manifest"]),
-            "--backbone-bundle", str(workspace["backbone"]),
+            "--weights-dir", str(workspace["weights"]),
             "--out", str(tmp_path),
             "--n-splits", "3",
             "--version", "cli-test",
@@ -335,7 +337,7 @@ def test_the_cli_runs_a_tuning_round_without_final(
         [
             "--data-dir", str(workspace["data"]),
             "--manifest", str(workspace["manifest"]),
-            "--backbone-bundle", str(workspace["backbone"]),
+            "--weights-dir", str(workspace["weights"]),
             "--out", str(tmp_path),
             "--n-splits", "3",
             "--version", "cli-tuning",
@@ -349,3 +351,51 @@ def test_the_cli_runs_a_tuning_round_without_final(
     assert "artifact" not in output.out and "test macro-F1" not in output.out
     assert "not met" not in output.err
     assert not (tmp_path / "model-vcli-tuning").exists()
+
+
+def refuse_to_read_samples(monkeypatch: MonkeyPatch) -> list[int]:
+    """Record any attempt to read the image list, which precedes every image read."""
+    calls: list[int] = []
+    monkeypatch.setattr(run, "load_samples", lambda *a, **k: calls.append(1) or [])
+    return calls
+
+
+def test_a_missing_backbone_bundle_stops_the_run_before_any_image(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = refuse_to_read_samples(monkeypatch)
+    config = make_config(
+        workspace, tmp_path, final=False, model=ModelConfig(backbone="densenet121")
+    )
+
+    with pytest.raises(BackboneBundleError, match="densenet121") as error:
+        train(config, now=NOW)
+
+    assert str(workspace["weights"] / "densenet121") in str(error.value)
+    assert calls == []
+
+
+def test_a_bundle_of_another_backbone_stops_the_run(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = refuse_to_read_samples(monkeypatch)
+    weights = tmp_path / "weights"
+    shutil.copytree(workspace["backbone"], weights / "resnet50")
+    config = make_config(
+        workspace,
+        tmp_path / "out",
+        final=False,
+        weights_dir=weights,
+        model=ModelConfig(backbone="resnet50"),
+    )
+
+    with pytest.raises(BackboneBundleError, match="efficientnet_b0.*resnet50"):
+        train(config, now=NOW)
+
+    assert calls == []
+
+
+def test_the_resolved_configuration_records_the_backbone(
+    result: TrainingResult,
+) -> None:
+    assert result.report["config"]["model"]["backbone"] == "efficientnet_b0"
