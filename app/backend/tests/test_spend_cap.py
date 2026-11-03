@@ -5,7 +5,6 @@ from typing import Any
 import pytest
 
 from adapters.outbound.llm.spend_cap import (
-    IMAGE_TOKEN_ESTIMATE,
     UNREPORTED_CALL_TOKENS,
     CappedLLM,
     SpendCap,
@@ -172,34 +171,23 @@ class StreamingInner(ScriptedLLM):
             yield chunk
 
 
-async def test_a_stream_is_passed_through_and_its_tokens_are_estimated() -> None:
+async def test_a_stream_is_passed_through_without_counting_on_its_own() -> None:
+    """The adapter's usage listener counts each stream once, measured or estimated."""
     spend_cap = cap(Clock())
     llm = CappedLLM(StreamingInner("a" * 40, "b" * 40), spend_cap)
 
     chunks = [c async for c in llm.stream([{"role": "user", "content": "c" * 120}])]
 
     assert chunks == ["a" * 40, "b" * 40]
-    assert spend_cap.tokens_today == (120 + 80) // 4
+    assert spend_cap.tokens_today == 0
 
 
-async def test_an_image_adds_its_estimate_to_a_stream() -> None:
+def test_an_estimated_stream_usage_counts_its_total() -> None:
     spend_cap = cap(Clock())
-    llm = CappedLLM(StreamingInner("x" * 40), spend_cap)
 
-    [c async for c in llm.stream([], image=b"png")]
+    spend_cap.record_usage({"total_tokens": 240, "estimated": True})
 
-    assert spend_cap.tokens_today == 40 // 4 + IMAGE_TOKEN_ESTIMATE
-
-
-async def test_a_stream_the_reader_abandons_still_counts_what_was_sent() -> None:
-    spend_cap = cap(Clock())
-    llm = CappedLLM(StreamingInner("a" * 40, "b" * 40), spend_cap)
-
-    stream = llm.stream([])
-    await anext(stream)
-    await stream.aclose()
-
-    assert spend_cap.tokens_today == 40 // 4
+    assert spend_cap.tokens_today == 240
 
 
 async def test_a_stream_over_the_limits_fails_when_iteration_starts() -> None:

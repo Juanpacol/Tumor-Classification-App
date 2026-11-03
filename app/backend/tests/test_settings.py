@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from settings import Settings
 
@@ -23,6 +24,28 @@ def test_empty_statement_cache_size_falls_back_to_driver_default(
     monkeypatch.setenv("DB_STATEMENT_CACHE_SIZE", "")
 
     assert Settings(_env_file=None).db_statement_cache_size is None  # type: ignore[call-arg]
+
+
+def test_llm_request_defaults_come_from_the_live_validation():
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.meta_model_max_completion_tokens == 4096
+    assert settings.meta_model_report_reasoning_effort == "low"
+    assert settings.meta_model_chat_reasoning_effort == "minimal"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"meta_model_max_completion_tokens": 0},
+        {"meta_model_report_reasoning_effort": "none"},
+        {"meta_model_chat_reasoning_effort": "none"},
+        {"meta_model_chat_reasoning_effort": "fast"},
+    ],
+)
+def test_a_bound_or_effort_the_model_rejects_stops_startup(override: dict):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **override)  # type: ignore[call-arg]
 
 
 def test_default_database_is_postgres_not_sqlite(monkeypatch: pytest.MonkeyPatch):
