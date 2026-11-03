@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 WORKDIR /app
 
@@ -20,6 +20,13 @@ COPY app/backend/pyproject.toml ./
 RUN pip install --no-cache-dir -e .
 
 COPY app/backend .
+
+# Backend test suite with the dev extra (pytest-asyncio); see docs/deployment.md.
+FROM base AS test
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Last stage, so the default build (Cloud Run) never carries the dev tools.
+FROM base AS runtime
 
 EXPOSE 8080
 
