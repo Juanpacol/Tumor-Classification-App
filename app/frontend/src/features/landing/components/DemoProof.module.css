@@ -104,11 +104,28 @@
   background: rgba(20, 18, 16, 0.2);
 }
 
-.frameBody {
+.video {
+  display: block;
+  width: 100%;
   aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #e5e4e1;
+}
+
+.note {
+  position: relative;
+  z-index: 1;
+  margin-top: 1rem;
   color: #6b6760;
   font-size: 0.9375rem;
+}
+
+.fullVideo {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  margin-top: 1rem;
+  color: #141210;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
 }
