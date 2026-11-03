@@ -70,6 +70,14 @@ def tuning_report() -> dict[str, Any]:
             "margin": 0.02,
         },
         cv_out_of_fold={"augmented": False, **metrics_dict(0.88)},
+        cv_calibrated={
+            "method": "sigmoid",
+            "macro_f1": 0.87,
+            "log_loss": 0.345,
+            "triage_threshold": 0.75,
+            "confident_share": 0.8,
+            "confident_accuracy": 0.95,
+        },
         shortcut_audit={"metadata_baseline": shortcut_audit(0.55)["metadata_baseline"]},
         guarantees=[
             {
@@ -265,9 +273,19 @@ def test_tuning_markdown_names_the_mode_and_never_shows_testing() -> None:
     assert "**Tuning run: Testing was not read.** Selected svm_rbf" in markdown
     assert "CV macro-F1 0.900 ± 0.020" in markdown
     assert "(test" not in markdown and "in Test |" not in markdown
-    assert "calibrated with" not in markdown
+    assert "Selected: **svm_rbf**." in markdown
     assert "Per-class metrics (cross-validated on Train" in markdown
 
 
 def test_final_markdown_names_the_mode() -> None:
     assert "final run." in render_markdown(make_report(0.95))
+
+
+def test_markdown_shows_the_calibrated_out_of_fold_section() -> None:
+    markdown = render_markdown(tuning_report())
+    heading = "## Calibrated (cross-validated on Train, out-of-fold)"
+
+    assert heading in markdown
+    section = markdown.split(heading)[1].split("\n## ")[0]
+    assert "calibrated with sigmoid" in section
+    assert "| 0.870 | 0.345 | 80.0% | 0.950 |" in section

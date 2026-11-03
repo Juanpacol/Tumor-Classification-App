@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.pipeline import Pipeline
 
 from src.contracts import TumorLabel
 from src.deep_learning.bundle import sha256_of
@@ -22,8 +23,8 @@ from src.training.artifact import write_artifact
 from src.training.augmentation import AugmentationConfig, keeps_augmentation
 from src.training.calibration import (
     CALIBRATION_ENSEMBLE,
-    CALIBRATION_METHOD,
     calibrate,
+    calibrated_out_of_fold,
 )
 from src.training.config import TrainingConfig, resolved_config
 from src.training.dataset import Split, load_samples, split_samples
@@ -100,7 +101,7 @@ def train(config: TrainingConfig, now: datetime | None = None) -> TrainingResult
     if config.final:
         test_table, skipped = _test_features(config, extraction, split)
         final = _finalize(config, tuning, test_table)
-        report = _with_final(report, tuning, test_table, skipped, final)
+        report = _with_final(config, report, tuning, test_table, skipped, final)
         _write_artifact(config, artifact_dir, report, tuning, final)
     write_report(report_dir, report, tuning.folds)
     return TrainingResult(artifact_dir if config.final else None, report_dir, report)
@@ -123,10 +124,11 @@ class _Tuning:
     skipped: list[str]
     folds: list[FoldRow]
     rows: _Rows
-    classifier: BaseEstimator
+    model: Pipeline
     selection: SelectionResult
     augmentation: dict[str, Any]
     cv_out_of_fold: dict[str, Any]
+    cv_calibrated: dict[str, Any]
     ablation: dict[str, float]
     metadata_baseline: dict[str, Any]
     guarantees: list[dict[str, Any]]
@@ -200,6 +202,7 @@ def _tune(
         len(y_train),
         config.seed,
         pca_components,
+        config.model.blocks,
     )
     augmented = keeps_augmentation(
         without.mean_macro_f1, without.std_macro_f1, with_copies.mean_macro_f1
@@ -208,12 +211,20 @@ def _tune(
     predictions = (
         copies_predictions if augmented else selection.predictions[selection.best]
     )
+    model = build_model(
+        classifier,
+        n_radiomic,
+        table.cnn.shape[1],
+        config.seed,
+        pca_components,
+        config.model.blocks,
+    )
     return _Tuning(
         table=table,
         skipped=features.skipped,
         folds=folds,
         rows=rows,
-        classifier=classifier,
+        model=model,
         selection=selection,
         augmentation=_augmentation_summary(
             config.augmentation, augmented, without, with_copies
@@ -222,6 +233,17 @@ def _tune(
             "augmented": augmented,
             **asdict(out_of_fold_metrics(y_train, predictions, LABELS)),
         },
+        cv_calibrated=asdict(
+            calibrated_out_of_fold(
+                model,
+                rows.x,
+                rows.y,
+                rows.splits,
+                len(y_train),
+                config.model.calibration,
+                LABELS,
+            )
+        ),
         ablation=ablate_blocks(
             rows.x,
             rows.y,
@@ -231,6 +253,7 @@ def _tune(
             chosen.mean_macro_f1,
             config.seed,
             pca_components,
+            config.model.blocks,
         ),
         metadata_baseline=metadata_baseline(
             table.samples, y_train, splits, config.seed
@@ -243,16 +266,10 @@ def _finalize(
     config: TrainingConfig, tuning: _Tuning, test_table: FeatureTable
 ) -> _Final:
     """Calibrate the selected pipeline on the shared folds and score Testing once."""
-    table = tuning.table
-    model = build_model(
-        tuning.classifier,
-        table.radiomics.shape[1],
-        table.cnn.shape[1],
-        config.seed,
-        config.model.pca_components,
-    )
     rows = tuning.rows
-    calibrated = calibrate(model, rows.x, rows.y, rows.splits)
+    calibrated = calibrate(
+        tuning.model, rows.x, rows.y, rows.splits, config.model.calibration
+    )
     y_test = _labels(test_table)
     predictions = calibrated.predict(test_table.matrix)
     return _Final(
@@ -295,6 +312,7 @@ def _report(
         ablation=tuning.ablation,
         augmentation=tuning.augmentation,
         cv_out_of_fold=tuning.cv_out_of_fold,
+        cv_calibrated=tuning.cv_calibrated,
         shortcut_audit={"metadata_baseline": tuning.metadata_baseline},
         guarantees=tuning.guarantees,
         config=resolved_config(config),
@@ -303,6 +321,7 @@ def _report(
 
 
 def _with_final(
+    config: TrainingConfig,
     report: dict[str, Any],
     tuning: _Tuning,
     test_table: FeatureTable,
@@ -323,7 +342,7 @@ def _with_final(
     return with_test(
         {**report, "dataset": dataset, "shortcut_audit": audit},
         final.test,
-        CALIBRATION_METHOD,
+        config.model.calibration,
     )
 
 
@@ -347,7 +366,7 @@ def _write_artifact(
             "seed": config.seed,
             "classifier": tuning.selection.best,
             "calibration": {
-                "method": CALIBRATION_METHOD,
+                "method": config.model.calibration,
                 "n_splits": config.n_splits,
                 "ensemble": CALIBRATION_ENSEMBLE,
             },
@@ -361,6 +380,7 @@ def _write_artifact(
                 **report["selection"],
                 "ablation": tuning.ablation,
                 "cv_out_of_fold": tuning.cv_out_of_fold,
+                "cv_calibrated": tuning.cv_calibrated,
             },
             "shortcut_audit": report["shortcut_audit"],
             "dataset": report["dataset"],
