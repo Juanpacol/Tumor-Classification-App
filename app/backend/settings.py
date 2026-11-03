@@ -4,6 +4,8 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+ReasoningEffort = Literal["minimal", "low", "medium", "high", "xhigh", "max"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -17,6 +19,9 @@ class Settings(BaseSettings):
     llm_provider: Literal["meta", "fake"] = "meta"
     meta_model_api_key: str | None = None
     meta_model_id: str = "muse-spark-1.3"
+    meta_model_max_completion_tokens: int = Field(default=4096, gt=0)
+    meta_model_report_reasoning_effort: ReasoningEffort = "low"
+    meta_model_chat_reasoning_effort: ReasoningEffort = "minimal"
     llm_daily_token_budget: int = Field(default=1_000_000, gt=0)
     llm_max_requests_per_minute: int = Field(default=30, gt=0)
     cors_origins: str = "http://localhost:3000"
