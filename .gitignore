@@ -69,6 +69,7 @@ coverage/
 app/ml_engine/weights/
 .ipynb_checkpoints/
 app/ml_engine/artifacts/
+app/ml_engine/release/
 
 # Data
 #data/
