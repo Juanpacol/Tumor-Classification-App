@@ -342,6 +342,22 @@ Run on 2026-11-02 in the `trainer` container (CPU, 12 threads) with `rounds/0.1.
 - **Tests on synthetic data use 16 PCA components**, because the inner fit there is one fold of about 26 images; the real data has about 1,100 rows per inner fit.
 - **Status:** **Verified** by unit tests (457 passing in the trainer image). Not run on the real dataset yet; the reference rerun of 0.1.0 in tuning mode is the first (D26).
 
+## D26. Tuning rounds toward the 0.90 target (AB-222)
+
+Rounds run in the `trainer` container in tuning mode (D25), on manifest `dedup_20261028T234450903626Z`, seed 42, 5 grouped folds. Reports live in `artifacts/reports/<timestamp>/` (not in git); the numbers below are copied from each `report.json`.
+
+**Kept-round rule (written on 2026-11-03, before any round below ran).**
+
+1. Each round changes one family of parameters, starting from the best round so far.
+2. A round beats the current best when its selected classifier's mean CV macro-F1 is higher. When the two are within one fold std (the larger of the two stds), the one with fewer out-of-fold tumor→no_tumor errors wins; if that ties too, the simpler one wins (CNN-only over hybrid, fewer PCA components, sigmoid over isotonic, the current backbone over a new one).
+3. The calibration method is chosen on calibrated out-of-fold log loss, with calibrated macro-F1 as a check (it may not drop by more than one fold std).
+4. Testing is read once, by a `--final` rerun of the kept round. Its result does not reopen the rounds: if it misses 0.90 or the metadata baseline reaches 0.70, the results go to the team (#112 criterion 9, #168).
+
+**Rounds.**
+
+| Version | Changes from | What changed | Selected | CV macro-F1 (mean ± std) | OOF recall gl / me / pi / no | OOF tumor→no_tumor | Cal. log loss | Metadata bal. acc. | Wall time |
+|---|---|---|---|---|---|---|---|---|---|
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
