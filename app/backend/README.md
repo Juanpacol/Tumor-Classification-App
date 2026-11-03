@@ -156,3 +156,11 @@ MODEL_BUNDLE_PATH= docker compose up -d backend postgres           # start witho
 If the default folder does not exist, Docker creates it empty and the app starts without a model. The full start-up guide is in the root `README.md`.
 
 The integration test `tests/integration/test_ml_engine_bundle.py` runs only when `MODEL_BUNDLE_PATH` points to a bundle folder, and classifies `ML_SAMPLE_IMAGE` when that file exists.
+
+## Tests
+
+```bash
+docker compose run --rm --build backend-test   # from the repo root: full suite, own test database
+```
+
+Outside Docker: `pip install -e ".[dev]"`, then `pytest tests/` from `app/backend`. The integration tests run only when `TEST_DATABASE_URL` points to a database whose name contains `test` (they wipe it); `DATABASE_URL` is never used, so `ether_db` stays intact. Details in `docs/deployment.md` (Tests).
