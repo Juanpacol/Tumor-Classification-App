@@ -59,8 +59,23 @@ services:
   trainer:
     build:
       context: ./app/ml_engine
+      target: trainer
     profiles: ["train"]
     working_dir: /work
+    volumes:
+      - ./app/ml_engine:/work
+
+  # Step-by-step pipeline notebook (app/ml_engine/notebooks/). Not started by
+  # `docker compose up`: `docker compose up notebook`, then open the printed
+  # http://127.0.0.1:8888/lab?token=... link.
+  notebook:
+    build:
+      context: ./app/ml_engine
+      target: notebook
+    profiles: ["notebook"]
+    working_dir: /work
+    ports:
+      - "127.0.0.1:8888:8888"
     volumes:
       - ./app/ml_engine:/work
 
