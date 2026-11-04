@@ -5,7 +5,7 @@
 
 .paper {
   border: 1px solid var(--rule);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .plate {
