@@ -198,3 +198,15 @@
     transition: none;
   }
 }
+
+@media (max-width: 480px) {
+  .tabs {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+  }
+
+  .tab {
+    padding: 0.6rem 0.9rem;
+    font-size: 1rem;
+  }
+}
