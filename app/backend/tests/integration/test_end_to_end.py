@@ -13,6 +13,7 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter
 from src.deep_learning.backbones import build_backbone
 from src.deep_learning.bundle import write_bundle
+from src.training.model import ModelConfig
 from src.training.run import TrainingConfig, train
 
 from adapters.outbound.llm.fake_llm import FakeLLM
@@ -65,17 +66,23 @@ def write_dataset(root: Path) -> tuple[Path, Path]:
 def bundle(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("e2e-bundle")
     data_dir, manifest = write_dataset(root)
-    backbone = root / "backbone"
+    weights = root / "weights"
     state = build_backbone("efficientnet_b0").state_dict()
-    write_bundle(backbone, "efficientnet_b0", state, "RANDOM", **IMAGENET)
+    write_bundle(
+        weights / "efficientnet_b0", "efficientnet_b0", state, "RANDOM", **IMAGENET
+    )
     config = TrainingConfig(
         data_dir=data_dir,
         manifest=manifest,
-        backbone_bundle=backbone,
+        weights_dir=weights,
         out_dir=root / "out",
         n_splits=3,
         version="0.0.1",
         cache_dir=root / "cache",
+        final=True,
+        # Calibrated out-of-fold fits on one fold of about 26 images, fewer than
+        # the default 32 PCA components.
+        model=ModelConfig(pca_components=16),
     )
     return train(config).artifact_dir
 
