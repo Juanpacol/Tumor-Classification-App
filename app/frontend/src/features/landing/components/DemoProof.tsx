@@ -60,7 +60,7 @@ export function DemoProof() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Watch the full video (2 min)
+          Watch the full video (under 2 min)
         </a>
       </div>
     </section>
