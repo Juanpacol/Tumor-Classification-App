@@ -17,7 +17,7 @@ from adapters.outbound.persistence.sqlalchemy.engine import (
 from adapters.outbound.persistence.sqlalchemy.repository import (
     SqlAlchemyStudyRepository,
 )
-from adapters.outbound.storage.filesystem_storage import FilesystemStorage
+from adapters.outbound.storage.factory import build_storage
 from application.generate_report import GenerateClinicalReport
 from application.get_study import GetStudy
 from application.list_studies import ListStudies
@@ -41,7 +41,7 @@ def create_app(
     settings = get_settings()
     llm = llm or build_llm(settings)
     classifier = classifier or MLEngineClassifier()
-    storage = storage or FilesystemStorage(settings.storage_dir)
+    storage = storage or build_storage(settings)
     engine = None
     if repository is None:
         engine = create_engine(settings)
