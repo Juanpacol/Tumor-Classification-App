@@ -92,11 +92,28 @@ The backend image carries the model. The `runtime` stage of `app/backend/Dockerf
 - Vercel needs nothing for the model; it only calls the backend at `NEXT_PUBLIC_API_URL`.
 - To deploy another version, see `app/backend/README.md` (*Docker*).
 
+## Study images
+
+`StoragePort` has two adapters, chosen by `build_storage` (`adapters/outbound/storage/factory.py`):
+
+- **Local filesystem** (`STORAGE_DIR`): the default, used locally and in the tests.
+- **Supabase Storage** (`SupabaseStorage`): used when both `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set. Images survive Cloud Run restarts, scale-to-zero and new revisions.
+
+Set up (once, in the Supabase project the backend's `DATABASE_URL` points to, not another one):
+
+1. Create a **private** bucket named `study-images` (override with `SUPABASE_STORAGE_BUCKET`). With the CLI, from a folder that holds a `supabase/config.toml` with `[storage.buckets.study-images]` (`public = false`, `file_size_limit = "20MiB"`, `allowed_mime_types = ["image/jpeg", "image/png"]`): `supabase link --project-ref <ref>` then `supabase seed buckets --linked`. Or Storage → New bucket in the dashboard, with *Public bucket* off.
+2. On the Cloud Run service add `SUPABASE_URL` (`https://<ref>.supabase.co`) and `SUPABASE_SERVICE_KEY`. The key is the project's `service_role` key: it bypasses every access rule, so keep it as a Cloud Run **secret**, never in the repository, the chat or the frontend.
+
+Notes:
+- The adapter declares `image/png` or `image/jpeg` from the file signature, because the bucket only accepts those types. The upload endpoint only stores those two formats.
+- Studies uploaded before this was set up lost their image when the instance restarted, and it cannot be recovered. Their results stay in Postgres.
+- Free plan: Supabase documents a storage and egress quota per project and pauses it after a week without activity (see *Supabase free-tier note*). Check the current limits in the project's *Settings → Usage*.
+
 ## What's simplified for the cloud demo vs local dev
 
 `docker-compose.yml` is the local dev stack: Postgres + backend + frontend. The cloud demo runs two services (frontend on Vercel, backend on Cloud Run) plus Supabase.
 
-Neither environment uses Celery, Redis or S3/MinIO: inference runs synchronously inside the request, and uploaded scans are kept on the backend's filesystem (`STORAGE_DIR`). On Cloud Run that is not persistent across restarts or scale-to-zero, which is acceptable for a demo, not for production.
+Neither environment uses Celery, Redis or S3/MinIO: inference runs synchronously inside the request. Uploaded scans live on the backend's filesystem (`STORAGE_DIR`) locally and in a private Supabase Storage bucket on the cloud demo (see *Study images* below), because the Cloud Run disk is not persistent across restarts or scale-to-zero.
 
 ## Environment variables (cloud demo)
 
@@ -105,6 +122,8 @@ DATABASE_URL=<Supabase session pooler connection string>
 DB_STATEMENT_CACHE_SIZE=   # set to 0 only if using the transaction pooler (port 6543)
 ENVIRONMENT=demo
 NEXT_PUBLIC_API_URL=<Cloud Run service URL>
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_KEY=<service_role key, as a Cloud Run secret>
 ```
 
 (No `REDIS_URL`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` in the cloud demo — those stay local-only.)
