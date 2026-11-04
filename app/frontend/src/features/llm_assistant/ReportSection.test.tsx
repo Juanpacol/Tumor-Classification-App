@@ -57,12 +57,32 @@ describe("ReportSection", () => {
         study={study("study-confident")}
       />,
     );
-    expect(
-      screen.getByRole("heading", { name: "Evidence" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/^Evidence \(\d+\)$/)).toBeInTheDocument();
     expect(screen.getByText("Verified")).toBeInTheDocument();
     expect(screen.getByText("Not verified")).toBeInTheDocument();
     expect(screen.getByText("prediction.label")).toBeInTheDocument();
+  });
+
+  it("folds the evidence away and tallies it in the summary", () => {
+    const { container } = render(
+      <ReportSection
+        client={clientWith(jest.fn())}
+        study={study("study-confident")}
+      />,
+    );
+    const details = container.querySelector("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(screen.getByText(/\d+ verified · \d+ not verified/)).toBeVisible();
+  });
+
+  it("opens with the class, the confidence and what the assistant concluded", () => {
+    render(
+      <ReportSection
+        client={clientWith(jest.fn())}
+        study={study("study-confident")}
+      />,
+    );
+    expect(screen.getByText("AI assistant agrees")).toBeInTheDocument();
   });
 
   it("omits the evidence section when the report has no citations", () => {
@@ -76,9 +96,7 @@ describe("ReportSection", () => {
         study={{ ...study("study-confident"), report }}
       />,
     );
-    expect(
-      screen.queryByRole("heading", { name: "Evidence" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Evidence/)).not.toBeInTheDocument();
   });
 
   it.each(["disagrees", "uncertain"] as const)(

@@ -51,7 +51,7 @@ function Report({ client, study }: { client: ApiClient; study: StudyDetail }) {
       )}
       {report?.content && (
         <>
-          <ReportView content={report.content} />
+          <ReportView content={report.content} prediction={study.prediction} />
           {confirming ? (
             <div className={styles.confirm} role="group" aria-label="Confirm">
               <p>Replace this report with a new draft?</p>
