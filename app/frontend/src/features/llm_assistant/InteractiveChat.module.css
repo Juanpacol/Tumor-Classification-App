@@ -51,24 +51,49 @@
 }
 
 .form {
+  --cut: 14px;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 0.875rem 1.125rem 0.75rem;
+  background: var(--plate);
+  color: var(--plate-text);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut))
+  );
 }
 
 .label {
-  font-size: 0.875rem;
-  color: var(--muted);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .input {
-  resize: vertical;
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  padding: 0.5rem 0.75rem;
-  background: #ffffff;
-  color: var(--ink);
+  resize: none;
+  border: 0;
+  border-bottom: 1px solid rgba(229, 228, 225, 0.35);
+  padding: 0.25rem 0 0.5rem;
+  background: transparent;
+  color: var(--plate-text);
   font: inherit;
+}
+
+.input::placeholder {
+  color: #a8a49c;
+}
+
+.input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--plate-text);
 }
 
 .input:disabled {
@@ -84,7 +109,22 @@
 .counter {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  color: var(--muted);
+  color: #bdb9b2;
+}
+
+.send {
+  border: 0;
+  padding: 0.5rem 1.5rem;
+  background: var(--plate-text);
+  color: var(--plate);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 9px) 0,
+    100% 9px,
+    100% 100%,
+    9px 100%,
+    0 calc(100% - 9px)
+  );
 }
 
 .note {
