@@ -1,6 +1,6 @@
 # ML Engine status
 
-Last updated 2026-11-02 (AB-212). Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
+Last updated 2026-11-04 (AB-222). Azure Boards is the source of truth for the state of each story. This file records what Boards does not: how the pieces fit, what is blocked and how to resume. The reasons behind each choice are in `decisions.md`.
 
 ## Data flow
 
@@ -23,9 +23,9 @@ load_mri_image -> prepare_image -> extract_radiomics (45) ----+
 | Dataset cleaning | AB-150 | Merged. 3,434 images kept (`DATASET_CLEANING_REPORT.md`) |
 | Training, selection, calibration, artifact, report, CLI | AB-112, AB-167, AB-168 | Merged |
 | Out-of-fold metrics, round files, trainer container, baseline run | AB-212 | Baseline 0.1.0 run (D24): Test macro-F1 0.807, target 0.90 not met; results go to the team before any model is published |
-| Tuning and final modes, backbone/blocks/calibration keys, calibrated out-of-fold metrics, error breakdown | AB-222 | Merged on the branch (D25). Rounds 0.1.1-0.3.0 run (D26): DenseNet-121 best on CV (0.903). The CV-to-Testing gap is a source shift (no non-512x512 glioma in Training); later rounds wait for the team's data decision |
+| Tuning and final modes, backbone/blocks/calibration keys, calibrated out-of-fold metrics, error breakdown | AB-222 | Merged on the branch (D25). Rounds 0.1.1-0.3.0 run (D26): DenseNet-121 best on CV (0.903). The CV-to-Testing gap is a source shift (no non-512x512 glioma in Training); later rounds wait for the team's data decision. The team accepted 0.1.0 for the demo (D28) |
 | Serving pipeline (`BundleInferencePipeline.from_bundle`, `predict(bytes)`) | AB-113 | Merged. Tested on a synthetic artifact (D13) |
-| Publish artifacts as a GitHub Release | AB-114 | Not started |
+| Publish artifacts as a GitHub Release | AB-114, AB-222 | Tooling merged (D27). `model-v0.1.0` published and built into the backend image (D28) |
 | CI, lock, branching | AB-151 to AB-154 | Merged. Lock is universal with CPU-only PyTorch (D10) |
 
 ## Next: tuning rounds
