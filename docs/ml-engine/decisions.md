@@ -357,6 +357,37 @@ Rounds run in the `trainer` container in tuning mode (D25), on manifest `dedup_2
 
 | Version | Changes from | What changed | Selected | CV macro-F1 (mean ± std) | OOF recall gl / me / pi / no | OOF tumor→no_tumor | Cal. log loss | Metadata bal. acc. | Wall time |
 |---|---|---|---|---|---|---|---|---|---|
+| 0.1.1 | 0.1.0 | nothing: reference rerun in tuning mode | logistic_regression | 0.898 ± 0.011 | 0.927 / 0.843 / 0.901 / 0.931 | 19 | 0.296 | 0.588 | 7 min 8 s (cache rebuilt, schema 2) |
+| 0.2.0 | 0.1.1 | `model.backbone = "resnet50"` | logistic_regression | 0.879 ± 0.008 | 0.919 / 0.803 / 0.869 / 0.927 | 17 | 0.341 | 0.588 | 10 min 23 s (new CNN features) |
+| 0.3.0 | 0.1.1 | `model.backbone = "densenet121"` | logistic_regression | 0.903 ± 0.007 | 0.929 / 0.845 / 0.901 / 0.946 | 15 | 0.302 | 0.588 | 9 min 11 s (new CNN features) |
+
+**Backbone family (0.2.0, 0.3.0).** ResNet-50 is worse (0.879 ± 0.008, more glioma↔meningioma confusion). DenseNet-121 reaches 0.903 ± 0.007, within one fold std of the reference (0.011), so by rule 2 the tie is broken on out-of-fold tumor→no_tumor errors: 15 against 19. **DenseNet-121 is the base of the next family.** Augmentation stays off for both; the ablation shows the same pattern as D24 (DenseNet: CNN only 0.890, hybrid 0.903).
+
+**Reference (0.1.1).** Same CV numbers as D24 (0.898 ± 0.011, same selection, augmentation off, same ablation), so the code changes of D25 did not move the baseline. Calibrated out-of-fold (sigmoid): macro-F1 0.898, log loss 0.296; 73.4% of images reach the 0.75 triage threshold, with 0.976 accuracy among them.
+
+**Where the out-of-fold errors are (Training only).** 17 of the 19 tumor→no_tumor errors are images that are not 512x512, which are only 316 of 1,830 Training images. On those, out-of-fold recall is meningioma 0.462 and pituitary 0.727, against 0.867 and 0.925 on 512x512 images. Group size does not matter (all 19 errors are single images). The high-snr and high-entropy terciles hold 11 errors each, which mostly overlap with the non-512 images.
+
+**Why.** The composition of the usable Training images by source size:
+
+| Class | 512x512 | other sizes |
+|---|---|---|
+| glioma | 850 | **0** |
+| meningioma | 420 | 26 |
+| pituitary | 241 | 33 |
+| no_tumor | 3 | 257 |
+
+81% of the non-512 Training images are no_tumor and no glioma comes from that source, so the model can learn "looks like the other source → no_tumor". This is the source of the Kaggle dataset, not of our cleaning: the original `Training/glioma` folder has only 512x512 images (all 992 kept and all 408 removed are 512x512).
+
+**Testing composition (labels and file sizes only; no Testing feature or prediction was read).** To see whether this explains the D24 gap, the kept Testing images were counted by class and source size: glioma 292 / **62**, meningioma 175 / **98**, pituitary 349 / 8, no_tumor 2 / 123 (512x512 / other). Testing has 160 glioma and meningioma images from the other source, a mix Training barely has (0 and 26). That matches D24: the 85 Testing tumors called no_tumor were 30 glioma and 55 meningioma. This reads Testing labels, which design.md left to a team decision; it was done to explain the gap, not to choose any value, and no round below uses it.
+
+**Consequence.** Tuning rounds compare on Training CV, which contains almost no tumors from the other source, so they cannot measure (or close) the error that dominates Testing. Options for the team:
+
+1. **Re-split with the source mix balanced.** Pool the kept Training and Testing images, keep `group_id` groups whole, and split stratified by class and source size, so both sides see both sources. Honest estimate; loses comparability with the official Kaggle split.
+2. **Move part of the other-source Testing tumors into Training** (whole groups), keeping the rest as Testing. Smaller change; Testing shrinks.
+3. **Keep the split and add source-imitating augmentation** (downscale, blur, contrast of 512x512 tumor images). Stays in AB-222, but CV on Training still cannot measure whether it helps.
+4. **Keep everything and document the limitation** (Testing 0.807), publishing nothing until the data question is settled.
+
+The backbone rounds already started finish and are recorded; the later families wait for the team's choice.
 
 ## GMLP principles checklist
 

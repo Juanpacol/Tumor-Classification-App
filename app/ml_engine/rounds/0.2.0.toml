@@ -1,0 +1,8 @@
+# Round 0.2.0: backbone family (Azure #222, D26).
+# Changes from 0.1.0 only the CNN backbone: ResNet-50 (2048-d) instead of
+# EfficientNet-B0 (1280-d). The CNN block carries almost all the signal in D24
+# (CNN only 0.893 vs hybrid 0.898), so the backbone is the first lever to try.
+# Every other key keeps the 0.1.0 value. Tuning run: compare on CV only.
+
+[model]
+backbone = "resnet50"
