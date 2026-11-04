@@ -32,6 +32,7 @@ export function Architecture() {
       ref={ref}
       className={`${styles.section} fadeUp ${isVisible ? "isVisible" : ""}`}
     >
+      <div className={styles.art} aria-hidden="true" />
       <h2 className={styles.title}>How it&apos;s structured</h2>
       <div className={styles.stack}>
         {LAYERS.map((layer) => (
