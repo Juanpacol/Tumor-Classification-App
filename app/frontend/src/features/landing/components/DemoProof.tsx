@@ -4,17 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./DemoProof.module.css";
 
+const FULL_VIDEO_URL = "https://www.youtube.com/watch?v=9h-pfQKnyKI";
+
 /**
  * "See it in action": a muted, looping clip of the real portal with burned-in
- * captions. The link to the full video shows only when
- * `NEXT_PUBLIC_DEMO_VIDEO_URL` is set. With reduced motion the clip does not play
- * on its own and shows its controls.
+ * captions, and a link to the full video. With reduced motion the clip does not
+ * play on its own and shows its controls.
  */
 export function DemoProof() {
   const { ref, isVisible } = useFadeUp<HTMLElement>();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const fullVideoUrl = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
 
   useEffect(() => {
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -54,16 +54,14 @@ export function DemoProof() {
         <p className={styles.note}>
           Sample data from a public dataset. A prototype, not a medical device.
         </p>
-        {fullVideoUrl ? (
-          <a
-            className={styles.fullVideo}
-            href={fullVideoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Watch the full video (2 min)
-          </a>
-        ) : null}
+        <a
+          className={styles.fullVideo}
+          href={FULL_VIDEO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Watch the full video (2 min)
+        </a>
       </div>
     </section>
   );
