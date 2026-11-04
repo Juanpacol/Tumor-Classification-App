@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./DemoProof.module.css";
 
-const FULL_VIDEO_URL = "https://www.youtube.com/watch?v=9h-pfQKnyKI";
+const FULL_VIDEO_URL = "https://www.youtube.com/watch?v=rXtExvxENqg";
 
 /**
  * "See it in action": a muted, looping clip of the real portal with burned-in
