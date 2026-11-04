@@ -114,4 +114,17 @@ describe("AnalysisPanel", () => {
       screen.queryByRole("tabpanel", { name: "Summary" }),
     ).not.toBeInTheDocument();
   });
+
+  it("changes the drawing on the head of the panel with the tab", async () => {
+    const { container } = render(
+      <AnalysisPanel
+        client={createMockClient()}
+        study={study("study-confident")}
+      />,
+    );
+    const art = container.querySelector("[data-tab]");
+    expect(art).toHaveAttribute("data-tab", "summary");
+    await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
+    expect(art).toHaveAttribute("data-tab", "chat");
+  });
 });

@@ -41,6 +41,73 @@
   );
 }
 
+/* The head of the panel is an ink plate, like the viewer beside it. The drawing
+   for each tab lives here, in light lines, and never behind the text below. */
+.plate {
+  --vh-ink: var(--plate-text);
+  --vh-muted: #bdb9b2;
+  --vh-bar: var(--plate-text);
+  --vh-accent: #ff9a8f;
+  --vh-arc: var(--plate-text);
+  --vh-track: rgba(229, 228, 225, 0.22);
+  --vh-shadow: none;
+  flex: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: -1.5rem -1.5rem 0;
+  padding: 1.5rem 1.5rem 1.25rem;
+  overflow: hidden;
+  background: var(--plate);
+}
+
+.plate > :not(.art) {
+  position: relative;
+}
+
+.art {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.layer {
+  position: absolute;
+  top: -10%;
+  right: -4%;
+  width: 58%;
+  height: 120%;
+  background: var(--image, none) center / contain no-repeat;
+  filter: invert(1);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.layer[data-for="summary"] {
+  --image: url("/portal-brain.png");
+}
+
+.layer[data-for="report"] {
+  --image: url("/portal-heart.png");
+}
+
+.layer[data-for="chat"] {
+  --image: url("/portal-web.png");
+}
+
+.art[data-tab="summary"] .layer[data-for="summary"],
+.art[data-tab="report"] .layer[data-for="report"],
+.art[data-tab="chat"] .layer[data-for="chat"] {
+  opacity: 0.3;
+}
+
+.plate .tab[aria-selected="true"] {
+  background: var(--plate-text);
+  box-shadow: none;
+  color: var(--plate);
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -127,7 +194,8 @@
 @media (prefers-reduced-motion: reduce) {
   .frame,
   .body,
-  .tab {
+  .tab,
+  .layer {
     animation: none;
     transition: none;
   }
