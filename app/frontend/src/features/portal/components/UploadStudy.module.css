@@ -87,6 +87,14 @@
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 7px) 0,
+    100% 7px,
+    100% 100%,
+    7px 100%,
+    0 calc(100% - 7px)
+  );
 }
 
 .notes textarea::placeholder {
