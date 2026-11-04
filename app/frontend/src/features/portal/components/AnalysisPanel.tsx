@@ -64,27 +64,34 @@ export function AnalysisPanel({
     <div className={styles.frame}>
       <div className={styles.frameShadow}>
         <aside aria-label="Study analysis" className={styles.panel}>
-          <VerdictHeader study={study} />
-          <div className={styles.tabs} role="tablist" aria-label="Analysis">
-            {tabs.map((tab, index) => (
-              <button
-                key={tab}
-                ref={(element) => {
-                  buttons.current[tab] = element;
-                }}
-                type="button"
-                role="tab"
-                id={`tab-${tab}`}
-                aria-selected={active === tab}
-                aria-controls={`panel-${tab}`}
-                tabIndex={active === tab ? 0 : -1}
-                className={styles.tab}
-                onClick={() => open(tab)}
-                onKeyDown={(event) => onKeyDown(event, index)}
-              >
-                {LABELS[tab]}
-              </button>
-            ))}
+          <div className={styles.plate}>
+            <div className={styles.art} data-tab={active} aria-hidden="true">
+              <span className={styles.layer} data-for="summary" />
+              <span className={styles.layer} data-for="report" />
+              <span className={styles.layer} data-for="chat" />
+            </div>
+            <VerdictHeader study={study} />
+            <div className={styles.tabs} role="tablist" aria-label="Analysis">
+              {tabs.map((tab, index) => (
+                <button
+                  key={tab}
+                  ref={(element) => {
+                    buttons.current[tab] = element;
+                  }}
+                  type="button"
+                  role="tab"
+                  id={`tab-${tab}`}
+                  aria-selected={active === tab}
+                  aria-controls={`panel-${tab}`}
+                  tabIndex={active === tab ? 0 : -1}
+                  className={styles.tab}
+                  onClick={() => open(tab)}
+                  onKeyDown={(event) => onKeyDown(event, index)}
+                >
+                  {LABELS[tab]}
+                </button>
+              ))}
+            </div>
           </div>
           {tabs.map((tab) => (
             <div
