@@ -121,3 +121,24 @@
   color: #a8a49c;
   opacity: 1;
 }
+
+@media (max-width: 480px) {
+  .file,
+  .notes {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .file input {
+    max-width: 100%;
+  }
+
+  .file input,
+  .notes textarea {
+    font-size: 1rem;
+  }
+
+  .send {
+    width: 100%;
+  }
+}

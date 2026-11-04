@@ -20,7 +20,7 @@
 .title {
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 3rem;
+  font-size: clamp(2.25rem, 1.8rem + 1.8vw, 3rem);
   line-height: 1.15;
   color: #141210;
   max-width: 20ch;
@@ -36,7 +36,7 @@
 }
 
 @media (max-width: 640px) {
-  .title {
-    font-size: 2.25rem;
+  .section {
+    padding: 5rem 1.25rem 3rem;
   }
 }

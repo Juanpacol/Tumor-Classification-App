@@ -1,6 +1,10 @@
 .row {
   display: grid;
-  grid-template-columns: 18rem minmax(0, 1fr) 18rem;
+  grid-template-columns: clamp(9rem, 18vw, 18rem) minmax(0, 1fr) clamp(
+      9rem,
+      18vw,
+      18rem
+    );
   gap: 1.5rem;
   align-items: end;
   margin-top: 2.5rem;
