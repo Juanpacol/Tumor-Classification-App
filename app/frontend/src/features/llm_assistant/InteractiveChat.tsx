@@ -90,7 +90,8 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
           className={styles.input}
           value={draft}
           maxLength={MAX_MESSAGE_LENGTH}
-          rows={3}
+          rows={2}
+          placeholder="Ask about this study…"
           disabled={disabled || state.phase === "loading"}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -106,6 +107,7 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
           </span>
           <Button
             type="submit"
+            className={styles.send}
             disabled={
               !isSendable(draft) || streaming || state.phase !== "ready"
             }
