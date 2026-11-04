@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://ether_user:ether_password@localhost:5432/ether_db"
     db_statement_cache_size: int | None = None
     storage_dir: str = "./storage"
+    supabase_url: str | None = None
+    supabase_service_key: str | None = None
+    supabase_storage_bucket: str = "study-images"
     model_bundle_path: str | None = None
     llm_provider: Literal["meta", "fake"] = "meta"
     meta_model_api_key: str | None = None
