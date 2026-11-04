@@ -256,7 +256,7 @@
   display: block;
   border: 1px solid transparent;
   border-image: var(--edge) 1;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -8px 14px -10px rgba(20, 18, 16, 0.25);
@@ -273,7 +273,7 @@
 
 .search:focus-within {
   --edge: linear-gradient(135deg, var(--accent), var(--ink));
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .search input {
@@ -381,7 +381,7 @@
 
 .row {
   --cut: 14px;
-  --tint: #ffffff;
+  --tint: var(--surface);
   --bar: var(--steel);
   --edge: linear-gradient(
     135deg,
