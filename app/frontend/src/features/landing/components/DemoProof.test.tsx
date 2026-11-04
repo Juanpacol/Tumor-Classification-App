@@ -44,7 +44,7 @@ describe("DemoProof", () => {
 
     expect(screen.getByRole("link", { name: /full video/i })).toHaveAttribute(
       "href",
-      "https://www.youtube.com/watch?v=9h-pfQKnyKI",
+      "https://www.youtube.com/watch?v=rXtExvxENqg",
     );
   });
 
