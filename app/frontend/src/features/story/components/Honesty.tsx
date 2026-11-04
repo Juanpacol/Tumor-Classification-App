@@ -2,6 +2,7 @@
 
 import { useFadeUp } from "@/hooks/useFadeUp";
 import styles from "./TechStack.module.css";
+import art from "./Honesty.module.css";
 
 const STEPS = [
   {
@@ -46,6 +47,9 @@ export function Honesty() {
         the demo are samples. The chat answers are not yet checked by the
         verifier, and are labelled that way.
       </p>
+      <div className={art.spacer} aria-hidden="true">
+        <div className={art.hand} />
+      </div>
     </section>
   );
 }

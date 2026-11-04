@@ -81,13 +81,11 @@
   left: calc(100% - 6rem);
   width: 36rem;
   z-index: -1;
-  background-image: url("/story/skull-vines.jpg");
+  background-image: url("/story/skull-vines.png");
   background-size: cover;
   background-position: left center;
   background-repeat: no-repeat;
-  filter: grayscale(1) contrast(1.35) brightness(1.04);
-  mix-blend-mode: multiply;
-  opacity: 0.8;
+  opacity: 0.85;
   mask-image: linear-gradient(90deg, transparent 0%, #000 40%),
     linear-gradient(0deg, transparent 0%, #000 22%, #000 78%, transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%),
