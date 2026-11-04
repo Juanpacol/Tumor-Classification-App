@@ -155,7 +155,7 @@ Open items:
 
 The repository is public for the hackathon evaluation, and the artifact published in AB-114 bundles the ImageNet-pretrained backbone weights.
 
-- **Decision:** publish the weights inside the artifact (the simplest option) and make the reservations explicit instead of hiding them. The weights stay out of git (`weights/*.pt` is ignored), and only a Release would make them public.
+- **Decision:** publish the weights inside the artifact (the simplest option) and make the reservations explicit instead of hiding them. The weights stay out of git (`weights/*.pt` is ignored), and only a Release would make them public. *The Release `model-v0.1.0` (D28) made them public.*
 - **Why it is safe to decide this now:** the backbone is a replaceable component (registry, bundle, manifest, one training command). If cleaner weights are needed, swap them and retrain, with no change to the rest of the pipeline.
 - **What was added:** the backbone manifest records `source_url` and `license_note`, with defaults so bundles exported earlier still load, and the artifact manifest carries them as `backbone_provenance`. The README lists every external asset and its status.
 - **What is not known:** the terms of the torchvision weights (no license statement was found for them, only the BSD license of the code), whether weights trained on ImageNet inherit its non-commercial terms, and the licenses of the Kaggle dataset and of the Python dependencies. This is not legal advice.
@@ -389,6 +389,28 @@ Rounds run in the `trainer` container in tuning mode (D25), on manifest `dedup_2
 
 The backbone rounds already started finish and are recorded; the later families wait for the team's choice.
 
+## D27. Versioned model releases (AB-114)
+
+`src/release/{package,fetch,__main__}.py`, `src/tests/test_release.py`.
+
+- **Why.** Deployments need an exact, verifiable model without putting binaries in git.
+- **Format.** One `model-v<version>.tar.gz` per bundle, a `.sha256` file next to it and release notes generated from `manifest.json` (Test metrics per class), uploaded as assets of a GitHub Release tagged `model-v<version>`.
+- **Checks.** `package` requires the folder name to match the manifest version and never overwrites an archive. `fetch` verifies the SHA-256 before extracting and extracts only regular files under `model-v<version>/`, so a tampered or mismatched archive is rejected.
+- **Publishing stays manual.** The CLI prints the `gh release create` command instead of running it: the release is public and, per D24, a model under the 0.90 target is not published before the team has reviewed it.
+- **Status:** **Verified** by 9 unit tests (trainer image) and by packaging the local `0.1.1` bundle (20 MB). No release had been published (see D28).
+
+## D28. Deploy the baseline 0.1.0 with its metrics as an accepted limitation (AB-222)
+
+`app/backend/Dockerfile`, release `model-v0.1.0`.
+
+- **Decision (team, 2026-11-04):** the demo serves the baseline artifact `model-v0.1.0` (D24: EfficientNet-B0, logistic regression, sigmoid calibration). Its Testing result (macro-F1 0.807, balanced accuracy 0.844, no_tumor precision 0.590) is accepted as a known limitation, not a met target. This answers the open choice of D26 with option 4, except that the model is published. The tuning rounds of D26 do not ship; a later version needs its own `--final` run and release.
+- **What the limitation means for users:** tumors from the dataset's second source (images that are not 512x512) are often called no_tumor (85 of the 784 Testing tumors). The app already shows the confidence and `needs_expert_triage`; it is a second opinion, never a diagnosis.
+- **Published as D27 describes:** `python -m src.release package artifacts/model-v0.1.0`, GitHub Release `model-v0.1.0` with the archive (20 MB) and its `.sha256` (`8de0d252...`). Nothing binary goes into git.
+- **Built into the backend image.** The `runtime` stage runs `python -m src.release fetch` for `MODEL_VERSION` (build argument, default `0.1.0`), which checks the SHA-256 before extracting, and sets `MODEL_BUNDLE_PATH` to the extracted folder. Every Cloud Run build therefore carries the model with no volume or env var; the build fails if the release cannot be downloaded or verified, instead of deploying a backend without a model. docker-compose still mounts its own bundle at `/models/current`.
+- **Open checks:**
+  - [ ] `/health` on Cloud Run reports `model_loaded: true` once this reaches `main`, and one classification finishes within the request timeout with the service's memory (AB-120).
+  - [ ] The weight-terms reservations of D14 now apply to a public file.
+
 ## GMLP principles checklist
 
 The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding principles, with where the project stands. This is a design aid, not a compliance claim: the project is not seeking regulatory clearance and must not be presented as compliant.
@@ -405,16 +427,6 @@ The ten FDA, Health Canada and MHRA Good Machine Learning Practice guiding princ
 | 8 | Testing under clinically relevant conditions, including subgroups | **Limitation:** no subgroup metadata, so no subgroup evaluation |
 | 9 | Users get clear, essential information | Partial: landing safety rubric exists, a model card is missing |
 | 10 | Deployed models are monitored | Out of scope for the hackathon |
-
-## D25. Versioned model releases (AB-114)
-
-`src/release/{package,fetch,__main__}.py`, `src/tests/test_release.py`.
-
-- **Why.** Deployments need an exact, verifiable model without putting binaries in git.
-- **Format.** One `model-v<version>.tar.gz` per bundle, a `.sha256` file next to it and release notes generated from `manifest.json` (Test metrics per class), uploaded as assets of a GitHub Release tagged `model-v<version>`.
-- **Checks.** `package` requires the folder name to match the manifest version and never overwrites an archive. `fetch` verifies the SHA-256 before extracting and extracts only regular files under `model-v<version>/`, so a tampered or mismatched archive is rejected.
-- **Publishing stays manual.** The CLI prints the `gh release create` command instead of running it: the release is public and, per D24, a model under the 0.90 target is not published before the team has reviewed it.
-- **Status:** **Verified** by 9 unit tests (trainer image) and by packaging the local `0.1.1` bundle (20 MB). No release has been published.
 
 ## Open verifications
 

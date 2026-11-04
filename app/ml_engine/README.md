@@ -134,7 +134,7 @@ python -m src.release fetch 0.2.0 --dest artifacts                  # download, 
 
 `package` refuses a folder whose name does not match the manifest version and never overwrites an archive; its release notes carry the Test metrics from `manifest.json`. `fetch` compares the SHA-256 of the download with the published one and extracts nothing on a mismatch. Only regular files under `model-v<version>/` are extracted. `release/` is ignored by git.
 
-The flow is: train (`src.training`) → `package` → `gh release create` → deploy: `fetch` the version and point the backend at the folder (`MODEL_BUNDLE_DIR` in `docker-compose.yml`, or the mounted path on Cloud Run).
+The flow is: train (`src.training`) → `package` → `gh release create` → deploy. The backend image fetches the release named by its `MODEL_VERSION` build argument, so Cloud Run picks it up on the next build (`app/backend/README.md`, *Docker*). Locally, `fetch` the version and point compose at it with `MODEL_BUNDLE_DIR`. The deployed version is `0.1.0`, below the target and accepted as a known limitation (D28).
 
 ### Pipeline notebook
 
