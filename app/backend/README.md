@@ -171,7 +171,9 @@ The image is built with the repository root as context, so it can install ml_eng
 docker build -f app/backend/Dockerfile -t ether-backend .
 ```
 
-In docker-compose the bundle is mounted read-only at `/models/current` from `MODEL_BUNDLE_DIR` (default `./app/ml_engine/artifacts/current`):
+The image carries the deployed model: the `runtime` stage downloads the GitHub Release `model-v<MODEL_VERSION>` (build argument, default `0.1.0`) with `python -m src.release fetch`, which checks its SHA-256, and sets `MODEL_BUNDLE_PATH` to it. Cloud Run needs no extra setting, and the build fails if the release cannot be downloaded or verified. To deploy another version, publish its release (`app/ml_engine/README.md`, *Publish a model*) and change the default of `MODEL_VERSION`.
+
+In docker-compose a bundle is mounted read-only at `/models/current` from `MODEL_BUNDLE_DIR` (default `./app/ml_engine/artifacts/current`):
 
 ```bash
 docker compose up -d --build backend postgres                      # bundle from the default folder
