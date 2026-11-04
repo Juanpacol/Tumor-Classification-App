@@ -8,19 +8,19 @@ const LAYERS = [
     number: "01",
     title: "Frontend",
     tag: "Next.js, Feature-Sliced",
-    text: "The clinical portal radiologists use day to day: DICOM visualization, clinical summaries, and an LLM assistant, each isolated in its own feature module.",
+    text: "The clinical portal: a ranked worklist, the MRI viewer, a verified report and a chat, each isolated in its own feature module.",
   },
   {
     number: "02",
     title: "Backend",
-    tag: "FastAPI, Service-Client",
-    text: "Thin HTTP routes hand off to a services layer for business logic, with external integrations like storage and the LLM kept in their own client layer.",
+    tag: "FastAPI, Hexagonal",
+    text: "Use cases sit in the middle and talk to the classifier, the language model, storage and the database through ports. Swapping Muse Spark for Llama, or Postgres for another store, touches one adapter.",
   },
   {
     number: "03",
     title: "ML Engine",
     tag: "Standalone pipeline",
-    text: "An importable, testable package: DICOM preprocessing, classical radiomics features, and CNN features, orchestrated end to end.",
+    text: "An importable, testable package: image quality gate, radiomic features, CNN features and a calibrated classifier, trained on 3,434 cleaned images and released as versioned artifacts.",
   },
 ];
 

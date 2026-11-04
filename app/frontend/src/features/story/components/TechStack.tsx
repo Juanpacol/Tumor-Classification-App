@@ -5,20 +5,20 @@ import styles from "./TechStack.module.css";
 
 const STACK = [
   {
-    title: "FastAPI",
-    text: "Async Python backend serving the inference API, with automatic OpenAPI docs for the clinical team.",
+    title: "Muse Spark (Meta)",
+    text: "Writes the draft report and answers questions through the Meta Model API, chosen for its multimodal and health capabilities. It never classifies. Open Llama stays as a fallback behind the same interface.",
   },
   {
     title: "PyTorch + Radiomics",
-    text: "A hybrid pipeline: classical GLCM/LBP/wavelet features alongside a CNN, which generalizes better on small, heterogeneous MRI datasets than deep learning alone.",
+    text: "A hybrid classifier: 45 classical radiomic features alongside 1,280 deep features from a pretrained CNN, which generalizes better on small, heterogeneous MRI datasets than deep learning alone.",
+  },
+  {
+    title: "FastAPI + Postgres",
+    text: "Async Python backend with automatic OpenAPI docs, storing studies, reports and conversations in Postgres.",
   },
   {
     title: "Next.js + Cornerstone3D",
-    text: "The clinical portal radiologists use day to day, with DICOM visualization built on the medical imaging standard Cornerstone3D.",
-  },
-  {
-    title: "Llama (open source)",
-    text: "An on-premise LLM instead of a locked-in cloud API — built for clinics without reliable cloud access, and for data sovereignty.",
+    text: "The clinical portal radiologists use day to day, with an MRI viewer built on Cornerstone3D. Uploads are JPG and PNG images.",
   },
 ];
 
