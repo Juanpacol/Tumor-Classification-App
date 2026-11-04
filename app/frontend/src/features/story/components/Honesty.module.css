@@ -1,60 +1,55 @@
-.spacer {
-  position: relative;
-  height: 22rem;
-  margin-top: 1.5rem;
+.row {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) 13rem;
+  gap: 1.5rem;
+  align-items: end;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(20, 18, 16, 0.15);
+}
+
+.row p {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  border: 0;
+}
+
+.hand,
+.face {
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
 }
 
 .hand {
-  position: absolute;
-  bottom: 0;
-  left: -8rem;
-  width: 22rem;
-  height: 22rem;
+  aspect-ratio: 1;
   background-image: url("/story/hand-ink.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.9;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
-    radial-gradient(ellipse 75% 75% at 45% 45%, #000 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
-    radial-gradient(ellipse 75% 75% at 45% 45%, #000 50%, transparent 100%);
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
-  pointer-events: none;
+  background-position: left bottom;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 28%),
+    linear-gradient(90deg, #000 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%),
+    linear-gradient(90deg, #000 70%, transparent 100%);
 }
 
 .face {
-  position: absolute;
-  bottom: 0;
-  right: -7rem;
-  width: 24rem;
-  height: 26.75rem;
+  aspect-ratio: 749 / 835;
   background-image: url("/story/face-ink.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.9;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
-    radial-gradient(ellipse 75% 75% at 55% 40%, #000 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
-    radial-gradient(ellipse 75% 75% at 55% 40%, #000 50%, transparent 100%);
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
-  pointer-events: none;
+  background-position: right bottom;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 28%),
+    linear-gradient(270deg, #000 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%),
+    linear-gradient(270deg, #000 70%, transparent 100%);
 }
 
-@media (max-width: 720px) {
-  .spacer {
-    height: 12rem;
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .hand {
-    left: -3rem;
-    width: 16rem;
-    height: 16rem;
-  }
-
+  .hand,
   .face {
     display: none;
   }

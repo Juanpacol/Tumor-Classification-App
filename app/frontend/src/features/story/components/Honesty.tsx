@@ -40,16 +40,16 @@ export function Honesty() {
           </div>
         ))}
       </div>
-      <p className={styles.limits}>
-        What Ether does not claim: it is decision support, not a medical device
-        and not a diagnosis. The classifier is a baseline model trained on a
-        public dataset and not clinically validated, and the studies shown in
-        the demo are samples. The chat answers are not yet checked by the
-        verifier, and are labelled that way.
-      </p>
-      <div className={art.spacer} aria-hidden="true">
-        <div className={art.hand} />
-        <div className={art.face} />
+      <div className={art.row}>
+        <div className={art.hand} aria-hidden="true" />
+        <p className={styles.limits}>
+          What Ether does not claim: it is decision support, not a medical
+          device and not a diagnosis. The classifier is a baseline model trained
+          on a public dataset and not clinically validated, and the studies
+          shown in the demo are samples. The chat answers are not yet checked by
+          the verifier, and are labelled that way.
+        </p>
+        <div className={art.face} aria-hidden="true" />
       </div>
     </section>
   );
