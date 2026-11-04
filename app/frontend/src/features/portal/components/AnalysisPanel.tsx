@@ -61,60 +61,58 @@ export function AnalysisPanel({
   }
 
   return (
-    <div className={styles.frame}>
-      <div className={styles.frameShadow}>
-        <aside aria-label="Study analysis" className={styles.panel}>
-          <div className={styles.plate}>
-            <div className={styles.art} data-tab={active} aria-hidden="true">
-              <span className={styles.layer} data-for="summary" />
-              <span className={styles.layer} data-for="report" />
-              <span className={styles.layer} data-for="chat" />
-            </div>
-            <VerdictHeader study={study} />
-            <div className={styles.tabs} role="tablist" aria-label="Analysis">
-              {tabs.map((tab, index) => (
-                <button
-                  key={tab}
-                  ref={(element) => {
-                    buttons.current[tab] = element;
-                  }}
-                  type="button"
-                  role="tab"
-                  id={`tab-${tab}`}
-                  aria-selected={active === tab}
-                  aria-controls={`panel-${tab}`}
-                  tabIndex={active === tab ? 0 : -1}
-                  className={styles.tab}
-                  onClick={() => open(tab)}
-                  onKeyDown={(event) => onKeyDown(event, index)}
-                >
-                  {LABELS[tab]}
-                </button>
-              ))}
-            </div>
+    <div className={styles.frameShadow}>
+      <aside aria-label="Study analysis" className={styles.panel}>
+        <div className={styles.plate}>
+          <div className={styles.art} data-tab={active} aria-hidden="true">
+            <span className={styles.layer} data-for="summary" />
+            <span className={styles.layer} data-for="report" />
+            <span className={styles.layer} data-for="chat" />
           </div>
-          {tabs.map((tab) => (
-            <div
-              key={tab}
-              role="tabpanel"
-              id={`panel-${tab}`}
-              aria-labelledby={`tab-${tab}`}
-              hidden={active !== tab}
-              className={styles.body}
-            >
-              {visited.has(tab) && tab === "summary" && (
-                <ClinicalSummary study={study} />
-              )}
-              {visited.has(tab) && tab === "report" && (
-                <ReportSection client={client} study={study} />
-              )}
-              {visited.has(tab) && tab === "chat" && (
-                <InteractiveChat client={client} study={study} />
-              )}
-            </div>
-          ))}
-        </aside>
-      </div>
+          <VerdictHeader study={study} />
+          <div className={styles.tabs} role="tablist" aria-label="Analysis">
+            {tabs.map((tab, index) => (
+              <button
+                key={tab}
+                ref={(element) => {
+                  buttons.current[tab] = element;
+                }}
+                type="button"
+                role="tab"
+                id={`tab-${tab}`}
+                aria-selected={active === tab}
+                aria-controls={`panel-${tab}`}
+                tabIndex={active === tab ? 0 : -1}
+                className={styles.tab}
+                onClick={() => open(tab)}
+                onKeyDown={(event) => onKeyDown(event, index)}
+              >
+                {LABELS[tab]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {tabs.map((tab) => (
+          <div
+            key={tab}
+            role="tabpanel"
+            id={`panel-${tab}`}
+            aria-labelledby={`tab-${tab}`}
+            hidden={active !== tab}
+            className={styles.body}
+          >
+            {visited.has(tab) && tab === "summary" && (
+              <ClinicalSummary study={study} />
+            )}
+            {visited.has(tab) && tab === "report" && (
+              <ReportSection client={client} study={study} />
+            )}
+            {visited.has(tab) && tab === "chat" && (
+              <InteractiveChat client={client} study={study} />
+            )}
+          </div>
+        ))}
+      </aside>
     </div>
   );
 }
