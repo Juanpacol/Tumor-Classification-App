@@ -83,6 +83,15 @@ Backend integration tests (`app/backend/tests/integration/`) run against the Pos
 
 The unit tests clear `LLM_PROVIDER`, `META_MODEL_API_KEY` and `MODEL_BUNDLE_PATH` before each test (`app/backend/tests/conftest.py`), so the compose settings do not change their results.
 
+## Model
+
+The backend image carries the model. The `runtime` stage of `app/backend/Dockerfile` downloads the GitHub Release `model-v0.1.0` (`MODEL_VERSION` build argument), checks its SHA-256 and sets `MODEL_BUNDLE_PATH` to it, so every Cloud Run build from `main` deploys the model with no volume or env var. A build whose release cannot be downloaded or verified fails instead of deploying a backend without a model. The model's Testing macro-F1 (0.807) is an accepted limitation (`docs/ml-engine/decisions.md`, D28).
+
+- After a deploy, `GET <Cloud Run URL>/health` must report `model_loaded: true`. If it is `false`, the Cloud Run logs say why (`model unavailable: <reason>`).
+- Memory: the service is sized at 2-4 GB (see *Services*). Timing and memory per classification on Cloud Run are not measured yet (AB-120).
+- Vercel needs nothing for the model; it only calls the backend at `NEXT_PUBLIC_API_URL`.
+- To deploy another version, see `app/backend/README.md` (*Docker*).
+
 ## What's simplified for the cloud demo vs local dev
 
 `docker-compose.yml` is the local dev stack: Postgres + backend + frontend. The cloud demo runs two services (frontend on Vercel, backend on Cloud Run) plus Supabase.

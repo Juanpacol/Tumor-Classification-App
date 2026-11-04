@@ -10,10 +10,10 @@ Reviewed on 2026-11-02. This table says what exists today, not what is planned.
 
 | Area | Works today | Not built yet |
 |---|---|---|
-| **ML engine** | JPG/PNG loader, quality gate with calibrated thresholds, brain mask, 45 radiomic features, frozen EfficientNet-B0 embeddings, training pipeline (grouped cross-validation, calibration, shortcut audit) and serving pipeline | A published model that loads with the current engine, so **no accuracy figures yet**. Grad-CAM. DICOM input |
-| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), Alembic schema, end-to-end test | A published model (without one, classification answers 503). DICOM and its de-identification |
+| **ML engine** | JPG/PNG loader, quality gate with calibrated thresholds, brain mask, 45 radiomic features, frozen EfficientNet-B0 embeddings, training pipeline (grouped cross-validation, calibration, shortcut audit) and serving pipeline. Published model `model-v0.1.0` (GitHub Release): Testing macro-F1 **0.807**, below the 0.90 target and accepted as a known limitation (many tumors from the dataset's second source are called no_tumor; `docs/ml-engine/decisions.md`, D24 and D28) | A model that meets the 0.90 target. Grad-CAM. DICOM input |
+| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), Alembic schema, end-to-end test. The image ships with the model `model-v0.1.0` | DICOM and its de-identification |
 | **Frontend** | Landing, "how we built it" and the clinician portal: study list, upload with checks, image viewer, clinical summary, report with citations, chat | DICOM viewing. Explanation heatmap |
-| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy | Backend deployed with a model. End-to-end demo checklist |
+| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy. The backend image carries the model | Confirmation that the model loads and classifies on Cloud Run. End-to-end demo checklist |
 
 Live frontend: https://ether-self-five.vercel.app
 
@@ -25,7 +25,7 @@ Three independent components:
 - **ML engine** (`app/ml_engine`): a standalone package with the hybrid pipeline (radiomics + CNN).
 - **Frontend** (`app/frontend`): Next.js web app.
 
-Request flow (needs a published model to classify):
+Request flow:
 
 ```
 Clinician            Backend (FastAPI)            ML engine             Muse Spark API
@@ -62,7 +62,7 @@ By default it runs with no model and no key:
 | To get | Do |
 |---|---|
 | Real reports and chat | `export LLM_PROVIDER=meta META_MODEL_API_KEY=<key>` before `docker compose up`. Send only public dataset images, never patient data |
-| Real classification | Put a trained bundle in `app/ml_engine/artifacts/current` (or set `MODEL_BUNDLE_DIR`). Without it `/health` says `model_loaded: false` and classification answers 503. Training: [app/ml_engine/README.md](./app/ml_engine/README.md) |
+| Real classification | Put a trained bundle in `app/ml_engine/artifacts/current` (or set `MODEL_BUNDLE_DIR`); the published one comes with `python -m src.release fetch 0.1.0 --dest artifacts` from `app/ml_engine`. Without it `/health` says `model_loaded: false` and classification answers 503. Training: [app/ml_engine/README.md](./app/ml_engine/README.md) |
 | Portal with no backend | `NEXT_PUBLIC_API_MODE=mock` in `app/frontend/.env.local` serves sample data |
 
 Upgrading from the old compose file? `docker compose up -d --remove-orphans` removes the leftover Redis and MinIO containers.
@@ -169,7 +169,7 @@ Ether is a hackathon prototype. These are the external assets it depends on and 
 
 | Asset | Used for | Status |
 |---|---|---|
-| EfficientNet-B0 weights pretrained on ImageNet-1K, from [torchvision](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.efficientnet_b0.html) (`IMAGENET1K_V1`) | Frozen CNN feature extractor | **Terms not verified.** They are never committed to git. The [ImageNet terms of access](https://image-net.org/download) limit the dataset to non-commercial research and education, and whether trained weights inherit that is unresolved. Check before any commercial use |
+| EfficientNet-B0 weights pretrained on ImageNet-1K, from [torchvision](https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.efficientnet_b0.html) (`IMAGENET1K_V1`) | Frozen CNN feature extractor | **Terms not verified.** They are never committed to git, but the model release `model-v0.1.0` contains them, so they are public. The [ImageNet terms of access](https://image-net.org/download) limit the dataset to non-commercial research and education, and whether trained weights inherit that is unresolved. Check before any commercial use |
 | [Brain Tumor MRI Dataset](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset) (Masoud Nickparvar, Kaggle) | Training and evaluation | **License not confirmed.** A secondary source lists it as CC0, but we have not checked the Kaggle page, and the dataset combines three public datasets (figshare, SARTAJ and Br35H) whose own terms also matter. The team decided to commit it to `app/ml_engine` to track preprocessing steps, despite the license still being unconfirmed |
 | Meta Model API (Muse Spark) | Clinical report and chat | Used through the API with a key from an environment variable. Subject to Meta's terms. **While free credits are in use, Meta may use the content sent for product improvement**, so only public dataset images and invented notes are sent (see `app/backend/README.md`) |
 | Python and JavaScript dependencies | Everything | Open-source packages pinned in `app/ml_engine/requirements.lock` and the backend and frontend manifests. Their licenses were not audited |
