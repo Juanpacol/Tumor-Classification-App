@@ -458,17 +458,14 @@
 
 .row_review {
   --bar: var(--accent);
-  --tint: #f8e9e7;
 }
 
 .row_open {
   --bar: var(--teal);
-  --tint: #e8f1f1;
 }
 
 .row_problem {
   --bar: var(--ink);
-  --tint: #f1f0ee;
 }
 
 .main {
