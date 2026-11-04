@@ -110,3 +110,14 @@
     animation: none;
   }
 }
+
+@media (max-width: 480px) {
+  .label {
+    font-size: 1.625rem;
+  }
+
+  .ring {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+}

@@ -1,6 +1,7 @@
 .main {
   background: #e5e4e1;
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 .storyConnector {
@@ -23,8 +24,10 @@
   border-bottom: 1px solid transparent;
 }
 
-.backLink:hover {
-  border-bottom-color: #141210;
+@media (hover: hover) {
+  .backLink:hover {
+    border-bottom-color: #141210;
+  }
 }
 
 .ribcageLeft {
@@ -95,4 +98,18 @@
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
   pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .backLink {
+    top: 1.25rem;
+    left: 1.25rem;
+  }
+
+  .ribcageLeft,
+  .brainRight {
+    height: 22rem;
+    width: 50%;
+    opacity: 0.3;
+  }
 }

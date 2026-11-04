@@ -8,6 +8,7 @@
 .panel {
   --cut: 22px;
   position: relative;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -199,7 +200,8 @@
   }
 }
 
-@media (max-width: 480px) {
+/* The panel is narrow both on phones and beside the image on tablets. */
+@container (max-width: 440px) {
   .tabs {
     flex-wrap: nowrap;
     gap: 0.4rem;

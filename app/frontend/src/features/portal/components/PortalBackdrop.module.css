@@ -3,6 +3,7 @@
   right: 0;
   top: 0;
   height: 100vh;
+  height: 100svh;
   width: 42%;
   z-index: -1;
   background-image: url("/portal-skull.png");
@@ -36,6 +37,7 @@
   bottom: 0;
   width: 38%;
   height: 56vh;
+  height: 56svh;
   z-index: -1;
   background-image: url("/portal-scissors-hands.png");
   background-size: contain;
@@ -58,4 +60,17 @@
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
   pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .backdrop {
+    width: 80%;
+    opacity: 0.18;
+  }
+
+  .instrument {
+    width: 70%;
+    height: 36svh;
+    opacity: 0.14;
+  }
 }
