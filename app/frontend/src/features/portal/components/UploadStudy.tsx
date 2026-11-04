@@ -108,7 +108,11 @@ export function UploadStudy({
           {notes.length}/{MAX_NOTES_LENGTH}
         </span>
       </label>
-      <Button type="submit" disabled={!file || state.status === "uploading"}>
+      <Button
+        type="submit"
+        className={styles.send}
+        disabled={!file || state.status === "uploading"}
+      >
         {state.status === "uploading" ? "Uploading…" : "Upload study"}
       </Button>
       {state.status === "error" && (
