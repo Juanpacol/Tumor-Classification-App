@@ -1,5 +1,11 @@
 import { Alert } from "@/features/portal/components";
-import type { AiAgreement, Citation, ClinicalReport } from "@/services/api";
+import { TUMOR_LABELS, formatConfidence } from "@/features/portal/labels";
+import type {
+  AiAgreement,
+  Citation,
+  ClinicalReport,
+  Prediction,
+} from "@/services/api";
 import styles from "./ReportView.module.css";
 
 export const REPORT_DISCLAIMER =
@@ -12,32 +18,59 @@ const DISCREPANCY: Record<Exclude<AiAgreement, "agrees">, string> = {
     "The AI assistant could not confirm the classifier's result from this image.",
 };
 
-/** The five sections of the drafted report, with the discrepancy alert and the disclaimer. */
-export function ReportView({ content }: { content: ClinicalReport }) {
+/** What the AI assistant concluded about the classifier's result, in a few words. */
+const AGREEMENT: Record<AiAgreement, string> = {
+  agrees: "AI assistant agrees",
+  disagrees: "AI assistant disagrees",
+  uncertain: "AI assistant is not sure",
+};
+
+/**
+ * The drafted report: a one-line headline, the conclusion first, the
+ * supporting sections after it, and the evidence folded away to audit.
+ */
+export function ReportView({
+  content,
+  prediction,
+}: {
+  content: ClinicalReport;
+  prediction: Prediction | null;
+}) {
   const { ai_agreement: agreement } = content;
   return (
     <div className={styles.report}>
+      {prediction && (
+        <p className={styles.headline}>
+          <strong>{TUMOR_LABELS[prediction.label]}</strong>
+          <span>{formatConfidence(prediction.confidence)}</span>
+          <span>{AGREEMENT[agreement]}</span>
+        </p>
+      )}
       {agreement !== "agrees" && (
         <Alert tone="warning" title="Classifier and AI assistant do not agree">
           {DISCREPANCY[agreement]} Ask a specialist to review this study.
         </Alert>
       )}
       <Section title="Findings">{content.findings}</Section>
-      <Section title="Visual observations">
-        {content.visual_observations}
-      </Section>
-      <Section title="Impression">{content.impression}</Section>
-      <Section title="Differential considerations">
-        {content.differential_considerations}
-      </Section>
-      <section>
-        <h3 className={styles.heading}>Suggested next steps</h3>
-        <ul className={styles.steps}>
-          {content.suggested_next_steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ul>
-      </section>
+      <div className={styles.impression}>
+        <Section title="Impression">{content.impression}</Section>
+      </div>
+      <div className={styles.secondary}>
+        <Section title="Visual observations">
+          {content.visual_observations}
+        </Section>
+        <Section title="Differential considerations">
+          {content.differential_considerations}
+        </Section>
+        <section>
+          <h3 className={styles.heading}>Suggested next steps</h3>
+          <ol className={styles.steps}>
+            {content.suggested_next_steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
+      </div>
       <Evidence citations={content.citations} />
       <p className={styles.disclaimer}>{REPORT_DISCLAIMER}</p>
     </div>
@@ -53,12 +86,18 @@ function Section({ title, children }: { title: string; children: string }) {
   );
 }
 
-/** Every claim with the evidence it cites and whether that evidence checks out. */
+/** Every claim with the evidence it cites, folded away until someone wants to audit it. */
 function Evidence({ citations }: { citations: Citation[] }) {
   if (citations.length === 0) return null;
+  const verified = citations.filter((citation) => citation.verified).length;
   return (
-    <section>
-      <h3 className={styles.heading}>Evidence</h3>
+    <details className={styles.evidence}>
+      <summary className={styles.evidenceSummary}>
+        <span>Evidence ({citations.length})</span>
+        <span className={styles.tally}>
+          {verified} verified · {citations.length - verified} not verified
+        </span>
+      </summary>
       <ul className={styles.citations}>
         {citations.map((citation) => (
           <li key={citation.claim}>
@@ -82,6 +121,6 @@ function Evidence({ citations }: { citations: Citation[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   );
 }
