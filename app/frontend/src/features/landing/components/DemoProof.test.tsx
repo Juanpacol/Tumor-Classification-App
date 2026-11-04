@@ -16,10 +16,6 @@ function mockReducedMotion(matches: boolean) {
   window.matchMedia = jest.fn().mockReturnValue({ matches }) as never;
 }
 
-afterEach(() => {
-  delete process.env.NEXT_PUBLIC_DEMO_VIDEO_URL;
-});
-
 describe("DemoProof", () => {
   it("plays a silent looping clip with a poster", () => {
     mockReducedMotion(false);
@@ -42,17 +38,13 @@ describe("DemoProof", () => {
     ).toHaveTextContent("not a medical device");
   });
 
-  it("shows the link to the full video only when it is configured", () => {
+  it("links to the full video", () => {
     mockReducedMotion(false);
-    const { unmount } = render(<DemoProof />);
-    expect(screen.queryByRole("link", { name: /full video/i })).toBeNull();
-    unmount();
-
-    process.env.NEXT_PUBLIC_DEMO_VIDEO_URL = "https://youtu.be/example";
     render(<DemoProof />);
+
     expect(screen.getByRole("link", { name: /full video/i })).toHaveAttribute(
       "href",
-      "https://youtu.be/example",
+      "https://www.youtube.com/watch?v=9h-pfQKnyKI",
     );
   });
 
