@@ -24,6 +24,26 @@
   pointer-events: none;
 }
 
+.face {
+  position: absolute;
+  bottom: 0;
+  right: -7rem;
+  width: 24rem;
+  height: 26.75rem;
+  background-image: url("/story/face-ink.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
+    radial-gradient(ellipse 75% 75% at 55% 40%, #000 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%),
+    radial-gradient(ellipse 75% 75% at 55% 40%, #000 50%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  pointer-events: none;
+}
+
 @media (max-width: 720px) {
   .spacer {
     height: 12rem;
@@ -33,5 +53,9 @@
     left: -3rem;
     width: 16rem;
     height: 16rem;
+  }
+
+  .face {
+    display: none;
   }
 }
