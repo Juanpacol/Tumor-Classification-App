@@ -49,6 +49,7 @@ export function Honesty() {
       </p>
       <div className={art.spacer} aria-hidden="true">
         <div className={art.hand} />
+        <div className={art.face} />
       </div>
     </section>
   );
