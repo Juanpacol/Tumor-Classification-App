@@ -15,6 +15,7 @@
 
 .panel {
   --cut: 22px;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -27,7 +28,7 @@
     )
     1;
   padding: 1.5rem;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -16px 28px -20px rgba(20, 18, 16, 0.3);
@@ -43,6 +44,16 @@
 
 /* The head of the panel is an ink plate, like the viewer beside it. The drawing
    for each tab lives here, in light lines, and never behind the text below. */
+.panel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  background: var(--plate);
+}
+
 .plate {
   --vh-ink: var(--plate-text);
   --vh-muted: #bdb9b2;
