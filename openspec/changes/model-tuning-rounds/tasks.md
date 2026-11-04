@@ -33,8 +33,8 @@ Run tests in the trainer from the repository root with `docker compose run --rm 
 ## 5. Reference and rounds
 
 - [x] 5.1 Write the kept-round rule (design decision 7) and the rounds results table header in `docs/ml-engine/decisions.md` (D26) before any round runs; verify the rule is committed before round 0.2.0's results
-- [ ] 5.2 Rerun the 0.1.0 configuration in tuning mode as the reference (`--version 0.1.1`); read `oof_predictions.csv` and the breakdown, record what the tumor→no_tumor errors share and any reorder of the families in D26; verify CV numbers equal D24
-- [ ] 5.3 Run backbone rounds (`rounds/0.2.0.toml` resnet50, `0.3.0` densenet121) in tuning mode; record each in the D26 table with wall time; verify each round file is committed and its `config.json` hash matches
+- [x] 5.2 Rerun the 0.1.0 configuration in tuning mode as the reference (`--version 0.1.1`); read `oof_predictions.csv` and the breakdown, record what the tumor→no_tumor errors share and any reorder of the families in D26; verify CV numbers equal D24
+- [x] 5.3 Run backbone rounds (`rounds/0.2.0.toml` resnet50, `0.3.0` densenet121) in tuning mode; record each in the D26 table with wall time; verify each round file is committed and its `config.json` hash matches
 - [ ] 5.4 Run the blocks/PCA round(s) from the best backbone; record in D26
 - [ ] 5.5 Run the classifier hyperparameter round(s); record in D26
 - [ ] 5.6 Run the quality thresholds and augmentation round(s); record in D26
