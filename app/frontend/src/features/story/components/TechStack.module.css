@@ -51,3 +51,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+.limits {
+  max-width: 52rem;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(20, 18, 16, 0.15);
+  color: #141210;
+  font-size: 1rem;
+  line-height: 1.6;
+}
