@@ -9,6 +9,7 @@ from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
+from src.training.diagnosis import PREDICTIONS_FILE
 from src.training.folds import FoldRow
 
 TARGET_MACRO_F1 = 0.90
@@ -17,6 +18,8 @@ CONFIG_FILE = "config.json"
 
 
 def build_report(
+    *,
+    mode: str,
     created_at: str,
     version: str,
     seed: int,
@@ -26,28 +29,30 @@ def build_report(
     ablation: dict[str, float],
     augmentation: dict[str, Any],
     cv_out_of_fold: dict[str, Any],
-    test: dict[str, Any],
-    calibration_method: str,
+    cv_calibrated: dict[str, Any],
+    cv_error_breakdown: dict[str, Any],
     shortcut_audit: dict[str, Any],
     guarantees: list[dict[str, Any]],
     config: dict[str, Any],
     config_source: dict[str, str] | None,
 ) -> dict[str, Any]:
-    """Collect the results of one training run and whether the target was met."""
+    """Collect what a run learned from Training. ``mode`` is ``"tuning"`` or
+    ``"final"``; a final run adds its Testing results with ``with_test``."""
     return {
+        "mode": mode,
         "created_at": created_at,
         "version": version,
         "seed": seed,
         "target_macro_f1": TARGET_MACRO_F1,
-        "target_met": test["macro_f1"] >= TARGET_MACRO_F1,
+        "target_met": None,
         "dataset": dataset,
         "validation": validation,
         "selection": selection,
         "ablation_macro_f1": ablation,
         "augmentation": augmentation,
         "cv_out_of_fold": cv_out_of_fold,
-        "calibration_method": calibration_method,
-        "test": test,
+        "cv_calibrated": cv_calibrated,
+        "cv_error_breakdown": cv_error_breakdown,
         "shortcut_audit": shortcut_audit,
         "leakage_guarantees": guarantees,
         "config": config,
@@ -55,11 +60,27 @@ def build_report(
     }
 
 
+def with_test(
+    report: dict[str, Any], test: dict[str, Any], calibration_method: str
+) -> dict[str, Any]:
+    """``report`` with the Testing metrics of the calibrated model and the verdict."""
+    return {
+        **report,
+        "calibration_method": calibration_method,
+        "test": test,
+        "target_met": test["macro_f1"] >= TARGET_MACRO_F1,
+    }
+
+
 def write_report(
-    directory: Path, report: dict[str, Any], folds: Sequence[FoldRow]
+    directory: Path,
+    report: dict[str, Any],
+    folds: Sequence[FoldRow],
+    oof_rows: Sequence[dict[str, Any]] = (),
 ) -> None:
-    """Write ``report.json``, ``report.md``, the resolved ``config.json`` and the fold
-    record ``folds.csv`` to a new folder (never overwrites)."""
+    """Write ``report.json``, ``report.md``, the resolved ``config.json``, the fold
+    record ``folds.csv`` and the out-of-fold predictions to a new folder (never
+    overwrites)."""
     directory.mkdir(parents=True)
     (directory / "report.json").write_text(json.dumps(report, indent=2))
     (directory / CONFIG_FILE).write_text(json.dumps(report["config"], indent=2))
@@ -68,28 +89,23 @@ def write_report(
         writer = csv.DictWriter(handle, [f.name for f in fields(FoldRow)])
         writer.writeheader()
         writer.writerows({**asdict(row), "used": int(row.used)} for row in folds)
+    if oof_rows:
+        with (directory / PREDICTIONS_FILE).open(
+            "w", newline="", encoding="utf-8"
+        ) as handle:
+            writer = csv.DictWriter(handle, list(oof_rows[0]))
+            writer.writeheader()
+            writer.writerows(oof_rows)
 
 
 def render_markdown(report: dict[str, Any]) -> str:
-    test = report["test"]
-    verdict = "met" if report["target_met"] else "NOT met"
+    final = "test" in report
     lines = [
         f"# Training report {report['version']}",
         "",
-        f"Created {report['created_at']}, seed {report['seed']}.",
+        f"Created {report['created_at']}, seed {report['seed']}, {report['mode']} run.",
         "",
-        (
-            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
-            f"balanced accuracy {test['balanced_accuracy']:.3f}. "
-            f"Target {report['target_macro_f1']:.2f}: {verdict}."
-        ),
-        "",
-        "## Per class (test)",
-        "",
-        *_per_class_lines(test),
-        "## Confusion matrix (test, rows are the truth)",
-        "",
-        *_confusion_lines(test),
+        *(_test_headline(report) if final else _tuning_lines(report)),
         *_validation_lines(report["validation"]),
         "## Classifier selection (cross-validated on Train, chosen by macro-F1)",
         "",
@@ -101,12 +117,12 @@ def render_markdown(report: dict[str, Any]) -> str:
             for name, s in report["selection"]["scores"].items()
         ),
         "",
-        (
-            f"Selected: **{report['selection']['best']}**, calibrated with "
-            f"{report['calibration_method']}."
-        ),
+        f"Selected: **{report['selection']['best']}**"
+        + (f", calibrated with {report['calibration_method']}." if final else "."),
         "",
         *_out_of_fold_lines(report["cv_out_of_fold"]),
+        *_calibrated_lines(report["cv_calibrated"]),
+        *_breakdown_lines(report["cv_error_breakdown"]),
         *_augmentation_lines(report["augmentation"]),
         *_shortcut_lines(report["shortcut_audit"]),
         *_guarantee_lines(report["leakage_guarantees"]),
@@ -119,6 +135,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             for name, value in report["ablation_macro_f1"].items()
         ),
         "",
+        *(_test_detail_lines(report["test"]) if final else []),
         "## Data",
         "",
         *(
@@ -132,6 +149,45 @@ def render_markdown(report: dict[str, Any]) -> str:
         *_config_lines(report["config_source"]),
     ]
     return "\n".join(lines)
+
+
+def _test_headline(report: dict[str, Any]) -> list[str]:
+    test = report["test"]
+    verdict = "met" if report["target_met"] else "NOT met"
+    return [
+        (
+            f"**Test macro-F1 {test['macro_f1']:.3f}**, accuracy {test['accuracy']:.3f}, "
+            f"balanced accuracy {test['balanced_accuracy']:.3f}. "
+            f"Target {report['target_macro_f1']:.2f}: {verdict}. Per-class Test "
+            "results are after every Train section."
+        ),
+        "",
+    ]
+
+
+def _test_detail_lines(test: dict[str, Any]) -> list[str]:
+    return [
+        "## Per class (test)",
+        "",
+        *_per_class_lines(test),
+        "## Confusion matrix (test, rows are the truth)",
+        "",
+        *_confusion_lines(test),
+    ]
+
+
+def _tuning_lines(report: dict[str, Any]) -> list[str]:
+    best = report["selection"]["best"]
+    score = report["selection"]["scores"][best]
+    return [
+        (
+            f"**Tuning run: Testing was not read.** Selected {best}, CV macro-F1 "
+            f"{score['mean_macro_f1']:.3f} ± {score['std_macro_f1']:.3f}. Compare "
+            "rounds on the cross-validated sections below; score Testing only with "
+            "`--final`, once, for the kept round."
+        ),
+        "",
+    ]
 
 
 def _per_class_lines(metrics: dict[str, Any]) -> list[str]:
@@ -175,6 +231,62 @@ def _out_of_fold_lines(metrics: dict[str, Any]) -> list[str]:
         "",
         *_confusion_lines(metrics),
     ]
+
+
+def _calibrated_lines(metrics: dict[str, Any]) -> list[str]:
+    accuracy = metrics["confident_accuracy"]
+    return [
+        "## Calibrated (cross-validated on Train, out-of-fold)",
+        "",
+        (
+            f"Selected classifier calibrated with {metrics['method']}, as the final "
+            "model is, but fold k is calibrated on the other folds only. Compare "
+            "calibration methods on log loss."
+        ),
+        "",
+        (
+            "| Macro-F1 | Log loss | Top probability ≥ "
+            f"{metrics['triage_threshold']:.2f} | Accuracy of those |"
+        ),
+        "|---|---|---|---|",
+        (
+            f"| {metrics['macro_f1']:.3f} | {metrics['log_loss']:.3f} "
+            f"| {metrics['confident_share']:.1%} | "
+            + ("n/a" if accuracy is None else f"{accuracy:.3f}")
+            + " |"
+        ),
+        "",
+    ]
+
+
+def _breakdown_lines(breakdown: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Out-of-fold errors by subgroup (cross-validated on Train)",
+        "",
+        (
+            "Recall per class of the same out-of-fold predictions, and the tumor "
+            "images predicted no_tumor, split by source size, by group size and by "
+            f"tercile of each quality metric. Every image is in `{PREDICTIONS_FILE}`."
+        ),
+        "",
+    ]
+    for name, cells in breakdown["splits"].items():
+        labels = list(next(iter(cells.values()))["recall"])
+        edges = breakdown["tercile_edges"].get(name.removesuffix("_tercile"))
+        if edges is not None:
+            lines += [f"{name}: edges {edges[0]:.3f} and {edges[1]:.3f}.", ""]
+        lines += [
+            f"| {name} | Images | " + " | ".join(labels) + " | Tumor → no_tumor |",
+            "|---|---|" + "---|" * len(labels) + "---|",
+            *(
+                f"| {cell} | {values['images']} | "
+                + " | ".join(_recall(values["recall"][label]) for label in labels)
+                + f" | {values['tumor_as_no_tumor']} |"
+                for cell, values in cells.items()
+            ),
+            "",
+        ]
+    return lines
 
 
 def _config_lines(source: dict[str, str] | None) -> list[str]:
@@ -260,11 +372,19 @@ def _shortcut_lines(audit: dict[str, Any]) -> list[str]:
             f"model. Warning level {baseline['warning_level']:.2f}. {verdict}"
         ),
         "",
+        *_no_tumor_test_lines(audit.get("no_tumor_test_recall_by_source_size")),
+    ]
+
+
+def _no_tumor_test_lines(by_size: dict[str, Any] | None) -> list[str]:
+    if by_size is None:
+        return []
+    return [
         "| no_tumor images in Test | Recall | Support |",
         "|---|---|---|",
         *(
             f"| {name} | {_recall(group['recall'])} | {group['support']} |"
-            for name, group in audit["no_tumor_test_recall_by_source_size"].items()
+            for name, group in by_size.items()
         ),
         "",
     ]

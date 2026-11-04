@@ -140,3 +140,31 @@
   mask-composite: intersect;
   pointer-events: none;
 }
+
+@media (max-width: 860px) {
+  .veinLeft {
+    width: 70%;
+    height: 30%;
+    opacity: 0.3;
+  }
+
+  .veinRight {
+    width: 100%;
+    opacity: 0.2;
+  }
+
+  .footerSkull,
+  .footerFoot {
+    height: 320px;
+    opacity: 0.3;
+  }
+
+  .footerFoot {
+    width: 70%;
+    transform: none;
+  }
+
+  .footerSkull {
+    width: 60%;
+  }
+}

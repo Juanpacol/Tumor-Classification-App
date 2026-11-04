@@ -115,16 +115,16 @@ describe("AnalysisPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("changes the drawing behind the whole panel with the tab", async () => {
+  it("changes the drawing on the head of the panel with the tab", async () => {
     const { container } = render(
       <AnalysisPanel
         client={createMockClient()}
         study={study("study-confident")}
       />,
     );
-    const backdrop = container.querySelector("[data-tab]");
-    expect(backdrop).toHaveAttribute("data-tab", "summary");
+    const art = container.querySelector("[data-tab]");
+    expect(art).toHaveAttribute("data-tab", "summary");
     await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
-    expect(backdrop).toHaveAttribute("data-tab", "chat");
+    expect(art).toHaveAttribute("data-tab", "chat");
   });
 });

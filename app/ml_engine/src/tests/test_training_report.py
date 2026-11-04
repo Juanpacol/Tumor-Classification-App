@@ -12,6 +12,7 @@ from src.training.report import (
     TARGET_MACRO_F1,
     build_report,
     render_markdown,
+    with_test,
     write_report,
 )
 
@@ -31,8 +32,9 @@ def metrics_dict(macro_f1: float) -> dict[str, Any]:
     }
 
 
-def make_report(macro_f1: float) -> dict[str, Any]:
+def tuning_report() -> dict[str, Any]:
     return build_report(
+        mode="tuning",
         created_at="2026-10-29T10:00:00+00:00",
         version="1.0.0",
         seed=42,
@@ -68,9 +70,39 @@ def make_report(macro_f1: float) -> dict[str, Any]:
             "margin": 0.02,
         },
         cv_out_of_fold={"augmented": False, **metrics_dict(0.88)},
-        test=metrics_dict(macro_f1),
-        calibration_method="sigmoid",
-        shortcut_audit=shortcut_audit(0.55),
+        cv_error_breakdown={
+            "tercile_edges": {"snr": [2.0, 4.0], "entropy": [5.0, 6.0]},
+            "splits": {
+                "source_size": {
+                    "512x512": {
+                        "images": 3,
+                        "recall": {"glioma": 0.5, "no_tumor": None},
+                        "tumor_as_no_tumor": 1,
+                    },
+                    "other": {
+                        "images": 5,
+                        "recall": {"glioma": 1.0, "no_tumor": 1.0},
+                        "tumor_as_no_tumor": 0,
+                    },
+                },
+                "snr_tercile": {
+                    "low": {
+                        "images": 8,
+                        "recall": {"glioma": 0.75, "no_tumor": 1.0},
+                        "tumor_as_no_tumor": 1,
+                    }
+                },
+            },
+        },
+        cv_calibrated={
+            "method": "sigmoid",
+            "macro_f1": 0.87,
+            "log_loss": 0.345,
+            "triage_threshold": 0.75,
+            "confident_share": 0.8,
+            "confident_accuracy": 0.95,
+        },
+        shortcut_audit={"metadata_baseline": shortcut_audit(0.55)["metadata_baseline"]},
         guarantees=[
             {
                 "id": "G1",
@@ -81,6 +113,13 @@ def make_report(macro_f1: float) -> dict[str, Any]:
         config={"run": {"seed": 42}},
         config_source=None,
     )
+
+
+def make_report(macro_f1: float) -> dict[str, Any]:
+    """A final run's report: the tuning part plus Testing."""
+    report = tuning_report()
+    report = {**report, "mode": "final", "shortcut_audit": shortcut_audit(0.55)}
+    return with_test(report, metrics_dict(macro_f1), "sigmoid")
 
 
 def shortcut_audit(balanced_accuracy: float) -> dict[str, Any]:
@@ -223,7 +262,7 @@ def test_markdown_shows_out_of_fold_metrics_apart_from_test() -> None:
     assert "not on Test" in section
     assert "| glioma | 0.900 | 0.800 | 0.850 | 10 |" in section
     assert "Confusion matrix (rows are the truth):" in section
-    assert markdown.index("## Per class (test)") < markdown.index(heading)
+    assert markdown.index(heading) < markdown.index("## Per class (test)")
 
 
 def test_markdown_names_the_configuration_source() -> None:
@@ -242,3 +281,57 @@ def test_the_resolved_config_is_written_next_to_the_report(tmp_path: Path) -> No
     assert json.loads((tmp_path / "r" / CONFIG_FILE).read_text()) == {
         "run": {"seed": 42}
     }
+
+
+def test_a_tuning_report_has_no_testing_and_no_verdict() -> None:
+    report = tuning_report()
+
+    assert report["mode"] == "tuning" and report["target_met"] is None
+    assert "test" not in report and "calibration_method" not in report
+
+
+def test_tuning_markdown_names_the_mode_and_never_shows_testing() -> None:
+    markdown = render_markdown(tuning_report())
+
+    assert "tuning run." in markdown
+    assert "**Tuning run: Testing was not read.** Selected svm_rbf" in markdown
+    assert "CV macro-F1 0.900 ± 0.020" in markdown
+    assert "(test" not in markdown and "in Test |" not in markdown
+    assert "Selected: **svm_rbf**." in markdown
+    assert "Per-class metrics (cross-validated on Train" in markdown
+
+
+def test_final_markdown_names_the_mode() -> None:
+    assert "final run." in render_markdown(make_report(0.95))
+
+
+def test_markdown_shows_the_calibrated_out_of_fold_section() -> None:
+    markdown = render_markdown(tuning_report())
+    heading = "## Calibrated (cross-validated on Train, out-of-fold)"
+
+    assert heading in markdown
+    section = markdown.split(heading)[1].split("\n## ")[0]
+    assert "calibrated with sigmoid" in section
+    assert "| 0.870 | 0.345 | 80.0% | 0.950 |" in section
+
+
+def test_markdown_shows_the_error_breakdown_before_any_testing_section() -> None:
+    markdown = render_markdown(make_report(0.95))
+    heading = "## Out-of-fold errors by subgroup (cross-validated on Train)"
+
+    assert heading in markdown
+    section = markdown.split(heading)[1].split("\n## ")[0]
+    assert "| source_size | Images | glioma | no_tumor | Tumor → no_tumor |" in section
+    assert "| 512x512 | 3 | 0.500 | n/a | 1 |" in section
+    assert "snr_tercile: edges 2.000 and 4.000." in section
+    assert markdown.index(heading) < markdown.index("## Per class (test)")
+    assert markdown.index(heading) < markdown.index("## Confusion matrix (test")
+
+
+def test_the_predictions_file_is_written_next_to_the_report(tmp_path: Path) -> None:
+    rows = [{"path": "Train/a.png", "label": "glioma", "predicted": "glioma"}]
+
+    write_report(tmp_path / "r", make_report(0.95), FOLDS, rows)
+
+    with (tmp_path / "r" / "oof_predictions.csv").open(newline="") as handle:
+        assert list(csv.DictReader(handle)) == rows

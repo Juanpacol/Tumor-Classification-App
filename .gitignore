@@ -69,6 +69,7 @@ coverage/
 app/ml_engine/weights/
 .ipynb_checkpoints/
 app/ml_engine/artifacts/
+app/ml_engine/release/
 
 # Data
 #data/
@@ -78,6 +79,8 @@ app/ml_engine/artifacts/
 #*.nii.gz
 #scans/
 #uploads/
+# Study images the local backend stores on upload
+app/backend/storage/
 
 # Logs
 logs/

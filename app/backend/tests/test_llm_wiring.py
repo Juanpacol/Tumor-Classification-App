@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from adapters.outbound.llm import factory
 from adapters.outbound.llm.factory import build_llm
 from adapters.outbound.llm.fake_llm import FakeLLM
 from adapters.outbound.llm.meta_model_llm import MetaModelLLM
@@ -56,6 +57,31 @@ async def test_without_a_key_the_real_adapter_answers_503_instead_of_inventing()
         await llm.complete_json([], GroundedClinicalReportOutput)
 
     assert error.value.status_code == 503 and error.value.code == "LLM_UNAVAILABLE"
+
+
+def test_the_token_bound_and_both_efforts_reach_the_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    received: dict[str, Any] = {}
+
+    class SpyMetaModelLLM(MetaModelLLM):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            received.update(kwargs)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(factory, "MetaModelLLM", SpyMetaModelLLM)
+
+    build_llm(
+        settings(
+            meta_model_max_completion_tokens=2048,
+            meta_model_report_reasoning_effort="medium",
+            meta_model_chat_reasoning_effort="low",
+        )
+    )
+
+    assert received["max_completion_tokens"] == 2048
+    assert received["report_reasoning_effort"] == "medium"
+    assert received["chat_reasoning_effort"] == "low"
 
 
 def test_the_fake_is_only_built_when_asked_for_and_is_not_capped() -> None:
@@ -132,7 +158,14 @@ def test_the_llm_is_closed_when_the_app_shuts_down() -> None:
 
 async def test_the_real_adapter_closes_its_http_client() -> None:
     client = httpx.AsyncClient()
-    llm = MetaModelLLM(api_key="a-key", model="muse-spark-1.3", client=client)
+    llm = MetaModelLLM(
+        api_key="a-key",
+        model="muse-spark-1.3",
+        max_completion_tokens=4096,
+        report_reasoning_effort="low",
+        chat_reasoning_effort="minimal",
+        client=client,
+    )
 
     await llm.aclose()
 

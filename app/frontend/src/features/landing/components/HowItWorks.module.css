@@ -11,7 +11,7 @@
   z-index: 3;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 2.5rem;
+  font-size: clamp(1.875rem, 1.5rem + 1.6vw, 2.5rem);
   color: #141210;
   margin-bottom: 1rem;
   text-shadow:
@@ -55,7 +55,7 @@
 .stepNumber {
   display: block;
   font-family: var(--font-serif);
-  font-size: 5rem;
+  font-size: clamp(3.5rem, 2.9rem + 2.4vw, 5rem);
   line-height: 1;
   color: var(--brand);
   opacity: 0.25;
@@ -100,5 +100,13 @@
   .step:nth-child(4) {
     grid-column: 1 / -1;
     margin-top: 0;
+  }
+
+  .section {
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .stepText {
+    max-width: none;
   }
 }

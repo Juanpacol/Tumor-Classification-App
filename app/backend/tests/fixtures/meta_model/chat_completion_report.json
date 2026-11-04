@@ -1,0 +1,29 @@
+{
+  "id": "chatcmpl-01a1a322-7196-773f-ba89-9597c9439d69",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "{\"ai_agreement\": \"agrees\", \"differential_considerations\": [{\"evidence_keys\": [\"prediction.probabilities.meningioma\"], \"text\": \"Meningioma was assigned low probability at 0.110, making it less favored but cannot be excluded on this basis alone.\"}, {\"evidence_keys\": [\"prediction.probabilities.pituitary\", \"prediction.probabilities.notumor\"], \"text\": \"Pituitary (0.050) and notumor (0.030) probabilities were very low, consistent with a lesional process rather than no tumor, but require radiologist confirmation.\"}], \"findings\": [{\"evidence_keys\": [\"prediction.label\", \"prediction.confidence\"], \"text\": \"The classifier predicted glioma with confidence 0.810 as the primary quantitative signal.\"}, {\"evidence_keys\": [\"prediction.probabilities.glioma\", \"prediction.probabilities.meningioma\", \"prediction.probabilities.pituitary\", \"prediction.probabilities.notumor\"], \"text\": \"Predicted probabilities were glioma 0.810, meningioma 0.110, pituitary 0.050, and notumor 0.030.\"}, {\"evidence_keys\": [\"prediction.needs_expert_triage\"], \"text\": \"Expert triage was not flagged.\"}, {\"evidence_keys\": [\"prediction.top_features.glcm_contrast\"], \"text\": \"The most unusual radiomic feature highlighted was glcm_contrast with value 0.42.\"}], \"impression\": [{\"evidence_keys\": [\"prediction.label\", \"prediction.confidence\", \"prediction.probabilities.glioma\"], \"text\": \"Overall pattern is consistent with glioma, in agreement with the classifier prediction of glioma at 0.810 confidence, and a high-grade infiltrative lesion cannot be excluded.\"}, {\"evidence_keys\": [], \"text\": \"Confirmation by the radiologist is required.\"}], \"suggested_next_steps\": [\"Contrast-enhanced MRI for further diagnostic characterization if not already performed\", \"Follow-up imaging for diagnostic monitoring\", \"Neuro-oncology and/or neurosurgery referral for diagnostic evaluation\", \"Multidisciplinary review for diagnostic correlation\"], \"visual_observations\": [{\"evidence_keys\": [], \"text\": \"Axial brain MRI shows an irregular bilateral frontal enhancing mass with thick irregular rim enhancement and central hypointensity suggestive of necrosis, with apparent extension across midline.\"}, {\"evidence_keys\": [], \"text\": \"Margins appear irregular and infiltrative, suggestive of an aggressive intra-axial process.\"}]}",
+        "refusal": null,
+        "role": "assistant"
+      },
+      "logprobs": null
+    }
+  ],
+  "created": 1793738305,
+  "model": "muse-spark-1.3",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 1659,
+    "prompt_tokens": 1282,
+    "total_tokens": 2941,
+    "completion_tokens_details": {
+      "reasoning_tokens": 1139
+    },
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  }
+}

@@ -8,6 +8,23 @@ import { useChat } from "./useChat";
 import styles from "./InteractiveChat.module.css";
 
 const NEAR_BOTTOM_PX = 80;
+const CITATION_PATTERN = /\s*\[[a-z_]+(?:\.[a-z_0-9]+)+\]/g;
+
+/** The answer in paragraphs, without the evidence keys the model puts in brackets. */
+function AnswerText({ text }: { text: string }) {
+  return (
+    <>
+      {text
+        .replace(CITATION_PATTERN, "")
+        .split(/\n{2,}/)
+        .map((paragraph, index) => (
+          <p key={index} className={styles.paragraph}>
+            {paragraph}
+          </p>
+        ))}
+    </>
+  );
+}
 
 /** Chat about a study with the AI assistant; hidden until the study is completed. */
 export function InteractiveChat({
@@ -90,7 +107,8 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
           className={styles.input}
           value={draft}
           maxLength={MAX_MESSAGE_LENGTH}
-          rows={3}
+          rows={2}
+          placeholder="Ask about this study…"
           disabled={disabled || state.phase === "loading"}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -106,6 +124,7 @@ function Chat({ client, studyId }: { client: ApiClient; studyId: string }) {
           </span>
           <Button
             type="submit"
+            className={styles.send}
             disabled={
               !isSendable(draft) || streaming || state.phase !== "ready"
             }
@@ -141,14 +160,20 @@ function Message({
           </Button>
         </div>
       ) : (
-        <p className={styles.content}>
-          {item.content}
+        <div className={styles.bubble}>
+          <AnswerText text={item.content} />
           {item.status === "streaming" && (
             <span className={styles.cursor} aria-label="Answer in progress">
               ▍
             </span>
           )}
-        </p>
+          {item.role === "assistant" && item.status === "done" && (
+            <p className={styles.basis}>
+              Not verified. Based on the classifier result; the verified
+              evidence is in Report.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

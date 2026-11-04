@@ -1,5 +1,6 @@
 .portal {
   --paper: #e5e4e1;
+  --surface: #f1eee6;
   --ink: #141210;
   --muted: #57534d;
   --accent: #b5342a;
@@ -20,4 +21,5 @@
   color: var(--ink);
   font-family: var(--font-body);
   min-height: 100vh;
+  min-height: 100svh;
 }

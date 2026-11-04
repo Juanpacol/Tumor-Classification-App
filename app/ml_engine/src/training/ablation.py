@@ -6,10 +6,19 @@ import numpy as np
 from sklearn.base import BaseEstimator
 
 from src.training.folds import Splits
-from src.training.model import DEFAULT_SEED, PCA_COMPONENTS, cross_validate_scores
+from src.training.model import (
+    BLOCKS,
+    DEFAULT_SEED,
+    PCA_COMPONENTS,
+    cross_validate_scores,
+)
 
-SINGLE_BLOCK_VARIANTS = {"cnn_only": ("cnn",), "radiomics_only": ("radiomic",)}
-VARIANTS = (*SINGLE_BLOCK_VARIANTS, "hybrid")
+VARIANT_BLOCKS = {
+    "cnn_only": ("cnn",),
+    "radiomics_only": ("radiomic",),
+    "hybrid": BLOCKS,
+}
+VARIANTS = tuple(VARIANT_BLOCKS)
 
 
 def ablate_blocks(
@@ -18,20 +27,25 @@ def ablate_blocks(
     n_radiomic: int,
     classifier: BaseEstimator,
     splits: Splits,
-    hybrid_macro_f1: float,
+    reference_macro_f1: float,
     seed: int = DEFAULT_SEED,
     pca_components: int = PCA_COMPONENTS,
+    reference_blocks: tuple[str, ...] = BLOCKS,
 ) -> dict[str, float]:
     """Mean cross-validated macro-F1 of one classifier per feature variant.
 
-    ``hybrid_macro_f1`` is the selection score of the same classifier on the same
-    splits, which is the hybrid variant, so it is reused instead of refitted. It
-    uses the training folds only, so the held-out test set is not touched.
+    ``reference_macro_f1`` is the selection score of the same classifier on the
+    same splits with ``reference_blocks`` (the blocks the round uses), so that
+    variant is reused instead of refitted. It uses the training folds only, so the
+    held-out test set is not touched.
     """
-    single = {
-        variant: cross_validate_scores(
-            classifier, matrix, y, n_radiomic, splits, seed, blocks, pca_components
-        ).mean_macro_f1
-        for variant, blocks in SINGLE_BLOCK_VARIANTS.items()
+    return {
+        variant: (
+            reference_macro_f1
+            if blocks == reference_blocks
+            else cross_validate_scores(
+                classifier, matrix, y, n_radiomic, splits, seed, blocks, pca_components
+            ).mean_macro_f1
+        )
+        for variant, blocks in VARIANT_BLOCKS.items()
     }
-    return {**single, "hybrid": hybrid_macro_f1}

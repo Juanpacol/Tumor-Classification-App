@@ -26,7 +26,7 @@ from src.training.augmentation import (
 )
 from src.training.dataset import Sample
 
-Featurizer = Callable[[Path], tuple[np.ndarray, np.ndarray]]
+Featurizer = Callable[[Path], tuple[np.ndarray, np.ndarray, np.ndarray]]
 CopyFeaturizer = Callable[[np.ndarray, Sequence[AugmentationParams]], np.ndarray]
 Digest = Callable[[Path], str]
 
@@ -35,18 +35,24 @@ Digest = Callable[[Path], str]
 class FeatureTable:
     """Aligned features of the images that were usable.
 
-    ``radiomics`` is (N, R) and ``cnn`` is (N, C); row ``i`` belongs to ``samples[i]``.
+    ``radiomics`` is (N, R), ``cnn`` is (N, C) and ``quality`` is (N, 2) with the
+    snr and entropy of the quality gate; row ``i`` belongs to ``samples[i]``.
     """
 
     samples: tuple[Sample, ...]
     radiomics: np.ndarray
     cnn: np.ndarray
     radiomic_names: tuple[str, ...]
+    quality: np.ndarray
 
     @property
     def matrix(self) -> np.ndarray:
         """Radiomic block followed by the CNN block, as the training pipeline expects."""
         return np.hstack([self.radiomics, self.cnn])
+
+
+ENTRY_SCHEMA = 2
+"""Version of what a cache entry holds; 2 added the quality metrics."""
 
 
 @dataclass(frozen=True)
@@ -68,6 +74,7 @@ def config_fingerprint(
     """
     payload = json.dumps(
         {
+            "entry_schema": ENTRY_SCHEMA,
             "preprocessing": asdict(preprocessing),
             "radiomics": asdict(radiomics),
             "backbone": {
@@ -96,13 +103,16 @@ def make_featurizer(
     without preparing the image a second time.
     """
 
-    def featurize(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    def featurize(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         prepared = prepare_image(load_mri_image(path), preprocessing)
         radiomic = extract_radiomics(prepared.radiomics_image, prepared.mask, radiomics)
         cnn = extractor.extract(prepared.cnn_image)
         if on_prepared is not None:
             on_prepared(path, prepared.cnn_image)
-        return radiomic.values.astype(np.float32), cnn
+        quality = np.array(
+            [prepared.quality.snr, prepared.quality.entropy], dtype=np.float32
+        )
+        return radiomic.values.astype(np.float32), cnn, quality
 
     return featurize, config_fingerprint(preprocessing, radiomics, extractor.manifest)
 
@@ -133,6 +143,7 @@ class FeatureCache:
         kept: list[Sample] = []
         radiomic_rows: list[np.ndarray] = []
         cnn_rows: list[np.ndarray] = []
+        quality_rows: list[np.ndarray] = []
         skipped: list[SkippedImage] = []
         for sample in samples:
             entry = self._entry(sample.path)
@@ -142,12 +153,15 @@ class FeatureCache:
             kept.append(sample)
             radiomic_rows.append(entry["radiomics"])
             cnn_rows.append(entry["cnn"])
+            quality_rows.append(entry["quality"])
 
         radiomics = (
             np.vstack(radiomic_rows) if kept else np.empty((0, len(self._names)))
         )
         cnn = np.vstack(cnn_rows) if kept else np.empty((0, 0))
-        return FeatureTable(tuple(kept), radiomics, cnn, self._names), skipped
+        quality = np.vstack(quality_rows) if kept else np.empty((0, 2))
+        table = FeatureTable(tuple(kept), radiomics, cnn, self._names, quality)
+        return table, skipped
 
     def _entry(self, path: Path) -> dict[str, np.ndarray]:
         digest = self._digest(path)
@@ -157,8 +171,8 @@ class FeatureCache:
                 return {key: data[key] for key in data.files}
 
         try:
-            radiomics, cnn = self._featurize(path)
-            entry = {"radiomics": radiomics, "cnn": cnn}
+            radiomics, cnn, quality = self._featurize(path)
+            entry = {"radiomics": radiomics, "cnn": cnn, "quality": quality}
         except MLEngineError as error:
             entry = {"reason": np.array(str(error))}
         _save(cached, entry)

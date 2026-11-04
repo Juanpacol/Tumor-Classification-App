@@ -147,8 +147,25 @@ async def test_the_prompt_frames_image_readings_as_unverified_observations() -> 
     await answer(StudyChat(repository, storage, llm), study.id)
 
     system = llm.calls[0][0]["content"]
-    assert "unverified observation" in system
+    assert "not a measurement" in system
     assert "never claim to locate a lesion with certainty" in system
+
+
+async def test_the_prompt_asks_for_an_interpreted_answer_in_the_user_language() -> None:
+    repository, storage = InMemoryStudyRepository(), InMemoryStorage()
+    study = await study_in(repository, storage)
+    llm = StreamingLLM("ok")
+
+    await answer(StudyChat(repository, storage, llm), study.id)
+
+    system = llm.calls[0][0]["content"]
+    for rule in (
+        "match the language",
+        "the differential",
+        "runner-up labels",
+        "do not repeat disclaimers",
+    ):
+        assert rule in system.lower()
 
 
 async def test_a_missing_image_is_409() -> None:

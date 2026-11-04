@@ -1,4 +1,6 @@
+import csv
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +14,10 @@ from src.training import __main__ as cli
 from src.training import run
 from src.training.artifact import CLASSIFIER_FILE, MANIFEST_FILE
 from src.training.config import apply_round
-from src.training.model import candidate_classifiers
+from src.training.diagnosis import PREDICTIONS_FILE
+from src.training.model import ModelConfig, candidate_classifiers
 from src.training.report import CONFIG_FILE
-from src.training.run import TrainingResult, train
+from src.training.run import BackboneBundleError, TrainingResult, train
 from src.training.shortcut import WARNING_BALANCED_ACCURACY
 
 
@@ -117,6 +120,13 @@ def test_a_manifest_without_training_images_is_an_error(
         train(config, now=NOW)
 
 
+def small_pca_round(folder: Path) -> Path:
+    """A round file with the PCA size of ``make_config``, for CLI runs."""
+    path = folder / "small-pca.toml"
+    path.write_text("[model]\npca_components = 16\n")
+    return path
+
+
 def test_the_cli_prints_where_the_results_went(
     workspace: dict[str, Path], tmp_path: Path, capsys: CaptureFixture[str]
 ) -> None:
@@ -124,11 +134,13 @@ def test_the_cli_prints_where_the_results_went(
         [
             "--data-dir", str(workspace["data"]),
             "--manifest", str(workspace["manifest"]),
-            "--backbone-bundle", str(workspace["backbone"]),
+            "--weights-dir", str(workspace["weights"]),
             "--out", str(tmp_path),
             "--n-splits", "3",
             "--version", "cli-test",
             "--cache-dir", str(workspace["root"] / "cache"),
+            "--config", str(small_pca_round(tmp_path)),
+            "--final",
         ]
     )  # fmt: skip
 
@@ -264,3 +276,224 @@ def test_a_preprocessing_round_recomputes_features(
     train(config, now=NOW)
 
     assert set(npz_files(workspace["root"] / "cache")) > set(before)
+
+
+def image_entries(cache: Path) -> list[Path]:
+    """Cached original-image entries; copies live in ``aug-*`` folders."""
+    return [
+        p for p in cache.rglob("*.npz") if not p.parent.parent.name.startswith("aug-")
+    ]
+
+
+@pytest.fixture(scope="module")
+def tuning(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> tuple[TrainingResult, Path]:
+    """A tuning run on its own cache, so nothing a final run cached is in it."""
+    cache = tmp_path_factory.mktemp("tuning-cache")
+    out = tmp_path_factory.mktemp("tuning-out")
+    config = make_config(workspace, out, final=False, cache_dir=cache)
+    return train(config, now=NOW), cache
+
+
+def test_a_tuning_run_writes_a_report_but_no_artifact(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+
+    assert result.artifact_dir is None
+    assert not list(result.report_dir.parent.parent.glob("model-v*"))
+    assert result.report["mode"] == "tuning" and result.report["target_met"] is None
+    assert "test" not in result.report
+    assert "no_tumor_test_recall_by_source_size" not in result.report["shortcut_audit"]
+    assert (result.report_dir / "report.md").is_file()
+
+
+def test_a_tuning_run_never_reads_testing(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, cache = tuning
+
+    assert len(image_entries(cache)) == result.report["dataset"]["train_images"]
+
+
+def test_a_tuning_run_scores_nothing_on_testing(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = []
+    monkeypatch.setattr(run, "evaluate", lambda *a, **k: calls.append(1))
+    monkeypatch.setattr(run, "calibrate", lambda *a, **k: calls.append(1))
+
+    train(make_config(workspace, tmp_path, final=False), now=NOW)
+
+    assert calls == []
+
+
+def test_tuning_and_final_runs_give_the_same_cv_results(
+    tuning: tuple[TrainingResult, Path], result: TrainingResult
+) -> None:
+    tuned, _ = tuning
+
+    for key in ("selection", "cv_out_of_fold", "ablation_macro_f1", "augmentation"):
+        assert tuned.report[key] == result.report[key]
+    assert result.report["mode"] == "final"
+
+
+def test_the_cli_runs_a_tuning_round_without_final(
+    workspace: dict[str, Path], tmp_path: Path, capsys: CaptureFixture[str]
+) -> None:
+    cli.main(
+        [
+            "--data-dir", str(workspace["data"]),
+            "--manifest", str(workspace["manifest"]),
+            "--weights-dir", str(workspace["weights"]),
+            "--out", str(tmp_path),
+            "--n-splits", "3",
+            "--version", "cli-tuning",
+            "--cache-dir", str(workspace["root"] / "cache"),
+            "--config", str(small_pca_round(tmp_path)),
+        ]
+    )  # fmt: skip
+
+    output = capsys.readouterr()
+    assert "tuning run (Testing not read)" in output.out
+    assert "out-of-fold recall: glioma" in output.out
+    assert "artifact" not in output.out and "test macro-F1" not in output.out
+    assert "not met" not in output.err
+    assert not (tmp_path / "model-vcli-tuning").exists()
+
+
+def refuse_to_read_samples(monkeypatch: MonkeyPatch) -> list[int]:
+    """Record any attempt to read the image list, which precedes every image read."""
+    calls: list[int] = []
+    monkeypatch.setattr(run, "load_samples", lambda *a, **k: calls.append(1) or [])
+    return calls
+
+
+def test_a_missing_backbone_bundle_stops_the_run_before_any_image(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = refuse_to_read_samples(monkeypatch)
+    config = make_config(
+        workspace,
+        tmp_path,
+        final=False,
+        model=ModelConfig(backbone="densenet121", pca_components=16),
+    )
+
+    with pytest.raises(BackboneBundleError, match="densenet121") as error:
+        train(config, now=NOW)
+
+    assert str(workspace["weights"] / "densenet121") in str(error.value)
+    assert calls == []
+
+
+def test_a_bundle_of_another_backbone_stops_the_run(
+    workspace: dict[str, Path], tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    calls = refuse_to_read_samples(monkeypatch)
+    weights = tmp_path / "weights"
+    shutil.copytree(workspace["backbone"], weights / "resnet50")
+    config = make_config(
+        workspace,
+        tmp_path / "out",
+        final=False,
+        weights_dir=weights,
+        model=ModelConfig(backbone="resnet50", pca_components=16),
+    )
+
+    with pytest.raises(BackboneBundleError, match="efficientnet_b0.*resnet50"):
+        train(config, now=NOW)
+
+    assert calls == []
+
+
+def test_the_resolved_configuration_records_the_backbone(
+    result: TrainingResult,
+) -> None:
+    assert result.report["config"]["model"]["backbone"] == "efficientnet_b0"
+
+
+def test_the_report_has_calibrated_out_of_fold_metrics(
+    tuning: tuple[TrainingResult, Path], result: TrainingResult
+) -> None:
+    tuned, _ = tuning
+    calibrated = tuned.report["cv_calibrated"]
+
+    assert calibrated["method"] == "sigmoid"
+    assert 0 <= calibrated["macro_f1"] <= 1 and calibrated["log_loss"] > 0
+    assert calibrated == result.report["cv_calibrated"]
+    manifest = json.loads((result.artifact_dir / MANIFEST_FILE).read_text())
+    assert manifest["metrics"]["cv_calibrated"] == calibrated
+
+
+@pytest.fixture(scope="module")
+def cnn_only_isotonic(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> TrainingResult:
+    """A final run that drops the radiomic block and calibrates with isotonic."""
+    model = ModelConfig(blocks=("cnn",), calibration="isotonic", pca_components=16)
+    out = tmp_path_factory.mktemp("cnn-only")
+    return train(make_config(workspace, out, model=model, version="8.8.8"), now=NOW)
+
+
+def test_a_cnn_only_round_fits_every_model_on_the_cnn_block(
+    cnn_only_isotonic: TrainingResult,
+) -> None:
+    model = joblib.load(cnn_only_isotonic.artifact_dir / CLASSIFIER_FILE)
+
+    for calibrated in model.calibrated_classifiers_:
+        features = calibrated.estimator.named_steps["features"]
+        assert [name for name, _, _ in features.transformers] == ["cnn"]
+    ablation = cnn_only_isotonic.report["ablation_macro_f1"]
+    selected = cnn_only_isotonic.report["selection"]["best"]
+    score = cnn_only_isotonic.report["selection"]["scores"][selected]
+    assert ablation["cnn_only"] == score["mean_macro_f1"]
+    assert tuple(cnn_only_isotonic.report["config"]["model"]["blocks"]) == ("cnn",)
+
+
+def test_the_configured_calibration_reaches_the_artifact(
+    cnn_only_isotonic: TrainingResult,
+) -> None:
+    model = joblib.load(cnn_only_isotonic.artifact_dir / CLASSIFIER_FILE)
+    manifest = json.loads((cnn_only_isotonic.artifact_dir / MANIFEST_FILE).read_text())
+
+    assert {c.method for c in model.calibrated_classifiers_} == {"isotonic"}
+    assert manifest["calibration"]["method"] == "isotonic"
+    assert cnn_only_isotonic.report["calibration_method"] == "isotonic"
+    assert cnn_only_isotonic.report["cv_calibrated"]["method"] == "isotonic"
+
+
+def test_the_predictions_file_matches_the_out_of_fold_metrics(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+    with (result.report_dir / PREDICTIONS_FILE).open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    labels = list(result.report["cv_out_of_fold"]["per_class"])
+
+    matrix = [[0] * len(labels) for _ in labels]
+    for row in rows:
+        matrix[labels.index(row["label"])][labels.index(row["predicted"])] += 1
+    assert matrix == result.report["cv_out_of_fold"]["confusion_matrix"]
+    assert len(rows) == result.report["dataset"]["train_images"]
+    assert all(row["path"].startswith("Train/") for row in rows)
+    assert len({row["path"] for row in rows}) == len(rows)
+
+
+def test_the_breakdown_adds_up_to_the_out_of_fold_errors(
+    tuning: tuple[TrainingResult, Path],
+) -> None:
+    result, _ = tuning
+    report = result.report
+    labels = list(report["cv_out_of_fold"]["per_class"])
+    confusion = report["cv_out_of_fold"]["confusion_matrix"]
+    no_tumor = labels.index("no_tumor")
+    errors = sum(confusion[i][no_tumor] for i in range(len(labels)) if i != no_tumor)
+
+    for cells in report["cv_error_breakdown"]["splits"].values():
+        assert (
+            sum(c["images"] for c in cells.values())
+            == len(report["cv_out_of_fold"]["per_class"]) * PER_CLASS
+        )
+        assert sum(c["tumor_as_no_tumor"] for c in cells.values()) == errors

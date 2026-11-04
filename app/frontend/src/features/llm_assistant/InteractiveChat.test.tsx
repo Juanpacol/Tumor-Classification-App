@@ -79,6 +79,25 @@ describe("InteractiveChat", () => {
     expect(await screen.findByText("An earlier answer")).toBeInTheDocument();
   });
 
+  it("hides the evidence keys in the answer and says it is not verified", async () => {
+    const client = clientWith({
+      listChatMessages: async () => [
+        {
+          ...reply(
+            "Meningioma was low 0.010 [prediction.probabilities.meningioma] and triage was off [prediction.needs_expert_triage].",
+          ),
+          id: "1",
+        },
+      ],
+    });
+    render(<InteractiveChat client={client} study={completed} />);
+    expect(
+      await screen.findByText("Meningioma was low 0.010 and triage was off."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/prediction\./)).not.toBeInTheDocument();
+    expect(screen.getByText(/^Not verified\./)).toBeInTheDocument();
+  });
+
   it("renders the answer as it arrives and blocks a second question meanwhile", async () => {
     const stream = manualStream();
     render(

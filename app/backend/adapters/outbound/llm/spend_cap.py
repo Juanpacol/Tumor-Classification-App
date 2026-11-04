@@ -10,8 +10,6 @@ from ports.llm_port import LLMPort
 logger = logging.getLogger(__name__)
 
 UNREPORTED_CALL_TOKENS = 4_000
-IMAGE_TOKEN_ESTIMATE = 1_500
-CHARACTERS_PER_TOKEN = 4
 RATE_WINDOW = timedelta(minutes=1)
 
 
@@ -111,20 +109,14 @@ class CappedLLM:
         messages: list[dict[str, Any]],
         image: bytes | None = None,
     ) -> AsyncIterator[str]:
-        """Streamed answers report no usage, so their tokens are estimated.
+        """The limits are checked when iteration starts, not when ``stream`` is called.
 
-        The limits are checked when iteration starts, not when ``stream`` is called.
-        What was streamed is counted even if the reader stops early.
+        The tokens are counted by the wrapped adapter's usage listener, which
+        reports each stream once, measured or estimated.
         """
         self._cap.check()
-        characters = _characters(messages)
-        try:
-            async for chunk in self.inner.stream(messages, image=image):
-                characters += len(chunk)
-                yield chunk
-        finally:
-            image_tokens = IMAGE_TOKEN_ESTIMATE if image else 0
-            self._cap.add_tokens(characters // CHARACTERS_PER_TOKEN + image_tokens)
+        async for chunk in self.inner.stream(messages, image=image):
+            yield chunk
 
     async def aclose(self) -> None:
         await self.inner.aclose()
@@ -141,7 +133,3 @@ def _total_tokens(usage: dict[str, Any] | None) -> int:
         if isinstance(usage.get(prompt), int) or isinstance(usage.get(completion), int):
             return int(usage.get(prompt) or 0) + int(usage.get(completion) or 0)
     return 0
-
-
-def _characters(messages: list[dict[str, Any]]) -> int:
-    return sum(len(str(message.get("content", ""))) for message in messages)

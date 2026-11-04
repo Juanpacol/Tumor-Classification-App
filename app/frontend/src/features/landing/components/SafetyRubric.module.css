@@ -17,7 +17,18 @@
   .inner {
     max-width: none;
     margin: 0 auto;
-    padding: 4rem 1.5rem;
+    padding: 4rem 1.25rem;
+  }
+
+  .brainAccent,
+  .gearAccent {
+    opacity: 0.25;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 1.25rem;
   }
 }
 
@@ -79,7 +90,7 @@
   z-index: 1;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 2.5rem;
+  font-size: clamp(1.875rem, 1.5rem + 1.6vw, 2.5rem);
   color: #141210;
   text-shadow:
     0 0 10px #e5e4e1,

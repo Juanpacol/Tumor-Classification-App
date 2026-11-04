@@ -57,7 +57,7 @@ Supabase offers three connection strings (Project → Connect):
 
 ### Migrations
 
-The schema is created by Alembic (`app/backend/migrations/`); it is **not** created on app startup.
+The schema is created by Alembic (`app/backend/migrations/`); the application code never creates it. Only the local compose `backend` service runs the migration on start (below); Cloud Run instances do not, and rely on the `Migrate` step of `cloudbuild.yaml` and the manual Supabase step.
 
 ```bash
 cd app/backend
@@ -65,12 +65,32 @@ alembic upgrade head          # create/upgrade the schema
 alembic downgrade base        # drop it (rollback)
 ```
 
-- **Local**: `docker-compose up -d postgres`, then run `alembic upgrade head` from `app/backend` (the default `DATABASE_URL` points to the compose database).
+- **Local (compose)**: the `backend` service runs `alembic upgrade head` before uvicorn on every start (`up`, `restart`, recreate). It is a no-op at head; if the migration fails the container exits before serving and `docker compose logs backend` shows the error.
+- **Local (backend on the host)**: `docker compose up -d postgres`, then run `alembic upgrade head` from `app/backend` (the default `DATABASE_URL` points to the compose database).
 - **Supabase**: Cloud Run redeploys on every push to `main`, so run the migration **before** merging a change that adds one: `DATABASE_URL=<Supabase session pooler URL> alembic upgrade head` from a local checkout. The Cloud Run service's own `DATABASE_URL` env var must point at the same session pooler connection string, or `/health` reports `database_reachable: false`. Ran for the first time 2026-10-30 (AB-186), after the Cloud Run build was fixed in AB-184.
 
 ### Tests
 
-Backend integration tests (`app/backend/tests/integration/`) run against the PostgreSQL at `DATABASE_URL` (never SQLite). They migrate it to head and truncate the tables between tests, so point them at a disposable database (the compose one or CI's), never at Supabase. Without a reachable database they are skipped with the reason shown in the pytest summary (`pytest -rs`).
+Run the backend suite in compose with the `test` profile, not in the running `backend` container:
+
+```bash
+docker compose run --rm --build backend-test
+```
+
+It builds the `test` stage of `app/backend/Dockerfile` (with the `dev` extra, so `pytest-asyncio` is there) and starts a throwaway `postgres-test` database kept in memory. `docker compose exec backend pytest` is not supported: that image has no dev tools.
+
+Backend integration tests (`app/backend/tests/integration/`) run against the PostgreSQL at `TEST_DATABASE_URL` (never SQLite, never `DATABASE_URL`). They migrate it to head and truncate the tables between tests, so they refuse a database whose name does not contain `test`: the compose `ether_db` and Supabase are never touched. Without `TEST_DATABASE_URL`, or without a reachable database, they are skipped with the reason shown in the pytest summary (`pytest -rs`). CI sets `TEST_DATABASE_URL` to its own `test_db`.
+
+The unit tests clear `LLM_PROVIDER`, `META_MODEL_API_KEY` and `MODEL_BUNDLE_PATH` before each test (`app/backend/tests/conftest.py`), so the compose settings do not change their results.
+
+## Model
+
+The backend image carries the model. The `runtime` stage of `app/backend/Dockerfile` downloads the GitHub Release `model-v0.1.0` (`MODEL_VERSION` build argument), checks its SHA-256 and sets `MODEL_BUNDLE_PATH` to it, so every Cloud Run build from `main` deploys the model with no volume or env var. A build whose release cannot be downloaded or verified fails instead of deploying a backend without a model. The model's Testing macro-F1 (0.807) is an accepted limitation (`docs/ml-engine/decisions.md`, D28).
+
+- After a deploy, `GET <Cloud Run URL>/health` must report `model_loaded: true`. If it is `false`, the Cloud Run logs say why (`model unavailable: <reason>`).
+- Memory: the service is sized at 2-4 GB (see *Services*). Timing and memory per classification on Cloud Run are not measured yet (AB-120).
+- Vercel needs nothing for the model; it only calls the backend at `NEXT_PUBLIC_API_URL`.
+- To deploy another version, see `app/backend/README.md` (*Docker*).
 
 ## What's simplified for the cloud demo vs local dev
 

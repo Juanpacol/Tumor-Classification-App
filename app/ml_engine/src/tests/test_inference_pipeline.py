@@ -82,7 +82,7 @@ def test_serving_matches_training_for_the_same_image(
     classifier = joblib.load(result.artifact_dir / CLASSIFIER_FILE)
     extractor = DeepFeatureExtractor.from_bundle(result.artifact_dir)
     featurize, _ = make_featurizer(extractor, PreprocessingConfig(), RadiomicsConfig())
-    radiomics, cnn = featurize(workspace["data"] / relative)
+    radiomics, cnn, _ = featurize(workspace["data"] / relative)
     expected = classifier.predict_proba(np.hstack([radiomics, cnn])[None])[0]
 
     served = pipeline.predict(image_bytes(workspace, relative))
@@ -146,3 +146,24 @@ def test_one_image_takes_under_three_seconds_once_loaded(
     pipeline.predict(data)
 
     assert time.perf_counter() - start < 3.0
+
+
+def test_a_cnn_only_artifact_still_reports_top_radiomic_features(
+    workspace: dict[str, Path], tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from src.tests.training_support import NOW, make_config
+    from src.training.model import ModelConfig
+    from src.training.run import train
+
+    out = tmp_path_factory.mktemp("cnn-only-serving")
+    config = make_config(
+        workspace, out, model=ModelConfig(blocks=("cnn",), pca_components=16)
+    )
+    artifact = train(config, now=NOW).artifact_dir
+
+    prediction = BundleInferencePipeline.from_bundle(artifact).predict(
+        image_bytes(workspace, SAMPLES[0])
+    )
+
+    assert isinstance(prediction, PredictionResult)
+    assert len(prediction.top_features) == 5

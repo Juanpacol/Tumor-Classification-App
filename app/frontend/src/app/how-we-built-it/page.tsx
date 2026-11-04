@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StoryHero } from "@/features/story/components/StoryHero";
 import { TechStack } from "@/features/story/components/TechStack";
 import { Architecture } from "@/features/story/components/Architecture";
+import { Honesty } from "@/features/story/components/Honesty";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function HowWeBuiltItPage() {
         <StoryHero />
         <TechStack />
         <Architecture />
+        <Honesty />
       </div>
     </main>
   );

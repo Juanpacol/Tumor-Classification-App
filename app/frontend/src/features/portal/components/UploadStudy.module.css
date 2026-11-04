@@ -1,12 +1,21 @@
 .upload {
+  --cut: 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem 1rem;
   margin-bottom: 1.5rem;
-  padding: 1rem 1.15rem;
-  background: rgba(245, 244, 241, 0.55);
-  border: 1px solid var(--rule);
+  padding: 0.9rem 1.25rem;
+  background: var(--plate);
+  color: var(--plate-text);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut))
+  );
 }
 
 .file,
@@ -26,41 +35,110 @@
 }
 
 .file {
-  padding: 0.35rem;
-  border: 1px dashed transparent;
+  padding: 0;
 }
 
 .dragging {
-  border-color: var(--ink);
+  outline: 1px dashed var(--plate-text);
+  outline-offset: 0.35rem;
 }
 
 .hint {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.8125rem;
+  color: #bdb9b2;
 }
 
 .problem {
   font-size: 0.8125rem;
-  color: var(--accent);
+  color: #ff9a8f;
 }
 
 .label {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #bdb9b2;
 }
 
 .file input,
 .notes textarea {
-  border: 1px solid var(--rule);
-  background: rgba(255, 255, 255, 0.6);
-  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-bottom: 1px solid rgba(229, 228, 225, 0.35);
+  background: transparent;
+  padding: 0.5rem 0;
   font: inherit;
   font-size: 0.9375rem;
-  color: var(--ink);
+  color: var(--plate-text);
+}
+
+.file input:focus-visible,
+.notes textarea:focus-visible {
+  outline: none;
+  border-bottom-color: var(--plate-text);
+}
+
+.file input::file-selector-button {
+  margin-right: 0.75rem;
+  border: 0;
+  padding: 0.35rem 0.9rem;
+  background: var(--plate-text);
+  color: var(--plate);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 7px) 0,
+    100% 7px,
+    100% 100%,
+    7px 100%,
+    0 calc(100% - 7px)
+  );
 }
 
 .notes textarea::placeholder {
-  color: var(--muted);
+  color: #a8a49c;
+}
+
+.send {
+  border: 0;
+  padding: 0.65rem 1.5rem;
+  background: var(--plate-text);
+  color: var(--plate);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 9px) 0,
+    100% 9px,
+    100% 100%,
+    9px 100%,
+    0 calc(100% - 9px)
+  );
+}
+
+.upload .send:disabled {
+  background: rgba(229, 228, 225, 0.16);
+  color: #a8a49c;
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .file,
+  .notes {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .file input {
+    max-width: 100%;
+  }
+
+  .file input,
+  .notes textarea {
+    font-size: 1rem;
+  }
+
+  .send {
+    width: 100%;
+  }
 }

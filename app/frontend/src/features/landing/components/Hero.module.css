@@ -1,6 +1,7 @@
 .hero {
   position: relative;
   min-height: 90vh;
+  min-height: 90svh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,7 +97,7 @@
   margin-top: 1.75rem;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 4rem;
+  font-size: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   line-height: 1.15;
   color: #141210;
   text-shadow:
@@ -117,7 +118,13 @@
 }
 
 @media (max-width: 860px) {
-  .headline {
-    font-size: 2.5rem;
+  .image,
+  .imageLeft {
+    width: 60%;
+    opacity: 0.35;
+  }
+
+  .content {
+    padding: 2rem 1.25rem;
   }
 }

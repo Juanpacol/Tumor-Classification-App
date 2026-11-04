@@ -61,10 +61,10 @@ export function AnalysisPanel({
   }
 
   return (
-    <div className={styles.frame}>
-      <div className={styles.frameShadow}>
-        <aside aria-label="Study analysis" className={styles.panel}>
-          <div className={styles.backdrop} data-tab={active} aria-hidden="true">
+    <div className={styles.frameShadow}>
+      <aside aria-label="Study analysis" className={styles.panel}>
+        <div className={styles.plate}>
+          <div className={styles.art} data-tab={active} aria-hidden="true">
             <span className={styles.layer} data-for="summary" />
             <span className={styles.layer} data-for="report" />
             <span className={styles.layer} data-for="chat" />
@@ -91,28 +91,28 @@ export function AnalysisPanel({
               </button>
             ))}
           </div>
-          {tabs.map((tab) => (
-            <div
-              key={tab}
-              role="tabpanel"
-              id={`panel-${tab}`}
-              aria-labelledby={`tab-${tab}`}
-              hidden={active !== tab}
-              className={styles.body}
-            >
-              {visited.has(tab) && tab === "summary" && (
-                <ClinicalSummary study={study} />
-              )}
-              {visited.has(tab) && tab === "report" && (
-                <ReportSection client={client} study={study} />
-              )}
-              {visited.has(tab) && tab === "chat" && (
-                <InteractiveChat client={client} study={study} />
-              )}
-            </div>
-          ))}
-        </aside>
-      </div>
+        </div>
+        {tabs.map((tab) => (
+          <div
+            key={tab}
+            role="tabpanel"
+            id={`panel-${tab}`}
+            aria-labelledby={`tab-${tab}`}
+            hidden={active !== tab}
+            className={styles.body}
+          >
+            {visited.has(tab) && tab === "summary" && (
+              <ClinicalSummary study={study} />
+            )}
+            {visited.has(tab) && tab === "report" && (
+              <ReportSection client={client} study={study} />
+            )}
+            {visited.has(tab) && tab === "chat" && (
+              <InteractiveChat client={client} study={study} />
+            )}
+          </div>
+        ))}
+      </aside>
     </div>
   );
 }

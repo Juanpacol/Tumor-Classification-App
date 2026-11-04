@@ -155,7 +155,7 @@ Open items:
 
 The repository is public for the hackathon evaluation, and the artifact published in AB-114 bundles the ImageNet-pretrained backbone weights.
 
-- **Decision:** publish the weights inside the artifact (the simplest option) and make the reservations explicit instead of hiding them. The weights stay out of git (`weights/*.pt` is ignored), and only a Release would make them public.
+- **Decision:** publish the weights inside the artifact (the simplest option) and make the reservations explicit instead of hiding them. The weights stay out of git (`weights/*.pt` is ignored), and only a Release would make them public. *The Release `model-v0.1.0` (D28) made them public.*
 - **Why it is safe to decide this now:** the backbone is a replaceable component (registry, bundle, manifest, one training command). If cleaner weights are needed, swap them and retrain, with no change to the rest of the pipeline.
 - **What was added:** the backbone manifest records `source_url` and `license_note`, with defaults so bundles exported earlier still load, and the artifact manifest carries them as `backbone_provenance`. The README lists every external asset and its status.
 - **What is not known:** the terms of the torchvision weights (no license statement was found for them, only the BSD license of the code), whether weights trained on ImageNet inherit its non-commercial terms, and the licenses of the Kaggle dataset and of the Python dependencies. This is not legal advice.
@@ -329,6 +329,87 @@ Run on 2026-11-02 in the `trainer` container (CPU, 12 threads) with `rounds/0.1.
 - **Time.** First run 503 s wall (8.4 min), including extraction of 4,769 cache entries (2,939 images and 1,830 copies). Rerun of the same round with the cache: 182 s, with identical metrics (task 7.2). A round that changed only `classifiers.svm_rbf.C`: 140 s, no feature recomputed (task 7.1).
 - **Outcome: target not met.** Testing macro-F1 0.807 < 0.90, so per #112 criterion 9 the results go to the team and **no model is published** until it has reviewed them. The metadata baseline did not trigger the #168 warning.
 - **What the team should look at.** (1) Cross-validation on Training (0.898) overestimates Testing (0.807) by 9 points, and almost all of the gap is tumors called no_tumor, the clinically worst error (8.6% of Testing tumors). Cross-validation does not show this error, so tuning rounds compared on it alone may not close the gap; the Testing split looks distributed differently from Training for glioma and meningioma. (2) Radiomics did not measurably help on top of the CNN. (3) Augmentation as configured does not help. These are observations for the next story; this round does not change any parameter.
+
+## D25. Tuning and final runs, backbone, blocks and calibration keys (AB-222)
+
+`src/training/{run,config,model,ablation,calibration,report,__main__}.py`. OpenSpec change `model-tuning-rounds`.
+
+- **Why.** D24 left Testing at 0.807 against 0.90. Tuning in rounds needs three things the baseline code lacked: rounds that never read Testing (every run scored it), the backbone and calibration method as round keys (they were a CLI path and a constant), and a way to compare calibration methods without Testing.
+- **Tuning by default, `--final` to finish. BREAKING (CLI).** `train()` is split into `_tune` (Training features, selection, augmentation decision, out-of-fold metrics, calibrated out-of-fold metrics, ablation, shortcut audit) and `_finalize` (Testing features, calibration, the single Testing score, the artifact). Without `--final` a run extracts no Testing feature, writes only the report (`mode: "tuning"`, no `test` section, `target_met: null`) and no artifact. The safe mode is the default, so forgetting a flag cannot leak Testing into a round. `final` is a property of the run, not of the round, so it is not in the resolved configuration.
+- **One bundle folder per backbone. BREAKING (layout, CLI).** `--weights-dir` (default `weights`) replaces `--backbone-bundle`; the run loads `<weights-dir>/<model.backbone>/` and stops before reading the image list when the folder is missing (the error says how to export it) or its manifest declares another backbone. The baseline bundle moved to `weights/efficientnet_b0/`; `resnet50` and `densenet121` were exported next to it on 2026-11-03 (sha256 `c1953c2a...` and `b649f850...`). The feature cache already keyed on the backbone's weights hash, so returning to a backbone reuses its entries (tested).
+- **`[model]` keys.** `backbone` (`efficientnet_b0`, `resnet50`, `densenet121`), `pca_components`, `blocks` (`["radiomic", "cnn"]` or `["cnn"]`; radiomics alone scored 0.754 in D24 and is not offered) and `calibration` (`sigmoid` or `isotonic`). They are validated in `ModelConfig` and a bad value names its dotted key. `blocks` reaches selection, the augmentation check, out-of-fold metrics and the final pipeline; the ablation still scores all three variants and reuses the selection score for the variant the round uses. Radiomics are always extracted, because serving reports top radiomic features (a CNN-only artifact still does, tested).
+- **Calibrated out-of-fold metrics.** For outer fold k, the selected pipeline is calibrated exactly as the final model is (`CalibratedClassifierCV`, configured method, `ensemble=True`) but on fold k's fit rows only, using the shared splits of the other folds as inner splits: each other fold is calibration rows once. Fold k's originals are then predicted. Pooled over folds the report gives `cv_calibrated`: macro-F1, log loss, and the share of images whose top probability reaches the triage threshold (0.75) with their accuracy. No fold-k image fits or calibrates the model that predicts it (tested), and Testing is not read. Calibration methods are compared on log loss. Cost: one extra calibrated fit per fold (each with n_splits - 1 inner fits).
+- **Tests on synthetic data use 16 PCA components**, because the inner fit there is one fold of about 26 images; the real data has about 1,100 rows per inner fit.
+- **Status:** **Verified** by unit tests (457 passing in the trainer image). Not run on the real dataset yet; the reference rerun of 0.1.0 in tuning mode is the first (D26).
+
+## D26. Tuning rounds toward the 0.90 target (AB-222)
+
+Rounds run in the `trainer` container in tuning mode (D25), on manifest `dedup_20261028T234450903626Z`, seed 42, 5 grouped folds. Reports live in `artifacts/reports/<timestamp>/` (not in git); the numbers below are copied from each `report.json`.
+
+**Kept-round rule (written on 2026-11-03, before any round below ran).**
+
+1. Each round changes one family of parameters, starting from the best round so far.
+2. A round beats the current best when its selected classifier's mean CV macro-F1 is higher. When the two are within one fold std (the larger of the two stds), the one with fewer out-of-fold tumor→no_tumor errors wins; if that ties too, the simpler one wins (CNN-only over hybrid, fewer PCA components, sigmoid over isotonic, the current backbone over a new one).
+3. The calibration method is chosen on calibrated out-of-fold log loss, with calibrated macro-F1 as a check (it may not drop by more than one fold std).
+4. Testing is read once, by a `--final` rerun of the kept round. Its result does not reopen the rounds: if it misses 0.90 or the metadata baseline reaches 0.70, the results go to the team (#112 criterion 9, #168).
+
+**Rounds.**
+
+| Version | Changes from | What changed | Selected | CV macro-F1 (mean ± std) | OOF recall gl / me / pi / no | OOF tumor→no_tumor | Cal. log loss | Metadata bal. acc. | Wall time |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.1.1 | 0.1.0 | nothing: reference rerun in tuning mode | logistic_regression | 0.898 ± 0.011 | 0.927 / 0.843 / 0.901 / 0.931 | 19 | 0.296 | 0.588 | 7 min 8 s (cache rebuilt, schema 2) |
+| 0.2.0 | 0.1.1 | `model.backbone = "resnet50"` | logistic_regression | 0.879 ± 0.008 | 0.919 / 0.803 / 0.869 / 0.927 | 17 | 0.341 | 0.588 | 10 min 23 s (new CNN features) |
+| 0.3.0 | 0.1.1 | `model.backbone = "densenet121"` | logistic_regression | 0.903 ± 0.007 | 0.929 / 0.845 / 0.901 / 0.946 | 15 | 0.302 | 0.588 | 9 min 11 s (new CNN features) |
+
+**Backbone family (0.2.0, 0.3.0).** ResNet-50 is worse (0.879 ± 0.008, more glioma↔meningioma confusion). DenseNet-121 reaches 0.903 ± 0.007, within one fold std of the reference (0.011), so by rule 2 the tie is broken on out-of-fold tumor→no_tumor errors: 15 against 19. **DenseNet-121 is the base of the next family.** Augmentation stays off for both; the ablation shows the same pattern as D24 (DenseNet: CNN only 0.890, hybrid 0.903).
+
+**Reference (0.1.1).** Same CV numbers as D24 (0.898 ± 0.011, same selection, augmentation off, same ablation), so the code changes of D25 did not move the baseline. Calibrated out-of-fold (sigmoid): macro-F1 0.898, log loss 0.296; 73.4% of images reach the 0.75 triage threshold, with 0.976 accuracy among them.
+
+**Where the out-of-fold errors are (Training only).** 17 of the 19 tumor→no_tumor errors are images that are not 512x512, which are only 316 of 1,830 Training images. On those, out-of-fold recall is meningioma 0.462 and pituitary 0.727, against 0.867 and 0.925 on 512x512 images. Group size does not matter (all 19 errors are single images). The high-snr and high-entropy terciles hold 11 errors each, which mostly overlap with the non-512 images.
+
+**Why.** The composition of the usable Training images by source size:
+
+| Class | 512x512 | other sizes |
+|---|---|---|
+| glioma | 850 | **0** |
+| meningioma | 420 | 26 |
+| pituitary | 241 | 33 |
+| no_tumor | 3 | 257 |
+
+81% of the non-512 Training images are no_tumor and no glioma comes from that source, so the model can learn "looks like the other source → no_tumor". This is the source of the Kaggle dataset, not of our cleaning: the original `Training/glioma` folder has only 512x512 images (all 992 kept and all 408 removed are 512x512).
+
+**Testing composition (labels and file sizes only; no Testing feature or prediction was read).** To see whether this explains the D24 gap, the kept Testing images were counted by class and source size: glioma 292 / **62**, meningioma 175 / **98**, pituitary 349 / 8, no_tumor 2 / 123 (512x512 / other). Testing has 160 glioma and meningioma images from the other source, a mix Training barely has (0 and 26). That matches D24: the 85 Testing tumors called no_tumor were 30 glioma and 55 meningioma. This reads Testing labels, which design.md left to a team decision; it was done to explain the gap, not to choose any value, and no round below uses it.
+
+**Consequence.** Tuning rounds compare on Training CV, which contains almost no tumors from the other source, so they cannot measure (or close) the error that dominates Testing. Options for the team:
+
+1. **Re-split with the source mix balanced.** Pool the kept Training and Testing images, keep `group_id` groups whole, and split stratified by class and source size, so both sides see both sources. Honest estimate; loses comparability with the official Kaggle split.
+2. **Move part of the other-source Testing tumors into Training** (whole groups), keeping the rest as Testing. Smaller change; Testing shrinks.
+3. **Keep the split and add source-imitating augmentation** (downscale, blur, contrast of 512x512 tumor images). Stays in AB-222, but CV on Training still cannot measure whether it helps.
+4. **Keep everything and document the limitation** (Testing 0.807), publishing nothing until the data question is settled.
+
+The backbone rounds already started finish and are recorded; the later families wait for the team's choice.
+
+## D27. Versioned model releases (AB-114)
+
+`src/release/{package,fetch,__main__}.py`, `src/tests/test_release.py`.
+
+- **Why.** Deployments need an exact, verifiable model without putting binaries in git.
+- **Format.** One `model-v<version>.tar.gz` per bundle, a `.sha256` file next to it and release notes generated from `manifest.json` (Test metrics per class), uploaded as assets of a GitHub Release tagged `model-v<version>`.
+- **Checks.** `package` requires the folder name to match the manifest version and never overwrites an archive. `fetch` verifies the SHA-256 before extracting and extracts only regular files under `model-v<version>/`, so a tampered or mismatched archive is rejected.
+- **Publishing stays manual.** The CLI prints the `gh release create` command instead of running it: the release is public and, per D24, a model under the 0.90 target is not published before the team has reviewed it.
+- **Status:** **Verified** by 9 unit tests (trainer image) and by packaging the local `0.1.1` bundle (20 MB). No release had been published (see D28).
+
+## D28. Deploy the baseline 0.1.0 with its metrics as an accepted limitation (AB-222)
+
+`app/backend/Dockerfile`, release `model-v0.1.0`.
+
+- **Decision (team, 2026-11-04):** the demo serves the baseline artifact `model-v0.1.0` (D24: EfficientNet-B0, logistic regression, sigmoid calibration). Its Testing result (macro-F1 0.807, balanced accuracy 0.844, no_tumor precision 0.590) is accepted as a known limitation, not a met target. This answers the open choice of D26 with option 4, except that the model is published. The tuning rounds of D26 do not ship; a later version needs its own `--final` run and release.
+- **What the limitation means for users:** tumors from the dataset's second source (images that are not 512x512) are often called no_tumor (85 of the 784 Testing tumors). The app already shows the confidence and `needs_expert_triage`; it is a second opinion, never a diagnosis.
+- **Published as D27 describes:** `python -m src.release package artifacts/model-v0.1.0`, GitHub Release `model-v0.1.0` with the archive (20 MB) and its `.sha256` (`8de0d252...`). Nothing binary goes into git.
+- **Built into the backend image.** The `runtime` stage runs `python -m src.release fetch` for `MODEL_VERSION` (build argument, default `0.1.0`), which checks the SHA-256 before extracting, and sets `MODEL_BUNDLE_PATH` to the extracted folder. Every Cloud Run build therefore carries the model with no volume or env var; the build fails if the release cannot be downloaded or verified, instead of deploying a backend without a model. docker-compose still mounts its own bundle at `/models/current`.
+- **Open checks:**
+  - [ ] `/health` on Cloud Run reports `model_loaded: true` once this reaches `main`, and one classification finishes within the request timeout with the service's memory (AB-120).
+  - [ ] The weight-terms reservations of D14 now apply to a public file.
 
 ## GMLP principles checklist
 

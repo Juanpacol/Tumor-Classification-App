@@ -36,7 +36,7 @@
   margin-top: 0.75rem;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 3.25rem;
+  font-size: clamp(2.125rem, 1.5rem + 2.6vw, 3.25rem);
   line-height: 1.12;
   color: var(--ink);
   text-shadow:
@@ -73,15 +73,17 @@
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
-.cardWrap:hover {
-  transform: translateY(-3px);
-  filter: drop-shadow(0 18px 18px rgba(20, 18, 16, 0.2));
+@media (hover: hover) {
+  .cardWrap:hover {
+    transform: translateY(-3px);
+    filter: drop-shadow(0 18px 18px rgba(20, 18, 16, 0.2));
+  }
 }
 
 .card {
   --cut: 16px;
   --bar: var(--steel);
-  --tint: rgba(74, 85, 120, 0.14);
+  --tint: #eef0f6;
   --edge: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.95),
@@ -133,28 +135,29 @@
 
 .card[aria-pressed="true"] {
   box-shadow:
+    inset 0 0 0 2px var(--ink),
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     inset 0 -18px 26px -16px rgba(20, 18, 16, 0.38);
 }
 
 .review {
   --bar: var(--accent);
-  --tint: rgba(138, 44, 34, 0.14);
+  --tint: #f8e9e7;
 }
 
 .open {
   --bar: var(--teal);
-  --tint: rgba(45, 106, 106, 0.14);
+  --tint: #e8f1f1;
 }
 
 .problem {
   --bar: var(--ink);
-  --tint: rgba(20, 18, 16, 0.1);
+  --tint: #f1f0ee;
 }
 
 .value {
   font-family: var(--font-serif);
-  font-size: 2.75rem;
+  font-size: clamp(2.125rem, 1.8rem + 1.4vw, 2.75rem);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   text-shadow:
@@ -256,7 +259,7 @@
   display: block;
   border: 1px solid transparent;
   border-image: var(--edge) 1;
-  background: rgba(245, 244, 241, 0.55);
+  background: var(--surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -8px 14px -10px rgba(20, 18, 16, 0.25);
@@ -273,7 +276,7 @@
 
 .search:focus-within {
   --edge: linear-gradient(135deg, var(--accent), var(--ink));
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--surface);
 }
 
 .search input {
@@ -374,14 +377,16 @@
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
-.itemWrap:hover {
-  transform: translateY(-2px);
-  filter: drop-shadow(0 14px 14px rgba(20, 18, 16, 0.2));
+@media (hover: hover) {
+  .itemWrap:hover {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 14px 14px rgba(20, 18, 16, 0.2));
+  }
 }
 
 .row {
   --cut: 14px;
-  --tint: rgba(245, 244, 241, 0.55);
+  --tint: var(--surface);
   --bar: var(--steel);
   --edge: linear-gradient(
     135deg,
@@ -389,7 +394,7 @@
     rgba(20, 18, 16, 0.26)
   );
   display: grid;
-  grid-template-columns: 1.6fr 1.2fr 1.5fr 1.5rem;
+  grid-template-columns: 1.3fr 1.1fr 2.2fr 1.5rem;
   gap: 1.25rem;
   align-items: center;
   border: 1px solid transparent;
@@ -458,17 +463,14 @@
 
 .row_review {
   --bar: var(--accent);
-  --tint: rgba(138, 44, 34, 0.12);
 }
 
 .row_open {
   --bar: var(--teal);
-  --tint: rgba(45, 106, 106, 0.1);
 }
 
 .row_problem {
   --bar: var(--ink);
-  --tint: rgba(20, 18, 16, 0.08);
 }
 
 .main {
@@ -592,10 +594,18 @@
 .pageButton {
   padding: 0.6rem 1.4rem;
   font-size: 1rem;
+  background: var(--plate);
+  color: var(--plate-text);
+  box-shadow: none;
+}
+
+.pageButton:hover:not(:disabled) {
+  background: #34302c;
 }
 
 .pageButton:disabled {
-  opacity: 0.45;
+  background: #cfcdc8;
+  color: #8a867f;
   cursor: not-allowed;
 }
 
@@ -604,7 +614,7 @@
   font-size: 0.9375rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 /* ---------- Motion ---------- */
@@ -648,16 +658,82 @@
   }
 }
 
+/* Touch screens have no hover: show the detail and the arrow up front. */
+@media (hover: none) {
+  .meta {
+    height: auto;
+  }
+
+  .date,
+  .detail {
+    position: static;
+    display: block;
+    opacity: 1;
+    transform: none;
+  }
+
+  .arrow {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (max-width: 860px) {
   .summary {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .headline {
-    font-size: 2.25rem;
+    gap: 1rem;
   }
 
   .row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) 1.5rem;
+    gap: 0.75rem 1rem;
+    padding: 0.9rem 1.25rem;
+  }
+
+  .main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .arrow {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .confidence,
+  .state {
+    grid-column: 1 / -1;
+  }
+
+  .search input {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary {
+    gap: 0.75rem;
+  }
+
+  .card {
+    padding: 1rem 1rem 0.9rem;
+  }
+
+  .cardLabel {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+  }
+
+  .search {
+    max-width: none;
+  }
+
+  .pagination {
+    gap: 0.75rem;
+  }
+
+  .pageButton {
+    padding: 0.6rem 1rem;
   }
 }

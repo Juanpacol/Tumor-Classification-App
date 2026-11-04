@@ -67,11 +67,13 @@ export function StudyWorkspace({
       )}
       {state.status === "ready" && (
         <div className={styles.grid}>
-          <StudyViewer
-            imageUrl={api.imageUrl(state.study.id)}
-            caption={formatDate(state.study.created_at)}
-            flagged={state.study.prediction?.needs_expert_triage === true}
-          />
+          <div className={styles.viewer}>
+            <StudyViewer
+              imageUrl={api.imageUrl(state.study.id)}
+              caption={formatDate(state.study.created_at)}
+              flagged={state.study.prediction?.needs_expert_triage === true}
+            />
+          </div>
           <AnalysisPanel client={api} study={state.study} />
         </div>
       )}

@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 WORKDIR /app
 
@@ -20,6 +20,20 @@ COPY app/backend/pyproject.toml ./
 RUN pip install --no-cache-dir -e .
 
 COPY app/backend .
+
+# Backend test suite with the dev extra (pytest-asyncio); see docs/deployment.md.
+FROM base AS test
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Last stage, so the default build (Cloud Run) never carries the dev tools.
+FROM base AS runtime
+
+# The deployed model: downloaded from its GitHub Release and checked against
+# the published SHA-256 before extraction (docs/deployment.md, Model).
+ARG MODEL_VERSION=0.1.0
+RUN python -m src.release fetch ${MODEL_VERSION} --dest /models \
+    && rm /models/model-v${MODEL_VERSION}.tar.gz
+ENV MODEL_BUNDLE_PATH=/models/model-v${MODEL_VERSION}
 
 EXPOSE 8080
 

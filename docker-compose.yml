@@ -36,7 +36,49 @@ services:
     volumes:
       - ./app/backend:/app
       - ${MODEL_BUNDLE_DIR:-./app/ml_engine/artifacts/current}:/models/current:ro
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    # Brings the schema to head on every start; a failed migration stops the
+    # container before uvicorn binds the port. Cloud Run migrates in cloudbuild.yaml.
+    command: sh -c "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  # Backend test suite (app/backend/README.md). Not started by `docker compose up`:
+  #   docker compose run --rm backend-test
+  # Its own throwaway database: the integration tests wipe theirs, so they
+  # only accept TEST_DATABASE_URL and never touch ether_db.
+  backend-test:
+    build:
+      context: .
+      dockerfile: app/backend/Dockerfile
+      target: test
+    profiles: ["test"]
+    environment:
+      TEST_DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/test_db
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - ./app/backend:/app
+    command: pytest tests/ -rs
+
+  postgres-test:
+    image: postgres:15-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
   frontend:
     build:
@@ -46,7 +88,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./app/frontend:/app
       - /app/node_modules

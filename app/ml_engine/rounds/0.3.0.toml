@@ -1,0 +1,7 @@
+# Round 0.3.0: backbone family (Azure #222, D26).
+# Changes from 0.1.0 only the CNN backbone: DenseNet-121 (1024-d), the other
+# baseline recommended by the literature review (D9). Compared with 0.1.1 and
+# 0.2.0 on CV only; the better backbone is the base of the next family.
+
+[model]
+backbone = "densenet121"
