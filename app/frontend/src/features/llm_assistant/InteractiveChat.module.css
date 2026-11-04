@@ -25,7 +25,7 @@
 
 .author {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -66,7 +66,7 @@
   border: 1px solid var(--ink);
   border-radius: 3px;
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.6);
+  background: #ffffff;
   color: var(--ink);
   font: inherit;
 }
@@ -90,6 +90,6 @@
 .note {
   margin-top: 0.75rem;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--muted);
 }

@@ -81,7 +81,7 @@
 .card {
   --cut: 16px;
   --bar: var(--steel);
-  --tint: rgba(74, 85, 120, 0.14);
+  --tint: #eef0f6;
   --edge: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.95),
@@ -139,17 +139,17 @@
 
 .review {
   --bar: var(--accent);
-  --tint: rgba(138, 44, 34, 0.14);
+  --tint: #f8e9e7;
 }
 
 .open {
   --bar: var(--teal);
-  --tint: rgba(45, 106, 106, 0.14);
+  --tint: #e8f1f1;
 }
 
 .problem {
   --bar: var(--ink);
-  --tint: rgba(20, 18, 16, 0.1);
+  --tint: #f1f0ee;
 }
 
 .value {
@@ -256,7 +256,7 @@
   display: block;
   border: 1px solid transparent;
   border-image: var(--edge) 1;
-  background: rgba(245, 244, 241, 0.55);
+  background: #ffffff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -8px 14px -10px rgba(20, 18, 16, 0.25);
@@ -273,7 +273,7 @@
 
 .search:focus-within {
   --edge: linear-gradient(135deg, var(--accent), var(--ink));
-  background: rgba(255, 255, 255, 0.75);
+  background: #ffffff;
 }
 
 .search input {
@@ -381,7 +381,7 @@
 
 .row {
   --cut: 14px;
-  --tint: rgba(245, 244, 241, 0.55);
+  --tint: #ffffff;
   --bar: var(--steel);
   --edge: linear-gradient(
     135deg,
@@ -389,7 +389,7 @@
     rgba(20, 18, 16, 0.26)
   );
   display: grid;
-  grid-template-columns: 1.6fr 1.2fr 1.5fr 1.5rem;
+  grid-template-columns: 1.3fr 1.1fr 2.2fr 1.5rem;
   gap: 1.25rem;
   align-items: center;
   border: 1px solid transparent;
@@ -458,17 +458,17 @@
 
 .row_review {
   --bar: var(--accent);
-  --tint: rgba(138, 44, 34, 0.12);
+  --tint: #f8e9e7;
 }
 
 .row_open {
   --bar: var(--teal);
-  --tint: rgba(45, 106, 106, 0.1);
+  --tint: #e8f1f1;
 }
 
 .row_problem {
   --bar: var(--ink);
-  --tint: rgba(20, 18, 16, 0.08);
+  --tint: #f1f0ee;
 }
 
 .main {

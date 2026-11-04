@@ -6,7 +6,7 @@
   border-radius: 3px;
   padding: 0.125rem 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -32,6 +32,6 @@
 }
 
 .icon {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1;
 }
