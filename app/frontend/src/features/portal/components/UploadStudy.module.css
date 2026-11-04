@@ -5,7 +5,7 @@
   gap: 0.75rem 1rem;
   margin-bottom: 1.5rem;
   padding: 1rem 1.15rem;
-  background: rgba(245, 244, 241, 0.55);
+  background: #ffffff;
   border: 1px solid var(--rule);
 }
 
@@ -35,7 +35,7 @@
 }
 
 .hint {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 
@@ -45,7 +45,7 @@
 }
 
 .label {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
@@ -54,7 +54,7 @@
 .file input,
 .notes textarea {
   border: 1px solid var(--rule);
-  background: rgba(255, 255, 255, 0.6);
+  background: #ffffff;
   padding: 0.5rem 0.65rem;
   font: inherit;
   font-size: 0.9375rem;

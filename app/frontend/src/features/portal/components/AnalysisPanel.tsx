@@ -64,11 +64,6 @@ export function AnalysisPanel({
     <div className={styles.frame}>
       <div className={styles.frameShadow}>
         <aside aria-label="Study analysis" className={styles.panel}>
-          <div className={styles.backdrop} data-tab={active} aria-hidden="true">
-            <span className={styles.layer} data-for="summary" />
-            <span className={styles.layer} data-for="report" />
-            <span className={styles.layer} data-for="chat" />
-          </div>
           <VerdictHeader study={study} />
           <div className={styles.tabs} role="tablist" aria-label="Analysis">
             {tabs.map((tab, index) => (

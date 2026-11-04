@@ -114,17 +114,4 @@ describe("AnalysisPanel", () => {
       screen.queryByRole("tabpanel", { name: "Summary" }),
     ).not.toBeInTheDocument();
   });
-
-  it("changes the drawing behind the whole panel with the tab", async () => {
-    const { container } = render(
-      <AnalysisPanel
-        client={createMockClient()}
-        study={study("study-confident")}
-      />,
-    );
-    const backdrop = container.querySelector("[data-tab]");
-    expect(backdrop).toHaveAttribute("data-tab", "summary");
-    await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
-    expect(backdrop).toHaveAttribute("data-tab", "chat");
-  });
 });

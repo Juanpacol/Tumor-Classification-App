@@ -22,12 +22,12 @@
   border: 1px solid transparent;
   border-image: linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.95),
-      rgba(20, 18, 16, 0.3)
+      rgba(20, 18, 16, 0.18),
+      rgba(20, 18, 16, 0.35)
     )
     1;
   padding: 1.5rem;
-  background: rgba(245, 244, 241, 0.62);
+  background: #ffffff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -16px 28px -20px rgba(20, 18, 16, 0.3);
@@ -39,63 +39,6 @@
     var(--cut) 100%,
     0 calc(100% - var(--cut))
   );
-}
-
-/* One drawing behind each tab, whole and scaled to fill the panel, fading from
-   one to the next. The URLs are variables so this file never names an image that is
-   not in the repository. The PNGs themselves are ink-on-transparent (no white
-   background baked in), so the page's own paper color shows through and the
-   drawing reads as part of the page rather than a pasted photo. */
-.backdrop {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.panel > :not(.backdrop) {
-  position: relative;
-}
-
-.layer {
-  position: absolute;
-  inset: 0;
-  background: var(--image, none) center / contain no-repeat;
-  opacity: 0;
-  transition: opacity 0.8s ease;
-}
-
-.layer[data-for="summary"] {
-  --image: var(--backdrop-summary);
-  scale: -1 1;
-}
-
-.layer[data-for="report"] {
-  --image: var(--backdrop-report);
-  transform: scale(1.1);
-}
-
-.layer[data-for="chat"] {
-  --image: var(--backdrop-chat);
-  transform: scale(1.4);
-}
-
-.backdrop[data-tab="summary"] .layer[data-for="summary"] {
-  opacity: 0.3;
-}
-
-.backdrop[data-tab="report"] .layer[data-for="report"] {
-  opacity: 0.22;
-}
-
-.backdrop[data-tab="chat"] .layer[data-for="chat"] {
-  opacity: 0.34;
-}
-
-.backdrop {
-  --backdrop-summary: url("/portal-brain.png");
-  --backdrop-report: url("/portal-heart.png");
-  --backdrop-chat: url("/portal-web.png");
 }
 
 .tabs {
@@ -184,8 +127,7 @@
 @media (prefers-reduced-motion: reduce) {
   .frame,
   .body,
-  .tab,
-  .layer {
+  .tab {
     animation: none;
     transition: none;
   }
