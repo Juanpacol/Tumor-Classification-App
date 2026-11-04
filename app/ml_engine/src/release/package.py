@@ -44,11 +44,14 @@ def package(bundle_dir: Path, out_dir: Path) -> tuple[Path, Path, Path]:
 def release_notes(manifest: dict) -> str:
     """Release notes with the test metrics recorded in the manifest."""
     test = manifest["metrics"]["test"]
+    trained = (
+        f"Trained {manifest['created_at']} with seed {manifest['seed']}; "
+        f"classifier `{manifest['classifier']}`."
+    )
     lines = [
         f"# Model {manifest['version']}",
         "",
-        f"Trained {manifest['created_at']} with seed {manifest['seed']}; "
-        f"classifier `{manifest['classifier']}`.",
+        trained,
         "",
         "## Test metrics",
         "",
