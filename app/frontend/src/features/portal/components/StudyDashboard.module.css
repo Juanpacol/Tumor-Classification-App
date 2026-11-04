@@ -589,10 +589,18 @@
 .pageButton {
   padding: 0.6rem 1.4rem;
   font-size: 1rem;
+  background: var(--plate);
+  color: var(--plate-text);
+  box-shadow: none;
+}
+
+.pageButton:hover:not(:disabled) {
+  background: #34302c;
 }
 
 .pageButton:disabled {
-  opacity: 0.45;
+  background: #cfcdc8;
+  color: #8a867f;
   cursor: not-allowed;
 }
 
@@ -601,7 +609,7 @@
   font-size: 0.9375rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 /* ---------- Motion ---------- */
