@@ -67,7 +67,7 @@ describe("StudyViewer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pan" }));
     expect(canvas).toHaveAttribute("data-tool", "pan");
     expect(screen.getByText(/Drag to move the image/)).toBeInTheDocument();
-    expect(screen.getByText(/Scroll to zoom/)).toBeInTheDocument();
+    expect(screen.getByText(/to zoom/)).toBeInTheDocument();
   });
 
   it("offers the tools and changes the active one", async () => {

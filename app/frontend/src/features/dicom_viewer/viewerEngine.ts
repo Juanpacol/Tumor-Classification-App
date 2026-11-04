@@ -189,6 +189,12 @@ export const createViewer: CreateViewer = async (element, imageUrl) => {
     element.addEventListener("wheel", onWheel, { passive: false });
     cleanups.push(() => element.removeEventListener("wheel", onWheel));
 
+    // Cornerstone3D sizes its canvas once, so a rotated phone or a resized
+    // window would otherwise keep a stretched or clipped image.
+    const resizeObserver = new ResizeObserver(() => engine?.resize(true, true));
+    resizeObserver.observe(element);
+    cleanups.push(() => resizeObserver.disconnect());
+
     function activate(tool: ViewerTool) {
       Object.entries(TOOL_NAMES).forEach(([key, name]) => {
         if (key === tool) {

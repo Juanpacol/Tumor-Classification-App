@@ -128,7 +128,10 @@ export function StudyViewer({
           )}
           {state.status === "ready" && (
             <>
-              <span className={styles.hint}>{hint} · Scroll to zoom</span>
+              <span className={styles.hint}>
+                {hint} · <span className={styles.pointerHint}>Scroll</span>
+                <span className={styles.touchHint}>− / +</span> to zoom
+              </span>
               <span className={styles.scale}>
                 Grayscale · no real-world scale
               </span>
