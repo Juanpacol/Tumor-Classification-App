@@ -14,7 +14,7 @@
   text-transform: uppercase;
   color: var(--muted);
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 2px solid var(--ink);
 }
 
 .steps {
