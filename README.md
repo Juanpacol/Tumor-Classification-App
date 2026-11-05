@@ -6,14 +6,14 @@ A Clinical Decision Support System (CDSS) prototype that combines classical radi
 
 ## 📌 Project status
 
-Reviewed on 2026-11-02. This table says what exists today, not what is planned.
+Reviewed on 2026-11-04. This table says what exists today, not what is planned.
 
 | Area | Works today | Not built yet |
 |---|---|---|
 | **ML engine** | JPG/PNG loader, quality gate with calibrated thresholds, brain mask, 45 radiomic features, frozen EfficientNet-B0 embeddings, training pipeline (grouped cross-validation, calibration, shortcut audit) and serving pipeline. Published model `model-v0.1.0` (GitHub Release): Testing macro-F1 **0.807**, below the 0.90 target and accepted as a known limitation (many tumors from the dataset's second source are called no_tumor; `docs/ml-engine/decisions.md`, D24 and D28) | A model that meets the 0.90 target. Grad-CAM. DICOM input |
-| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), Alembic schema, end-to-end test. The image ships with the model `model-v0.1.0` | DICOM and its de-identification |
+| **Backend** | Upload (JPG/PNG up to 20 MB, metadata removed), classification, study list, detail and image, clinical report with verified citations, streamed chat (Muse Spark, with a spend cap), study images in a private Supabase Storage bucket, security headers and an upload rate limit, Alembic schema, end-to-end test. The image ships with the model `model-v0.1.0` | DICOM and its de-identification |
 | **Frontend** | Landing, "how we built it" and the clinician portal: study list, upload with checks, image viewer, clinical summary, report with citations, chat | DICOM viewing. Explanation heatmap |
-| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy. The backend image carries the model | Confirmation that the model loads and classifies on Cloud Run. End-to-end demo checklist |
+| **Infrastructure** | CI on pull requests and on pushes to `develop` and `main` (tests, type checks; commit format on pull requests). Vercel, Cloud Run and Supabase; the migration runs on every Cloud Run deploy. The model loads and classifies on Cloud Run. Supabase tables have RLS enabled with no public grants. The backend image carries the model | Authentication (the demo API is public, capped by the spend cap and the upload limit). Content-Security-Policy. Next.js 16 upgrade (open advisory). Key rotation after the evaluation |
 
 Live frontend: https://ether-self-five.vercel.app
 

@@ -127,3 +127,12 @@ SUPABASE_SERVICE_KEY=<service_role key, as a Cloud Run secret>
 ```
 
 (No `REDIS_URL`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` in the cloud demo — those stay local-only.)
+
+
+## Security limits
+
+- `LLM_DAILY_TOKEN_BUDGET` (production: 500000) and `LLM_MAX_REQUESTS_PER_MINUTE` (production: 20) cap Muse Spark spend per instance; both live in memory and reset on restart.
+- `UPLOAD_MAX_PER_MINUTE` (default 6) limits `POST /api/studies` per client address and answers `429 TOO_MANY_UPLOADS`.
+- The API and the portal send `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` (and `Permissions-Policy` on the portal). No CSP yet: Cornerstone3D needs WebAssembly and workers, so it must be tuned against the viewer first.
+- Supabase tables have RLS enabled and no grants for `anon` or `authenticated`; only the backend role reads them.
+- Accepted risk: `next` 14.2.35 has a denial-of-service advisory whose fix is Next 16 (major upgrade, planned after the evaluation).

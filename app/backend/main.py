@@ -8,6 +8,10 @@ from adapters.inbound.http.error_handlers import register_exception_handlers
 from adapters.inbound.http.router_chat import create_chat_router
 from adapters.inbound.http.router_health import create_health_router
 from adapters.inbound.http.router_studies import create_studies_router
+from adapters.inbound.http.security import (
+    SecurityHeadersMiddleware,
+    UploadRateLimitMiddleware,
+)
 from adapters.outbound.llm.factory import build_llm
 from adapters.outbound.ml.ml_engine_classifier import MLEngineClassifier
 from adapters.outbound.persistence.sqlalchemy.engine import (
@@ -74,6 +78,9 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.add_middleware(UploadRateLimitMiddleware, limit=settings.upload_max_per_minute)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     register_exception_handlers(app)
     app.state.llm = llm
