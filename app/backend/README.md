@@ -87,6 +87,7 @@ Meta offers no hard spending cap (only an e-mail alert) and the backend is publi
 - The limits are checked before a call and the tokens are added after it, so one call can overshoot. A stream is checked when iteration starts, not when it is created.
 - **Limits of this design:** the counters live in memory. They reset when the process restarts (Cloud Run scales to zero) and each instance counts on its own, so with N instances the real cap is up to N times larger. A counter in the database would remove that, and has not been built.
 - The fake LLM is not capped: it costs nothing.
+- Production runs with `LLM_DAILY_TOKEN_BUDGET=500000` and `LLM_MAX_REQUESTS_PER_MINUTE=20`.
 
 ## API
 
@@ -145,6 +146,11 @@ The Billing page of the Meta console says: "While using free credits your conten
 | Over 20 MB | nothing | 413 | `FILE_TOO_LARGE` |
 | Not a decodable JPEG/PNG | nothing | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | No model loaded | nothing | 503 | `MODEL_UNAVAILABLE` |
+
+- **Upload rate limit**: more than `UPLOAD_MAX_PER_MINUTE` (default 6) uploads a minute from one client address answers 429 `TOO_MANY_UPLOADS`. The counter is in memory and per instance, like the spend cap (`adapters/inbound/http/security.py`).
+- **Image storage**: `build_storage` picks the private Supabase bucket when `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set, and the local disk otherwise. See `docs/deployment.md`.
+
+Every response carries `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Cache-Control: no-store`.
 
 Any other unhandled error in the API answers 500 with a generic `INTERNAL_ERROR` body.
 
