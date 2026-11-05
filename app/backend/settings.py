@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     meta_model_chat_reasoning_effort: ReasoningEffort = "minimal"
     llm_daily_token_budget: int = Field(default=1_000_000, gt=0)
     llm_max_requests_per_minute: int = Field(default=30, gt=0)
+    upload_max_per_minute: int = Field(default=6, gt=0)
     cors_origins: str = "http://localhost:3000"
 
     @property
